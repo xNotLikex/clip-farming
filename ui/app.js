@@ -552,11 +552,21 @@ if (document.readyState === 'loading') {
 
 
         function openStreamerModal() {
-            document.getElementById('streamer-modal').classList.remove('hidden');
+            const m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.display = 'flex';
+            }
         }
 
         function closeStreamerModal() {
-            document.getElementById('streamer-modal').classList.add('hidden');
+            const m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.display = 'none';
+            }
         }
 
         function filterStudioByStreamer(streamerName) {
@@ -609,14 +619,23 @@ if (document.readyState === 'loading') {
             }
         }
         function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active', 'text-purple-400'));
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+                el.style.display = 'none';
+            });
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active', 'text-purple-400');
+                el.classList.add('text-slate-400');
+            });
             
             const target = document.getElementById('tab-' + tabId);
-            if (target) target.classList.remove('hidden');
+            if (target) {
+                target.classList.remove('hidden');
+                target.style.display = 'block';
+            }
             const btn = document.getElementById('tab-' + tabId + '-btn');
             if (btn) {
-                btn.classList.add('active');
+                btn.classList.add('active', 'text-purple-400');
                 btn.classList.remove('text-slate-400');
             }
         }
@@ -629,34 +648,56 @@ if (document.readyState === 'loading') {
             currentPreviewClipId = clipId;
             currentPreviewStreamer = streamer;
             currentPreviewTitle = title;
-            document.getElementById('modal-streamer').innerText = streamer.toUpperCase();
-            document.getElementById('modal-title').innerText = title;
-            let statsText = '👁️ ' + views + ' Views • ⏱️ ' + duration + 's (Rohdatei auf Festplatte)';
+            const sEl = document.getElementById('modal-streamer');
+            if (sEl) sEl.innerText = (streamer || '').toUpperCase();
+            const tEl = document.getElementById('modal-title');
+            if (tEl) tEl.innerText = title || '';
+            let statsText = '👁️ ' + (views || 0) + ' Views • ⏱️ ' + (duration || 0) + 's (Rohdatei auf Festplatte)';
             if (createdAgo) {
                 statsText += ' • 📅 Erstellt: ' + createdAgo;
             }
             const statsElem = document.getElementById('modal-stats');
-            statsElem.innerText = statsText;
-            if (createdFull) {
-                statsElem.title = createdFull;
+            if (statsElem) {
+                statsElem.innerText = statsText;
+                if (createdFull) {
+                    statsElem.title = createdFull;
+                }
             }
             
             const player = document.getElementById('modal-video-player');
-            player.src = getBackendUrl('/raw-video/' + clipId);
-            player.load();
-            player.play();
+            if (player) {
+                player.src = getBackendUrl('/raw-video/' + clipId);
+                player.load();
+                player.play().catch(() => {});
+            }
 
-            document.getElementById('modal-process-form').action = '/process-one/' + clipId;
-            document.getElementById('modal-delete-form').action = '/queue/delete/' + clipId;
-            document.getElementById('modal-download-raw').href = getBackendUrl('/download/raw/' + clipId);
-            document.getElementById('preview-modal').classList.remove('hidden');
+            const procForm = document.getElementById('modal-process-form');
+            if (procForm) procForm.action = '/process-one/' + clipId;
+            const delForm = document.getElementById('modal-delete-form');
+            if (delForm) delForm.action = '/queue/delete/' + clipId;
+            const dlRaw = document.getElementById('modal-download-raw');
+            if (dlRaw) dlRaw.href = getBackendUrl('/download/raw/' + clipId);
+            
+            const modal = document.getElementById('preview-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                modal.style.display = 'flex';
+            }
         }
 
         function closePreviewModal() {
             const player = document.getElementById('modal-video-player');
-            player.pause();
-            player.src = '';
-            document.getElementById('preview-modal').classList.add('hidden');
+            if (player) {
+                player.pause();
+                player.src = '';
+            }
+            const modal = document.getElementById('preview-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modal.style.display = 'none';
+            }
         }
 
         let logsOpen = false;
@@ -862,7 +903,11 @@ if (document.readyState === 'loading') {
             if (modalFilterSelect) modalFilterSelect.value = filterVal;
 
             const modal = document.getElementById('crop-modal');
-            modal.classList.remove('hidden');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                modal.style.display = 'flex';
+            }
 
             const vid = document.getElementById('crop-stage-video');
             vid.src = getBackendUrl('/raw-video/' + clipId);
@@ -964,7 +1009,12 @@ if (document.readyState === 'loading') {
                 vid.pause();
                 vid.src = '';
             }
-            document.getElementById('crop-modal').classList.add('hidden');
+            const modal = document.getElementById('crop-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modal.style.display = 'none';
+            }
         }
 
         function initCropVideoListeners() {
