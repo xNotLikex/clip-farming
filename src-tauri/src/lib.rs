@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod db;
 pub mod models;
+pub mod twitch;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +22,7 @@ pub fn run() {
             commands::open_folder,
             commands::delete_queue_clip,
             commands::save_clip_crop,
+            commands::trigger_twitch_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

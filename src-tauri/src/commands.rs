@@ -65,6 +65,7 @@ pub fn delete_queue_clip(clip_id: String) -> Result<bool, String> {
     Ok(true)
 }
 
+
 #[tauri::command]
 pub fn save_clip_crop(
     clip_id: String,
@@ -101,8 +102,57 @@ pub fn save_clip_crop(
         }
     }
 
-    let serialized = serde_json::to_string_pretty(&meta_val).map_err(|e| e.to_string())?;
-    fs::write(meta_file, serialized).map_err(|e| e.to_string())?;
-
     Ok(true)
 }
+
+#[tauri::command]
+pub async fn trigger_twitch_run() -> Result<usize, String> {
+    let dashboard = crate::db::fetch_dashboard_data()?;
+    let mut total_harvested = 0;
+
+    for s in dashboard.streamers {
+        if !s.enabled {
+            continue;
+        }
+
+        println!("[*] Scanning streamer: {}", s.name);
+        let clips = crate::twitch::query_twitch_clips(&s.name, 25, "LAST_DAY").await?;
+
+        let mut count_for_streamer = 0;
+        for c in clips {
+            if c.view_count < s.min_clip_views {
+                continue;
+            }
+            if count_for_streamer >= s.max_clips_per_run {
+                break;
+            }
+
+            // Check if already in DB
+            let base = get_base_dir();
+            let db_path = base.join("data").join("pipeline.db");
+            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                let exists: bool = conn
+                    .query_row(
+                        "SELECT 1 FROM clips WHERE clip_id = ?",
+                        [&c.clip_id],
+                        |_| Ok(true),
+                    )
+                    .unwrap_or(false);
+                if exists {
+                    continue;
+                }
+            }
+
+            println!("[+] Harvesting clip: {} ({} views)", c.title, c.view_count);
+            if let Ok(raw_path) = crate::twitch::download_clip_file(&c.url, &c.clip_id).await {
+                if let Ok(_) = crate::twitch::save_harvested_clip(&c, &raw_path) {
+                    count_for_streamer += 1;
+                    total_harvested += 1;
+                }
+            }
+        }
+    }
+
+    Ok(total_harvested)
+}
+
