@@ -536,14 +536,17 @@ async function removeStreamer(name) {
 // ----------------------------------------
 // INITIALIZATION
 // ----------------------------------------
-if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', () => {
-        refreshDashboard();
-        setInterval(refreshDashboard, 5000);
-    });
-} else {
+function initDashboard() {
     refreshDashboard();
+    setTimeout(refreshDashboard, 200);
+    setTimeout(refreshDashboard, 1000);
     setInterval(refreshDashboard, 5000);
+}
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+    initDashboard();
 }
 
 
