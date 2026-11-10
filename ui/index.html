@@ -119,6 +119,28 @@
                 m.style.setProperty('display', 'none', 'important');
             }
         }
+        function triggerRun() {
+            if (window.__realTriggerRun) {
+                window.__realTriggerRun();
+            } else {
+                var btn = document.getElementById('btn-trigger');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
+                }
+                fetch('/api/run', { method: 'POST' }).then(function() {
+                    if (window.showToast) window.showToast('Twitch-Scan gestartet!', 'info');
+                });
+            }
+        }
+        function processAll() {
+            if (window.__realProcessAll) {
+                window.__realProcessAll();
+            } else {
+                fetch('/api/process-all', { method: 'POST' });
+            }
+        }
     </script>
 </head>
 <body class="p-4 md:p-8">
@@ -173,7 +195,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('queue')">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">1. Warteschlange</span>
-                <span class="text-3xl font-black text-amber-400 mt-1 block">26</span>
+                <span class="text-3xl font-black text-amber-400 mt-1 block">44</span>
                 <span class="text-xs text-slate-500 mt-1 block">Rohdateien gespeichert</span>
             </div>
             <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('studio')">
@@ -217,7 +239,7 @@
         <!-- Tabs Navigation -->
         <div class="flex flex-wrap gap-4 border-b border-slate-800 text-sm font-semibold">
             <button onclick="switchTab('queue')" id="tab-queue-btn" class="tab-btn pb-3 active flex items-center gap-2">
-                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg> 1. Warteschlange (26)
+                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg> 1. Warteschlange (44)
             </button>
             <button onclick="switchTab('studio')" id="tab-studio-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
                 <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg> 2. Studio & Freigabe (6)
@@ -235,17 +257,17 @@
             <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/70 border-b border-slate-800 gap-3">
                     <div>
-                        <span class="text-sm font-bold text-slate-200">📥 26 Roh-Clips lokal auf der Festplatte</span>
+                        <span class="text-sm font-bold text-slate-200">📥 44 Roh-Clips lokal auf der Festplatte</span>
                         <span class="text-xs text-slate-400 block">Tipp: Klicke auf eine Zeile, um das Video vor dem Schneiden abzuspielen.</span>
                     </div>
                     
                     <div class="flex flex-wrap items-center gap-2.5">
                         
-                        <form action="/queue/delete-older" method="POST" class="inline" onsubmit="return confirm('Wirklich alle 22 Roh-Clips von gestern und älter aus der Warteschlange löschen?
+                        <form action="/queue/delete-older" method="POST" class="inline" onsubmit="return confirm('Wirklich alle 39 Roh-Clips von gestern und älter aus der Warteschlange löschen?
 
 (Clips von heute bleiben vollständig erhalten)');">
-                            <button type="submit" class="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 font-bold text-xs rounded shadow-lg shadow-rose-950/40 text-rose-300 hover:text-white flex items-center gap-2 transition active:scale-95" title="Löscht alle 22 Roh-Clips von gestern & älter">
-                                <span><svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></span> Gestern & älter löschen (22)
+                            <button type="submit" class="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 font-bold text-xs rounded shadow-lg shadow-rose-950/40 text-rose-300 hover:text-white flex items-center gap-2 transition active:scale-95" title="Löscht alle 39 Roh-Clips von gestern & älter">
+                                <span><svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></span> Gestern & älter löschen (39)
                             </button>
                         </form>
                         
@@ -271,6 +293,92 @@
                             </tr>
                         </thead>
                         <tbody id="queue-tbody" class="divide-y divide-slate-800/80">
+                            
+                            <tr onclick="openRawPreview('FlirtyAbnegateChamoisBibleThump-T_el2q2cM9bY2LhA', 'nooreax', 'Basti drückt Noty den ersten CA Tod', '729', '60', 'Heute, vor 11 Std.', '10.11.2026, 00:39 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">nooreax</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Basti drückt Noty den ersten CA Tod</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="10.11.2026, 00:39 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 11 Std.
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">10.11.2026, 00:39 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 729</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">60s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/FlirtyAbnegateChamoisBibleThump-T_el2q2cM9bY2LhA" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/FlirtyAbnegateChamoisBibleThump-T_el2q2cM9bY2LhA" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('BlushingStylishEggnogTheThing-An9xkq92FE25-5n_', 'nooreax', 'Noreax crashout', '432', '17', 'Gestern (18:38 Uhr)', '09.11.2026, 18:38 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">nooreax</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Noreax crashout</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 18:38 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (18:38 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 18:38 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 432</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">17s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/BlushingStylishEggnogTheThing-An9xkq92FE25-5n_" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/BlushingStylishEggnogTheThing-An9xkq92FE25-5n_" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
                             
                             <tr onclick="openRawPreview('MushyDaintyPterodactylMcaT-1wFa7LvoaIbGidoD', 'nooreax', 'latest chat logs, kein trimak', '410', '5', 'Gestern (12:16 Uhr)', '09.11.2026, 12:16 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
@@ -401,6 +509,178 @@
                                 </td>
                             </tr>
                             
+                            <tr onclick="openRawPreview('SpunkyClumsyMilkWTRuck-HSFclXI7w_wzVfHF', 'nooreax', 'itscasinotv verdient auf flasche', '358', '41', 'Gestern (18:36 Uhr)', '09.11.2026, 18:36 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">nooreax</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>itscasinotv verdient auf flasche</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 18:36 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (18:36 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 18:36 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 358</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">41s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/SpunkyClumsyMilkWTRuck-HSFclXI7w_wzVfHF" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/SpunkyClumsyMilkWTRuck-HSFclXI7w_wzVfHF" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('InventiveManlyLEDFreakinStinkin-ZvBDVbzFGBzylglh', 'nooreax', 'OMEGALUL', '340', '30', 'Gestern (16:45 Uhr)', '09.11.2026, 16:45 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">nooreax</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>OMEGALUL</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 16:45 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (16:45 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 16:45 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 340</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">30s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/InventiveManlyLEDFreakinStinkin-ZvBDVbzFGBzylglh" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/InventiveManlyLEDFreakinStinkin-ZvBDVbzFGBzylglh" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('BitterAnnoyingSoybeanANELE-oNKtYD9yKJ1Rs3vh', 'nooreax', 'Vorsichtshalber Doppeltotem', '316', '30', 'Gestern (18:03 Uhr)', '09.11.2026, 18:03 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">nooreax</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Vorsichtshalber Doppeltotem</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 18:03 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (18:03 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 18:03 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 316</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">30s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/BitterAnnoyingSoybeanANELE-oNKtYD9yKJ1Rs3vh" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/BitterAnnoyingSoybeanANELE-oNKtYD9yKJ1Rs3vh" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('BlueMoistRabbitChocolateRain-Hqw7gKxv2NVcKQfU', 'nooreax', 'Rede Rewi', '273', '12', 'Gestern (19:33 Uhr)', '09.11.2026, 19:33 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">nooreax</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Rede Rewi</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 19:33 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (19:33 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 19:33 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 273</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">12s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/BlueMoistRabbitChocolateRain-Hqw7gKxv2NVcKQfU" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/BlueMoistRabbitChocolateRain-Hqw7gKxv2NVcKQfU" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
                             <tr onclick="openRawPreview('AffluentObliviousSpiderDatSheffy-p2D5YsjrVwQhA5SC', 'papaplatte', 'Emote war vorbei', '224', '14', 'Gestern (23:00 Uhr)', '09.11.2026, 23:00 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
@@ -487,7 +767,7 @@
                                 </td>
                             </tr>
                             
-                            <tr onclick="openRawPreview('SmellyAmazonianKittenDoggo-MNTBlNOYtQV3eoM8', 'bastighg', 'oops', '172', '60', 'Heute, vor 10 Std.', '10.11.2026, 00:39 Uhr')"
+                            <tr onclick="openRawPreview('SmellyAmazonianKittenDoggo-MNTBlNOYtQV3eoM8', 'bastighg', 'oops', '172', '60', 'Heute, vor 11 Std.', '10.11.2026, 00:39 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
@@ -501,7 +781,7 @@
                                 </td>
                                 <td class="py-3.5 px-4 whitespace-nowrap" title="10.11.2026, 00:39 Uhr">
                                     <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 10 Std.
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 11 Std.
                                     </div>
                                     
                                     <span class="text-[11px] text-slate-500 block">10.11.2026, 00:39 Uhr</span>
@@ -565,6 +845,92 @@
                                             </button>
                                         </form>
                                         <form action="/queue/delete/CrypticSnappyWaffleNotLikeThis-41boyaJZfx58hUIM" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('ObedientFragileTildeDxCat-mMwZVbxVVDTBAGWp', 'trymacs', 'bienen', '139', '30', 'Gestern (12:26 Uhr)', '09.11.2026, 12:26 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">trymacs</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>bienen</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 12:26 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (12:26 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 12:26 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 139</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">30s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/ObedientFragileTildeDxCat-mMwZVbxVVDTBAGWp" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/ObedientFragileTildeDxCat-mMwZVbxVVDTBAGWp" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('AbstruseBloodyShieldPoooound-KYDS5t_DFiaxZ_WU', 'trymacs', 'Den gesamten Mond vom Staub befreien mit einer zahnbürste mit rumathra! Morgen FitnaCraft Finale!    | !Nobomi !Prepmymeal !ESN', '135', '30', 'Gestern (19:03 Uhr)', '09.11.2026, 19:03 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">trymacs</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Den gesamten Mond vom Staub befreien mit einer zahnbürste mit rumathra! Morgen FitnaCraft Finale!    | !Nobomi !Prepmymeal !ESN</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 19:03 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (19:03 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 19:03 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 135</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">30s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/AbstruseBloodyShieldPoooound-KYDS5t_DFiaxZ_WU" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/AbstruseBloodyShieldPoooound-KYDS5t_DFiaxZ_WU" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
                                             <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
                                                 <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
@@ -788,6 +1154,49 @@
                                 </td>
                             </tr>
                             
+                            <tr onclick="openRawPreview('GrossPleasantOryxPJSugar-KNZeUf6uW0ZIdUmd', 'eliasn97', 'einlauf des jahres', '87', '60', 'Gestern (21:17 Uhr)', '09.11.2026, 21:17 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">eliasn97</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>einlauf des jahres</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 21:17 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (21:17 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 21:17 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 87</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">60s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/GrossPleasantOryxPJSugar-KNZeUf6uW0ZIdUmd" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/GrossPleasantOryxPJSugar-KNZeUf6uW0ZIdUmd" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
                             <tr onclick="openRawPreview('WildNastyRamenTheTarFu-cC96F1PSNxmyDzA-', 'rewinside', 'genial', '75', '30', 'Gestern (19:32 Uhr)', '09.11.2026, 19:32 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
@@ -823,6 +1232,49 @@
                                             </button>
                                         </form>
                                         <form action="/queue/delete/WildNastyRamenTheTarFu-cC96F1PSNxmyDzA-" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('TiredExcitedDiamondCoolStoryBob-_Z2K2VdH3mD0-9Pk', 'letshugotv', 'o7 an die Nullwave', '74', '30', 'Gestern (16:33 Uhr)', '09.11.2026, 16:33 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">letshugotv</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>o7 an die Nullwave</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 16:33 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (16:33 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 16:33 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 74</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">30s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/TiredExcitedDiamondCoolStoryBob-_Z2K2VdH3mD0-9Pk" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/TiredExcitedDiamondCoolStoryBob-_Z2K2VdH3mD0-9Pk" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
                                             <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
                                                 <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
@@ -917,6 +1369,49 @@
                                 </td>
                             </tr>
                             
+                            <tr onclick="openRawPreview('AcceptablePatientSaladNerfBlueBlaster-7QTyarth80spSARG', 'trymacs', 'Trymacs – Laute Reaktion im Stream', '68', '60', 'Gestern (23:44 Uhr)', '09.11.2026, 23:44 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">trymacs</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Trymacs – Laute Reaktion im Stream</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 23:44 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (23:44 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 23:44 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 68</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">60s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/AcceptablePatientSaladNerfBlueBlaster-7QTyarth80spSARG" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/AcceptablePatientSaladNerfBlueBlaster-7QTyarth80spSARG" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
                             <tr onclick="openRawPreview('SaltySmilingGrouseDoubleRainbow-TsslhU1RLx_SGAmH', 'krokoboss', 'DIGGA', '58', '23', 'Heute, vor 9 Std.', '10.11.2026, 02:26 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
@@ -952,6 +1447,49 @@
                                             </button>
                                         </form>
                                         <form action="/queue/delete/SaltySmilingGrouseDoubleRainbow-TsslhU1RLx_SGAmH" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('InnocentUnusualCasetteDogFace-lk8uPkyoSIozfYGk', 'letshugotv', 'Schere', '55', '10', 'Gestern (21:15 Uhr)', '09.11.2026, 21:15 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">letshugotv</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Schere</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 21:15 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (21:15 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 21:15 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 55</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">10s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/InnocentUnusualCasetteDogFace-lk8uPkyoSIozfYGk" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/InnocentUnusualCasetteDogFace-lk8uPkyoSIozfYGk" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
                                             <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
                                                 <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
@@ -1089,6 +1627,135 @@
                                 </td>
                             </tr>
                             
+                            <tr onclick="openRawPreview('PlumpMotionlessEmuHumbleLife-EzPCwW5BFS6bTszw', 'eliasn97', 'Fc OneFootball vs. Two Stripes United - The Icon League MD-06 live aus Berlin  |  !iconleague !doku !eligella !gaming', '49', '30', 'Gestern (20:34 Uhr)', '09.11.2026, 20:34 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">eliasn97</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Fc OneFootball vs. Two Stripes United - The Icon League MD-06 live aus Berlin  |  !iconleague !doku !eligella !gaming</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 20:34 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (20:34 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 20:34 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 49</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">30s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/PlumpMotionlessEmuHumbleLife-EzPCwW5BFS6bTszw" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/PlumpMotionlessEmuHumbleLife-EzPCwW5BFS6bTszw" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('SmokySoftSpiderHassaanChop-fuqauNq58CO8UYmk', 'letshugotv', 'TNT sprengung bei TimVollert', '46', '29', 'Gestern (16:19 Uhr)', '09.11.2026, 16:19 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">letshugotv</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>TNT sprengung bei TimVollert</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 16:19 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (16:19 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 16:19 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 46</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">29s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/SmokySoftSpiderHassaanChop-fuqauNq58CO8UYmk" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/SmokySoftSpiderHassaanChop-fuqauNq58CO8UYmk" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('YawningElegantHummingbirdGrammarKing-SOKbvQVTIYzE-FNg', 'letshugotv', 'Super hugo', '46', '16', 'Gestern (15:21 Uhr)', '09.11.2026, 15:21 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">letshugotv</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Super hugo</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 15:21 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (15:21 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 15:21 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 46</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">16s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/YawningElegantHummingbirdGrammarKing-SOKbvQVTIYzE-FNg" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/YawningElegantHummingbirdGrammarKing-SOKbvQVTIYzE-FNg" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
                             <tr onclick="openRawPreview('FreezingCredulousDragonRedCoat-o0l-1fnjqAFj4EV8', 'zarbex', 'coolster Move jemals', '43', '13', 'Gestern (21:46 Uhr)', '09.11.2026, 21:46 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
@@ -1124,6 +1791,92 @@
                                             </button>
                                         </form>
                                         <form action="/queue/delete/FreezingCredulousDragonRedCoat-o0l-1fnjqAFj4EV8" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('ViscousMotionlessTrayDansGame-GYmLNdKgVk2dTm8L', 'zarbex', 'Zarbex wird zur Oma', '42', '20', 'Gestern (21:16 Uhr)', '09.11.2026, 21:16 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">zarbex</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Zarbex wird zur Oma</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 21:16 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (21:16 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 21:16 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 42</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">20s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/ViscousMotionlessTrayDansGame-GYmLNdKgVk2dTm8L" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/ViscousMotionlessTrayDansGame-GYmLNdKgVk2dTm8L" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr onclick="openRawPreview('DelightfulWonderfulWebBatChest-j5NkJn3RZ96fAUXh', 'trymacs', 'Trymacs hat DAS wirklich gemacht ', '42', '60', 'Gestern (20:14 Uhr)', '09.11.2026, 20:14 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">trymacs</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>Trymacs hat DAS wirklich gemacht </div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 20:14 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (20:14 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 20:14 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 42</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">60s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/DelightfulWonderfulWebBatChest-j5NkJn3RZ96fAUXh" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/DelightfulWonderfulWebBatChest-j5NkJn3RZ96fAUXh" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
                                             <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
                                                 <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
@@ -1304,6 +2057,49 @@
                                 </td>
                             </tr>
                             
+                            <tr onclick="openRawPreview('NiceVainBubbleteaFailFish-Tl0sJUYlV0-SZZhM', 'rewinside', 'rede', '34', '13', 'Gestern (19:32 Uhr)', '09.11.2026, 19:32 Uhr')"
+                                class="hover:bg-slate-800/60 cursor-pointer transition group">
+                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                        ▶
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">rewinside</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
+                                    <div>rede</div>
+                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
+                                </td>
+                                <td class="py-3.5 px-4 whitespace-nowrap" title="09.11.2026, 19:32 Uhr">
+                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Gestern (19:32 Uhr)
+                                    </div>
+                                    
+                                    <span class="text-[11px] text-slate-500 block">09.11.2026, 19:32 Uhr</span>
+                                    
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> 34</td>
+                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">13s</td>
+                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                        ✓ Lokal geladen
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/process-one/NiceVainBubbleteaFailFish-Tl0sJUYlV0-SZZhM" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/NiceVainBubbleteaFailFish-Tl0sJUYlV0-SZZhM" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
                             <tr onclick="openRawPreview('PrettyTenderTaroImGlitch-uqp5u6wyOfRGbt1H', 'krokoboss', 'krokoboss – Lachen und laute Reaktion', '32', '60', 'Gestern (01:15 Uhr)', '09.11.2026, 01:15 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
@@ -1347,7 +2143,7 @@
                                 </td>
                             </tr>
                             
-                            <tr onclick="openRawPreview('TemperedTenderAnacondaKappaClaus-3_4YssT7KetZXgeh', 'krokoboss', 'rohat opfert micky', '28', '23', 'Heute, vor 10 Std.', '10.11.2026, 00:34 Uhr')"
+                            <tr onclick="openRawPreview('TemperedTenderAnacondaKappaClaus-3_4YssT7KetZXgeh', 'krokoboss', 'rohat opfert micky', '28', '23', 'Heute, vor 11 Std.', '10.11.2026, 00:34 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
@@ -1361,7 +2157,7 @@
                                 </td>
                                 <td class="py-3.5 px-4 whitespace-nowrap" title="10.11.2026, 00:34 Uhr">
                                     <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 10 Std.
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 11 Std.
                                     </div>
                                     
                                     <span class="text-[11px] text-slate-500 block">10.11.2026, 00:34 Uhr</span>

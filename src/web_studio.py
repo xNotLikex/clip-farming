@@ -393,6 +393,28 @@ HTML_DASHBOARD = """
                 m.style.setProperty('display', 'none', 'important');
             }
         }
+        function triggerRun() {
+            if (window.__realTriggerRun) {
+                window.__realTriggerRun();
+            } else {
+                var btn = document.getElementById('btn-trigger');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
+                }
+                fetch('/api/run', { method: 'POST' }).then(function() {
+                    if (window.showToast) window.showToast('Twitch-Scan gestartet!', 'info');
+                });
+            }
+        }
+        function processAll() {
+            if (window.__realProcessAll) {
+                window.__realProcessAll();
+            } else {
+                fetch('/api/process-all', { method: 'POST' });
+            }
+        }
     </script>
 </head>
 <body class="p-4 md:p-8">

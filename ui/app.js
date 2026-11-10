@@ -746,28 +746,72 @@ if (document.readyState === 'loading') {
             }
         }
 
+let gPrevRunning = false;
+
+function showToast(message, type = 'info') {
+    let toast = document.getElementById('ui-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'ui-toast';
+        document.body.appendChild(toast);
+    }
+
+    let borderCls = 'border-zinc-700 bg-zinc-900/95 text-zinc-200';
+    let iconSvg = '<svg class="w-4 h-4 text-amber-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+
+    if (type === 'success') {
+        borderCls = 'border-emerald-800 bg-emerald-950/95 text-emerald-100';
+        iconSvg = '<svg class="w-4 h-4 text-emerald-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+    } else if (type === 'error') {
+        borderCls = 'border-rose-800 bg-rose-950/95 text-rose-100';
+        iconSvg = '<svg class="w-4 h-4 text-rose-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+    }
+
+    toast.className = `fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg border ${borderCls} shadow-lg text-xs font-medium flex items-center gap-2.5 transition-opacity duration-200`;
+    toast.innerHTML = `${iconSvg} <span>${escapeHtml(message)}</span>`;
+    toast.style.display = 'flex';
+    toast.style.opacity = '1';
+
+    clearTimeout(window._toastTimeout);
+    window._toastTimeout = setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 200);
+    }, 4000);
+}
+
         async function triggerRun() {
             const btn = document.getElementById('btn-trigger');
+            const dot = document.getElementById('live-dot');
+            const text = document.getElementById('live-status-text');
+            const desc = document.getElementById('live-task-desc');
+
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<span>⏳</span> Scanne Twitch...';
+                btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                btn.innerHTML = '<svg class="w-4 h-4 inline-block -mt-0.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Suche läuft auf Twitch...';
             }
+
+            if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+            if (text) text.innerText = 'Aktiv: CLIPS SUCHEN';
+            if (desc) desc.innerText = 'Starte Twitch-Scan für alle aktiven Streamer...';
+
+            showToast('Twitch-Suche gestartet! Streamer werden nach neuen Clips durchsucht.', 'info');
+
             try {
-                const invoke = getTauriInvoke();
-                if (invoke) {
-                    const count = await invoke('trigger_twitch_run');
-                    alert(`Twitch-Suche abgeschlossen! ${count} neue Clips in die Warteschlange geladen.`);
-                    refreshDashboard();
+                const res = await apiFetch('/api/run', { method: 'POST' });
+                const data = await res.json();
+                if (data && data.success === false) {
+                    showToast(data.message || 'Pipeline läuft bereits!', 'info');
                 } else {
-                    await apiFetch('/api/run', { method: 'POST' });
-                    updateStatus();
+                    showToast('Twitch-Scan läuft im Hintergrund. Gefundene Clips erscheinen live.', 'success');
                 }
+                await updateStatus();
             } catch (e) {
-                console.error(e);
-                alert('Fehler: ' + e);
-            } finally {
+                console.error('Trigger run failed:', e);
+                showToast('Fehler beim Starten der Suche: ' + e, 'error');
                 if (btn) {
                     btn.disabled = false;
+                    btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm';
                     btn.innerHTML = SVG_ICONS.scan + ' Neue Clips auf Twitch suchen';
                 }
             }
@@ -814,11 +858,14 @@ if (document.readyState === 'loading') {
 
                 if (data.is_running) {
                     dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
-                    text.innerText = 'Aktiv: ' + data.status.toUpperCase();
-                    desc.innerText = data.current_task + (data.streamer ? ' (' + data.streamer + ')' : '');
+                    text.innerText = 'Aktiv: ' + (data.status || 'ARBEITET').toUpperCase();
+                    desc.innerText = (data.current_task || '') + (data.streamer ? ' (' + data.streamer + ')' : '');
                     if (btn) {
                         btn.disabled = true;
-                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-slate-400 font-bold text-sm rounded cursor-not-allowed';
+                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                        if (data.status === 'harvesting') {
+                            btn.innerHTML = '<svg class="w-4 h-4 inline-block -mt-0.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Suche läuft auf Twitch...';
+                        }
                     }
 
                     // Render Fortschritt einblenden
@@ -843,14 +890,22 @@ if (document.readyState === 'loading') {
                 } else {
                     dot.className = 'w-2 h-2 rounded-full bg-slate-400';
                     text.innerText = 'Standby';
-                    desc.innerText = data.current_task;
+                    desc.innerText = data.current_task || 'Bereit zur Ausführung';
                     progressCard.classList.add('hidden');
                     if (btn) {
                         btn.disabled = false;
-                        btn.className = 'flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition shadow-sm';
+                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm';
                         btn.innerHTML = SVG_ICONS.scan + ' Neue Clips auf Twitch suchen';
                     }
+
+                    // Transition from running -> idle
+                    if (gPrevRunning) {
+                        showToast('Twitch-Suche abgeschlossen! Warteschlange aktualisiert.', 'success');
+                        refreshDashboard();
+                    }
                 }
+
+                gPrevRunning = data.is_running;
 
                 if (data.logs && data.logs.length > 0) {
                     document.getElementById('log-count').innerText = data.logs.length + ' Einträge';
@@ -2292,6 +2347,8 @@ if (document.readyState === 'loading') {
         window.closeStreamerModal = closeStreamerModal;
         window.filterStudioByStreamer = filterStudioByStreamer;
         window.triggerRun = triggerRun;
+        window.__realTriggerRun = triggerRun;
+        window.showToast = showToast;
         window.processAll = processAll;
         window.openCropModal = openCropModal;
         window.closeCropModal = closeCropModal;
