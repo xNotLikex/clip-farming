@@ -87,6 +87,8 @@ fn main() {
             }
         }
     }
-    ensure_backend_running();
+    if clip_farming_lib::setup::is_environment_ready() {
+        ensure_backend_running();
+    }
     clip_farming_lib::run();
 }

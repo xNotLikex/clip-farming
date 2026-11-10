@@ -1127,15 +1127,16 @@ async function downloadRawVideo(clipId, btn, evt) {
                 vid.poster = getBackendUrl('/thumbnail/' + clipId);
                 vid.muted = true;
                 vid.src = getBackendUrl('/raw-video/' + clipId);
-                vid.currentTime = 0.5;
+                vid.onloadedmetadata = () => {
+                    try {
+                        vid.currentTime = Math.min(0.5, (vid.duration || 1) / 2);
+                    } catch(e) {}
+                    draw916Preview();
+                };
+                vid.onseeked = () => {
+                    draw916Preview();
+                };
                 vid.load();
-                vid.play().then(() => {
-                    vid.pause();
-                    vid.currentTime = 0.5;
-                    draw916Preview();
-                }).catch(() => {
-                    draw916Preview();
-                });
             }
 
             // Default Box States: Feste Seitenverhältnisse (3:2 für Cam, 9:10 für Gameplay, 9:16 für Single)

@@ -414,15 +414,16 @@ HTML_DASHBOARD = """
                 vid.poster = '/thumbnail/' + clipId;
                 vid.muted = true;
                 vid.src = '/raw-video/' + clipId;
-                vid.currentTime = 0.5;
+                vid.onloadedmetadata = function() {
+                    try {
+                        vid.currentTime = Math.min(0.5, (vid.duration || 1) / 2);
+                    } catch(e) {}
+                    draw916Preview();
+                };
+                vid.onseeked = function() {
+                    draw916Preview();
+                };
                 vid.load();
-                vid.play().then(function() {
-                    vid.pause();
-                    vid.currentTime = 0.5;
-                    draw916Preview();
-                }).catch(function() {
-                    draw916Preview();
-                });
             }
 
             // Fetch saved metadata if available
@@ -804,22 +805,26 @@ HTML_DASHBOARD = """
             if (c) {
                 if (c.mode === 'single_916' || meta.layout_mode === 'single_916') {
                     currentCropMode = 'single_916';
-                    if (c.single && c.single.x_pct !== undefined) cropState.single.x = c.single.x_pct;
+                    if (c.single && c.single.x_pct !== undefined && c.single.x_pct > 0) cropState.single.x = c.single.x_pct;
                 } else {
                     currentCropMode = 'split';
                     if (c.cam) {
                         if (c.cam.x_pct !== undefined) cropState.cam.x = c.cam.x_pct;
                         if (c.cam.y_pct !== undefined) cropState.cam.y = c.cam.y_pct;
-                        if (c.cam.w_pct !== undefined) cropState.cam.w = c.cam.w_pct;
-                        if (c.cam.h_pct !== undefined) cropState.cam.h = c.cam.h_pct;
+                        if (c.cam.w_pct !== undefined && c.cam.w_pct > 0.05) cropState.cam.w = c.cam.w_pct;
+                        if (c.cam.h_pct !== undefined && c.cam.h_pct > 0.05) cropState.cam.h = c.cam.h_pct;
                         if (c.cam.enabled !== undefined) cropState.cam.enabled = c.cam.enabled;
                     }
                     if (c.game) {
                         if (c.game.x_pct !== undefined) cropState.game.x = c.game.x_pct;
-                        if (c.game.w_pct !== undefined) cropState.game.w = c.game.w_pct;
+                        if (c.game.w_pct !== undefined && c.game.w_pct > 0.05) cropState.game.w = c.game.w_pct;
                     }
                 }
             }
+            if (!cropState.cam.w || cropState.cam.w < 0.05) cropState.cam.w = 540 / 1920;
+            if (!cropState.cam.h || cropState.cam.h < 0.05) cropState.cam.h = 360 / 1080;
+            if (!cropState.game.w || cropState.game.w < 0.05) cropState.game.w = 972 / 1920;
+            if (!cropState.single.w || cropState.single.w < 0.05) cropState.single.w = 608 / 1920;
             switchCropMode(currentCropMode);
         }
 
@@ -2614,7 +2619,7 @@ def delete_older_queue_clips():
 def serve_raw_video(clip_id):
     raw_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
     if raw_path.exists():
-        return send_file(raw_path, mimetype="video/mp4")
+        return send_file(raw_path, mimetype="video/mp4", conditional=True)
     return "Rohdatei nicht gefunden", 404
 
 @app.route("/thumbnail/<clip_id>")
@@ -2630,18 +2635,30 @@ def serve_thumbnail(clip_id):
             video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
         
         if video_path.exists():
+            # 1. Try FFmpeg first (fastest and supports all MP4 codecs/profiles)
+            import subprocess
             try:
-                cap = cv2.VideoCapture(str(video_path))
-                cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
-                ret, frame = cap.read()
-                if not ret:
-                    cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-                    ret, frame = cap.read()
-                if ret:
-                    cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-                cap.release()
+                subprocess.run([
+                    "ffmpeg", "-y", "-ss", "00:00:01", "-i", str(video_path),
+                    "-frames:v", "1", "-q:v", "2", str(thumb_path)
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
             except Exception:
                 pass
+
+            # 2. Fallback to OpenCV if FFmpeg was unavailable
+            if not thumb_path.exists():
+                try:
+                    cap = cv2.VideoCapture(str(video_path))
+                    cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+                    ret, frame = cap.read()
+                    if not ret:
+                        cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                        ret, frame = cap.read()
+                    if ret:
+                        cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                    cap.release()
+                except Exception:
+                    pass
 
     if thumb_path.exists():
         response = send_file(thumb_path, mimetype="image/jpeg")
@@ -2653,7 +2670,7 @@ def serve_thumbnail(clip_id):
 def serve_video(clip_id):
     video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
     if video_path.exists():
-        return send_file(video_path, mimetype="video/mp4")
+        return send_file(video_path, mimetype="video/mp4", conditional=True)
     return "Video nicht gefunden", 404
 
 @app.route("/download/short/<clip_id>")
