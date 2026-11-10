@@ -1,0 +1,904 @@
+
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clip-Farming Mission Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        .tab-btn.active { border-bottom: 2px solid #a855f7; color: #c084fc; font-weight: 700; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .crop-handle {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            border: 2px solid #0f172a;
+            border-radius: 4px;
+            box-shadow: 0 0 6px rgba(0,0,0,0.8);
+            z-index: 20;
+            transition: transform 0.1s;
+        }
+        .crop-handle:hover {
+            transform: scale(1.3);
+            background: #f8fafc;
+        }
+        .handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
+        .handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
+        .handle-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+        .handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+        .handle-n { top: -7px; left: calc(50% - 7px); cursor: ns-resize; }
+        .handle-s { bottom: -7px; left: calc(50% - 7px); cursor: ns-resize; }
+        .handle-w { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
+        .handle-e { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header & Live Status Bar -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-6 border-b border-slate-800 gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-3xl font-black tracking-tight bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
+                        🎬 CLIP-FARMING MISSION CONTROL
+                    </h1>
+                    <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
+                        <span class="w-2 h-2 rounded-full bg-slate-400" id="live-dot"></span>
+                        <span id="live-status-text">Standby</span>
+                    </span>
+                </div>
+                <p id="live-task-desc" class="text-slate-400 text-sm mt-1">Bereit zur Ausführung</p>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="openStreamerModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded-xl transition text-slate-200 shadow">
+                    <span>👥</span> Streamer verwalten (<span id="header-streamer-count">0</span>)
+                </button>
+                <button onclick="triggerRun()" id="btn-trigger" class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-sm rounded-xl shadow-lg shadow-purple-500/20 transition transform active:scale-95 text-white">
+                    <span>⚡</span> Neue Clips auf Twitch suchen
+                </button>
+            </div>
+        </header>
+
+        <!-- LIVE RENDER PROGRESS CARD (Wird eingeblendet wenn aktiv) -->
+        <div id="render-progress-card" class="hidden bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-500/50 rounded-2xl p-5 shadow-2xl animate-pulse-subtle">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3 h-3 rounded-full bg-pink-500 animate-ping"></span>
+                    <span id="render-progress-title" class="text-sm font-bold text-white tracking-wide">Rendern aktiv...</span>
+                </div>
+                <div class="flex items-center gap-3 font-mono">
+                    <span id="render-speed-badge" class="text-xs bg-purple-900/80 text-purple-200 px-2.5 py-0.5 rounded-full border border-purple-700">NVENC</span>
+                    <span id="render-eta-text" class="text-xs font-semibold text-amber-300 bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-800/60">Noch ca. --s</span>
+                    <span id="render-percent-text" class="text-lg font-black text-white">0%</span>
+                </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-950 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-700/80 shadow-inner">
+                <div id="render-progress-bar" class="bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-400 h-full rounded-full transition-all duration-300 shadow-lg" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-amber-500/50 transition" onclick="switchTab('queue')">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">1. Warteschlange</span>
+                <span class="text-3xl font-black text-amber-400 mt-1 block"><span id="kpi-harvested">0</span></span>
+                <span class="text-xs text-slate-500 mt-1 block">Rohdateien gespeichert</span>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-purple-500/50 transition" onclick="switchTab('studio')">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">2. Studio & Freigabe</span>
+                <span class="text-3xl font-black text-purple-400 mt-1 block"><span id="kpi-ready">0</span></span>
+                <span class="text-xs text-slate-500 mt-1 block">9:16 Shorts bereit</span>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-sky-500/50 transition" onclick="switchTab('planner')">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">3. Veröffentlichungs-Plan</span>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-sky-400"><span id="kpi-scheduled">0</span></span>
+                    <span class="text-sm font-bold text-emerald-400">/ <span id="kpi-published">0</span> online</span>
+                </div>
+                <span class="text-xs text-slate-500 mt-1 block">Zeitgesteuerte Veröffentlichung</span>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-pink-500/50 transition" onclick="switchTab('accounts')">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">4. Konten-Status</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span id="kpi-yt-status" class="text-sm font-bold text-slate-500">YT: ✗</span>
+                    <span class="text-slate-600">•</span>
+                    <span id="kpi-tt-status" class="text-sm font-bold text-slate-500">TikTok: ✗</span>
+                </div>
+                <span class="text-xs text-slate-500 mt-1 block">Klicken zum Verknüpfen</span>
+            </div>
+        </div>
+
+        <!-- Live Activity Log Bar (Collapsible) -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
+            <div class="flex justify-between items-center cursor-pointer" onclick="toggleLogs()">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-purple-400">📡 Live Activity Feed</span>
+                    <span id="log-count" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0 Einträge</span>
+                </div>
+                <span id="log-toggle-icon" class="text-slate-400 text-xs">▼ Anzeigen</span>
+            </div>
+            <div id="log-box" class="mt-3 hidden bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800/50">
+                <div class="text-slate-500">Warte auf Aktionen...</div>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="flex flex-wrap gap-4 border-b border-slate-800 text-sm font-semibold">
+            <button onclick="switchTab('queue')" id="tab-queue-btn" class="tab-btn pb-3 active flex items-center gap-2">
+                📥 1. Warteschlange (<span id="tab-count-harvested">0</span>)
+            </button>
+            <button onclick="switchTab('studio')" id="tab-studio-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                🎬 2. Studio & Freigabe (<span id="tab-count-ready">0</span>)
+            </button>
+            <button onclick="switchTab('planner')" id="tab-planner-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                🚀 3. Veröffentlichungs-Planer (<span id="tab-count-scheduled">0</span>)
+            </button>
+            <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                🔗 4. Konten verknüpfen
+            </button>
+        </div>
+
+        <!-- TAB 1: WARTESCHLANGE -->
+        <div id="tab-queue" class="tab-content space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/70 border-b border-slate-800 gap-3">
+                    <div>
+                        <span class="text-sm font-bold text-slate-200">📥 <span id="queue-header-count">0</span> Roh-Clips lokal auf der Festplatte</span>
+                        <span class="text-xs text-slate-400 block">💡 Klicke auf eine Zeile, um das Video vor dem Schneiden abzuspielen.</span>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="deleteOlderQueue()" id="btn-delete-older" class="hidden px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 font-bold text-xs rounded-xl shadow-lg shadow-rose-950/40 text-rose-300 hover:text-white items-center gap-2 transition active:scale-95" title="Löscht alle Roh-Clips von gestern & älter">
+                            <span>🗑️</span> <span id="btn-delete-older-text">Gestern & älter löschen</span>
+                        </button>
+                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-bold text-xs rounded-xl shadow-lg shadow-purple-500/20 text-white flex items-center gap-2">
+                            <span>⚡</span> Alle Warteschlangen-Clips ins Studio übernehmen
+                        </button>
+                    </div>
+                    
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase font-semibold">
+                                <th class="py-3.5 px-4 w-12 text-center whitespace-nowrap">Play</th>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Streamer</th>
+                                <th class="py-3.5 px-4 min-w-[220px]">Titel des Clips (Klicken zum Abspielen)</th>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Erstellt</th>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Views</th>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Dauer</th>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Status</th>
+                                <th class="py-3.5 px-4 text-right whitespace-nowrap">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-tbody" class="divide-y divide-slate-800/80">
+</tbody>
+                    </table></div>
+            <div id="queue-empty-state" class="hidden text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-2xl mt-4">
+                <span class="text-4xl block mb-2">📭</span>
+                <h3 class="text-lg font-bold text-slate-300">Warteschlange ist leer</h3>
+                <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Klicke oben rechts auf "Neue Clips auf Twitch suchen", um neue virale Clips zu harvesten.</p>
+            </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: STUDIO & FREIGABE -->
+        <div id="tab-studio" class="tab-content hidden space-y-6">
+            
+            <!-- Sammel-Aktionen Header -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 p-4 rounded-2xl gap-3">
+                <div>
+                    <span class="text-sm font-bold text-white">🎬 <span id="studio-header-count">0</span> Shorts bereit zur Bearbeitung & Veröffentlichung</span>
+                    <span class="text-xs text-slate-400 block">Du kannst jeden Clip einzeln anpassen oder alle gestaffelt im Zeitplan veröffentlichen.</span>
+                </div>
+                <form action="/api/schedule-all" method="POST" class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-400">Intervall:</span>
+                    <select name="interval_minutes" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-2">
+                        <option value="15">alle 15 Min</option>
+                        <option value="30" selected>alle 30 Min</option>
+                        <option value="45">alle 45 Min</option>
+                        <option value="60">jede 1 Stunde</option>
+                        <option value="120">alle 2 Stunden</option>
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow transition">
+                        📅 Alle gestaffelt einplanen
+                    </button>
+                </form>
+            </div>
+
+            <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
+            <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-2xl shadow">
+    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">🔍 Filter nach Streamer:</span>
+    <div id="streamer-pills-container" class="flex flex-wrap gap-2 items-center">
+        <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-600 text-white transition shadow">
+            Alle
+        </button>
+    </div>
+</div>
+
+            <div id="studio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+</div>
+<div id="studio-empty-state" class="hidden text-center py-20 bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl">
+    <span class="text-5xl block mb-3">🎬</span>
+    <h3 class="text-lg font-bold text-slate-300">Noch keine Shorts bereit</h3>
+    <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Wähle in der Warteschlange Clips aus und klicke auf "Zuschneiden & Verarbeiten".</p>
+</div>
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
+                <span class="text-5xl block mb-3">🎬</span>
+                <h3 class="text-lg font-bold text-slate-300">Noch keine fertig gerenderten Shorts im Studio</h3>
+                <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                    Klicke im Reiter <strong>„1. Warteschlange“</strong> bei deinen Wunsch-Clips auf <strong>„✂️ In Studio übernehmen“</strong>!
+                </p>
+            </div>
+            
+        </div>
+
+        <!-- TAB 3: VERÖFFENTLICHUNGS-PLANER & HISTORIE -->
+        <div id="tab-planner" class="tab-content hidden space-y-6">
+            
+            <!-- Planer Einstellungen Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>⏰</span> Automatische Veröffentlichungs-Warteschlange (Drip-Feed)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Verhindert Spam: Eingeplante Clips werden automatisch im gewählten Zeitabstand nacheinander auf YouTube Shorts & TikTok hochgeladen.
+                    </p>
+                </div>
+                <form action="/api/schedule/set-interval" method="POST" class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-300">Standard-Intervall:</span>
+                    <select name="interval_minutes" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 font-semibold">
+                        <option value="15" selected>⏱️ 15 Minuten</option>
+                        <option value="30" selected>⏱️ 30 Minuten (Empfohlen)</option>
+                        <option value="45" selected>⏱️ 45 Minuten</option>
+                        <option value="60" selected>⏱️ 1 Stunde</option>
+                        <option value="120" selected>⏱️ 2 Stunden</option>
+                    </select>
+                </form>
+            </div>
+
+            <!-- 1. Geplante Clips (Warteschlange) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="p-4 bg-slate-950/70 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-sm font-bold text-sky-400">⏳ Geplante Veröffentlichungen ()</span>
+                    <span class="text-xs text-slate-400">Hintergrund-Worker prüft alle 15 Sekunden</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase font-semibold">
+                                <th class="py-3.5 px-4">Streamer</th>
+                                <th class="py-3.5 px-4">Titel</th>
+                                <th class="py-3.5 px-4">Geplante Veröffentlichung</th>
+                                <th class="py-3.5 px-4">Plattformen</th>
+                                <th class="py-3.5 px-4 text-right">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="planner-tbody" class="divide-y divide-slate-800/80">
+</tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Historie (Bereits veröffentlicht) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="p-4 bg-slate-950/70 border-b border-slate-800">
+                    <span class="text-sm font-bold text-emerald-400">✓ Bereits veröffentlichte Shorts ()</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase font-semibold">
+                                <th class="py-3.5 px-4">Streamer</th>
+                                <th class="py-3.5 px-4">Veröffentlichter Titel</th>
+                                <th class="py-3.5 px-4">Veröffentlicht am</th>
+                                <th class="py-3.5 px-4">Status & Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="published-tbody" class="divide-y divide-slate-800/80">
+</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: KONTEN VERKNÜPFEN -->
+        <div id="tab-accounts" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🔗</span>
+                    <div>
+                        <h2 class="text-lg font-black text-white">Social Media Konten verknüpfen</h2>
+                        <p class="text-xs text-slate-400">Verbinde deine Kanäle, damit gerenderte Shorts automatisch nach Zeitplan oder auf Knopfdruck veröffentlicht werden.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-950 text-emerald-400 border border-emerald-800bg-slate-800 text-slate-400">
+                        YouTube: ✓ Verbunden✗ Getrennt
+                    </span>
+                    <span class="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-950 text-emerald-400 border border-emerald-800bg-slate-800 text-slate-400">
+                        TikTok: ✓ Verbunden✗ Getrennt
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Card 1: YouTube Shorts -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🔴</span>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">YouTube Shorts</h3>
+                                    <span class="text-xs text-slate-400">Google YouTube Data API v3</span>
+                                </div>
+                            </div>
+                            
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                                🟢 Verbunden
+                            </span>
+                            
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-950 text-amber-400 border border-amber-800">
+                                🟡 Secrets bereit
+                            </span>
+                            
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                                ⚪ Nicht eingerichtet
+                            </span>
+                            
+                        </div>
+
+                        
+                        <div class="p-4 bg-emerald-950/40 border border-emerald-800/50 rounded-xl space-y-2">
+                            <div class="text-xs text-slate-300">
+                                <strong>Kanal:</strong> <span class="text-emerald-300 font-bold"></span>
+                            </div>
+                            <div class="text-xs text-slate-400">
+                                Upload-Status: <span class="uppercase font-mono text-white"></span>
+                            </div>
+                        </div>
+                        
+
+                        <!-- Login-Button immer prominent wenn Secrets vorhanden -->
+                        
+                        <div class="p-4 bg-red-950/40 border border-red-500/50 rounded-xl space-y-3 text-center">
+                            <span class="text-xs font-bold text-red-300 block">Secrets hinterlegt! Letzter Schritt:</span>
+                            <button type="button" onclick="startYouTubeOAuthLogin()" id="btn-yt-login"
+                                class="w-full py-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 font-bold text-sm rounded-xl text-white flex items-center justify-center gap-2 shadow-lg shadow-red-500/25 transition transform active:scale-95">
+                                <span>🚀</span> Jetzt mit Google / YouTube einloggen
+                            </button>
+                            <div id="yt-login-status-box" class="hidden p-3 bg-slate-900/95 border border-red-500/60 rounded-xl text-xs font-semibold text-red-200 flex items-center justify-center gap-2">
+                                <span class="animate-spin text-base">⏳</span>
+                                <span id="yt-login-status-text">Google-Login im neuen Tab geöffnet...</span>
+                            </div>
+                        </div>
+                        
+
+                        
+                        <!-- Schnell-Einrichtung: Client-ID & Secret direkt einfügen -->
+                        <div class="space-y-3 pt-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-200">Google OAuth Zugangsdaten:</span>
+                                <a href="https://console.cloud.google.com/apis/credentials/wizard" target="_blank" class="text-2xs text-purple-400 hover:text-purple-300 underline flex items-center gap-1">
+                                    <span>↗</span> Google Cloud Wizard öffnen
+                                </a>
+                            </div>
+
+                            <form action="/api/accounts/youtube/save-credentials" method="POST" class="space-y-2 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                                <input type="text" name="client_id" placeholder="Google Client-ID (z. B. 123456...apps.googleusercontent.com)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
+                                <input type="password" name="client_secret" placeholder="Google Client-Secret (z. B. GOCSPX-...)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
+                                <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg text-slate-200 transition">
+                                    💾 Zugangsdaten speichern
+                                </button>
+                            </form>
+
+                            <!-- Alternative: Datei-Upload -->
+                            <details class="text-2xs text-slate-400">
+                                <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">📁 Oder client_secrets.json Datei hochladen...</summary>
+                                <form action="/api/accounts/youtube/save-secrets" method="POST" enctype="multipart/form-data" class="space-y-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+                                    <input type="file" name="secrets_file" accept=".json" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-2xs file:font-bold file:bg-purple-600 file:text-white cursor-pointer">
+                                    <button type="submit" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-2xs font-bold rounded text-slate-300">JSON speichern</button>
+                                </form>
+                            </details>
+
+                            <!-- 3-Schritte Mini-Anleitung -->
+                            <div class="text-2xs text-slate-400 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
+                                <div class="font-bold text-slate-300">30-Sekunden Schnell-Anleitung:</div>
+                                <div>1. In der <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" class="text-purple-400 underline">Google Cloud Console</a> die <strong>YouTube Data API v3</strong> aktivieren.</div>
+                                <div>2. Unter Anmeldedaten eine <strong>OAuth-Client-ID</strong> (Typ: Desktop-App) erstellen.</div>
+                                <div>3. Client-ID & Secret oben einfügen und einloggen!</div>
+                            </div>
+                        </div>
+                        
+                    </div>
+
+                    
+                    <div class="pt-6 border-t border-slate-800 mt-6 space-y-3">
+                        <form action="/api/accounts/youtube/settings" method="POST" class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400">Sichtbarkeit:</span>
+                            <select name="privacy_status" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 flex-1">
+                                <option value="private" selected>Privat (Sicher prüfen)</option>
+                                <option value="unlisted" selected>Ungelistet</option>
+                                <option value="public" selected>Öffentlich (Direkt online)</option>
+                            </select>
+                        </form>
+                        <form action="/api/accounts/youtube/disconnect" method="POST" onsubmit="return confirm('YouTube-Verbindung wirklich trennen?');">
+                            <button type="submit" class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-lg transition">
+                                🔌 YouTube Verbindung trennen
+                            </button>
+                        </form>
+                    </div>
+                    
+                </div>
+
+                <!-- Card 2: TikTok -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🎵</span>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">TikTok</h3>
+                                    <span class="text-xs text-slate-400">Creator Session Upload</span>
+                                </div>
+                            </div>
+                            
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                                🟢 Session aktiv
+                            </span>
+                            
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                                ⚪ Nicht verknüpft
+                            </span>
+                            
+                        </div>
+
+                        
+                        <!-- TikTok bereits verbunden -->
+                        <div class="p-5 bg-emerald-950/40 border border-emerald-800/60 rounded-2xl text-center space-y-2">
+                            <div class="text-3xl">✅</div>
+                            <div class="text-sm font-bold text-emerald-300">TikTok-Konto ist erfolgreich verknüpft!</div>
+                            <div class="text-xs text-slate-300">Session aktiv • Bereit für automatische Uploads</div>
+                            <div class="text-2xs font-mono text-slate-500 pt-1">Session-ID: </div>
+                            <div class="pt-2">
+                                <button type="button" onclick="startTikTokBrowserLogin()" class="text-2xs text-slate-400 hover:text-slate-200 underline">
+                                    🔄 Erneut verbinden / Anderen Account wählen
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- ⭐ AUTOMATISCHER BROWSER LOGIN (MÖGLICHKEIT 1) -->
+                        <div class="p-4 bg-gradient-to-r from-pink-950/70 via-purple-950/60 to-pink-950/70 border border-pink-500/50 rounded-2xl text-center shadow-lg">
+                            <span class="text-2xs font-black text-pink-300 uppercase tracking-wider block mb-1">⭐ Automatische 1-Klick Methode (Empfohlen):</span>
+                            <p class="text-xs text-slate-300 mb-3">Öffnet automatisch ein Login-Fenster. Logge dich einfach ein (z. B. <strong>QR-Code mit deiner Handy-TikTok-App scannen</strong>). Das Tool verbindet sich dann automatisch!</p>
+                            
+                            <button type="button" onclick="startTikTokBrowserLogin()" id="btn-tt-browser-login"
+                                class="w-full py-3 bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-pink-500/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+                                <span>🌐</span> TikTok im Browserfenster verbinden (QR-Code / Login)
+                            </button>
+
+                            <div id="tt-browser-status-box" class="hidden mt-3 p-3 bg-slate-900/95 border border-pink-500/60 rounded-xl text-xs font-semibold text-pink-200 flex items-center justify-center gap-2">
+                                <span class="animate-spin text-base">⏳</span>
+                                <span id="tt-browser-status-text">Warte auf Browser-Login...</span>
+                            </div>
+                        </div>
+                        
+
+                        <!-- Collapsible: Manuelle Alternative -->
+                        <details class="text-2xs text-slate-400">
+                            <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">⚙️ Alternative: Manuelle sessionid Eingabe (Entwicklertools F12)...</summary>
+                            
+                            <div class="space-y-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                                <div class="text-2xs text-slate-400 space-y-1">
+                                    <p class="text-slate-300 font-bold">So findest du das Cookie:</p>
+                                    <ol class="list-decimal list-inside space-y-0.5">
+                                        <li>Öffne <a href="https://www.tiktok.com" target="_blank" class="text-pink-400 underline">tiktok.com</a> und logge dich ein.</li>
+                                        <li>Drücke <strong>F12</strong> &rarr; Tab <strong>Anwendung / Cookies</strong>.</li>
+                                        <li>Kopiere den Wert von <code>sessionid</code> und füge ihn unten ein:</li>
+                                    </ol>
+                                </div>
+
+                                <form action="/api/accounts/tiktok/save-session" method="POST" class="space-y-2">
+                                    <input type="password" name="session_id" placeholder="z. B. 7a8f9c0e1b2d3..." value=""
+                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-pink-500 font-mono">
+                                    <div class="flex items-center gap-2">
+                                        <select name="upload_mode" class="flex-1 bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5">
+                                            <option value="draft" selected>Entwurf (Draft)</option>
+                                            <option value="public" selected>Öffentlich</option>
+                                        </select>
+                                        <button type="submit" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 font-bold text-xs rounded-lg text-slate-200 transition">
+                                            💾 Speichern
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </details>
+                    </div>
+
+                    
+                    <div class="pt-6 border-t border-slate-800 mt-6 space-y-3">
+                        <div class="text-xs text-slate-400 flex items-center justify-between">
+                            <span>Modus: <strong></strong></span>
+                            <span class="font-mono text-2xs text-slate-500"></span>
+                        </div>
+                        <form action="/api/accounts/tiktok/disconnect" method="POST" onsubmit="return confirm('TikTok-Verbindung trennen?');">
+                            <button type="submit" class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-lg transition">
+                                🔌 TikTok Verbindung trennen
+                            </button>
+                        </form>
+                    </div>
+                    
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
+    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
+                <div>
+                    <span id="modal-streamer" class="text-xs font-bold text-purple-400 uppercase tracking-wider block">STREAMER</span>
+                    <h3 id="modal-title" class="text-base font-bold text-white truncate max-w-xl">Clip Titel</h3>
+                </div>
+                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+            
+            <div class="relative bg-black aspect-video w-full flex items-center justify-center overflow-hidden">
+                <video id="modal-video-player" controls autoplay class="w-full h-full object-contain">
+                    <source id="modal-video-source" src="" type="video/mp4">
+                    Dein Browser unterstützt dieses Video nicht.
+                </video>
+            </div>
+            
+            <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
+                <div class="flex items-center gap-2">
+                    <a id="modal-download-raw" href="" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded-xl transition flex items-center gap-1.5" title="Rohdatei direkt herunterladen">
+                        <span>💾</span> Rohdatei laden
+                    </a>
+                    <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-600 font-bold text-xs text-indigo-200 hover:text-white rounded-xl transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
+                        <span>🎯</span> Zuschnitt festlegen
+                    </button>
+                    <form id="modal-delete-form" action="" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                        <button type="submit" class="px-4 py-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-xl transition">
+                            🗑️ Clip löschen
+                        </button>
+                    </form>
+                    <form id="modal-process-form" action="" method="POST" class="inline">
+                        <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-xs rounded-xl shadow-lg shadow-purple-500/20 text-white flex items-center gap-2 transition active:scale-95">
+                            ✂️ Jetzt in Studio übernehmen & schneiden
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
+    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl">👥</span>
+                    <h3 class="text-base font-bold text-white">Überwachte Streamer verwalten (<span id="header-streamer-count">0</span>)</h3>
+                </div>
+                <button onclick="closeStreamerModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                <!-- Neuer Streamer Formular -->
+                <form action="/api/streamers/add" method="POST" class="bg-slate-950/80 border border-purple-500/40 p-4 rounded-xl space-y-3 shadow-inner">
+                    <span class="text-xs font-bold text-purple-400 uppercase tracking-wider block">➕ Neuen Streamer hinzufügen</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="sm:col-span-1">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Twitch Kanalname:</label>
+                            <input type="text" name="name" required placeholder="z. B. rewinside, xqc..." 
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Min. Views:</label>
+                            <input type="number" name="min_views" value="30" min="5" 
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
+                            <input type="number" name="max_clips" value="2" min="1" max="10" 
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs rounded-lg transition shadow active:scale-95">
+                        ➕ Streamer hinzufügen & dauerhaft speichern
+                    </button>
+                </form>
+
+                <!-- Aktive Streamer Liste -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Aktuell überwachte Streamer</span>
+                        <span class="text-xs text-slate-500 font-mono"> aktiv</span>
+                    </div>
+                    <div id="streamer-modal-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
+    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden flex items-center justify-center p-2 sm:p-4">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">📐</span>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>Visueller Zuschnitt: Cam & Gameplay Rahmen</span>
+                            <span id="crop-modal-clip-badge" class="text-xs bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded font-mono truncate max-w-[200px]">Clip</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Ziehe den <span class="text-emerald-400 font-bold">grünen Rahmen über die Facecam</span> und den <span class="text-sky-400 font-bold">blauen Rahmen über das Gameplay</span>. Die 9:16 Smartphone-Vorschau aktualisiert sich live!</p>
+                    </div>
+                </div>
+                <button onclick="closeCropModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <!-- Main Content Area: 16:9 Editor (Left) & 9:16 Live Smartphone Preview (Right) -->
+            <div class="p-4 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                <!-- Left Column: 16:9 Raw Video + Draggable Overlay Boxes (8 cols) -->
+                <div class="lg:col-span-8 flex flex-col gap-3">
+                    
+                    <!-- Mode Switcher: Split vs. Reines 9:16 IRL Vollbild -->
+                    <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 shadow-inner">
+                        <button type="button" onclick="switchCropMode('split')" id="btn-mode-split" 
+                            class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-purple-700 text-white shadow">
+                            <span>✂️</span> Split-Screen (Cam oben + Gameplay unten)
+                        </button>
+                        <button type="button" onclick="switchCropMode('single_916')" id="btn-mode-single" 
+                            class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300">
+                            <span>📱</span> Reines 9:16 Vollbild (IRL / Einzelfokus ohne Trennung)
+                        </button>
+                    </div>
+
+                    <!-- Stage Container (Aspect 16:9) -->
+                    <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
+                        <!-- Video element -->
+                        <video id="crop-stage-video" crossorigin="anonymous" playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
+
+                        <!-- Draggable Overlay Boxes Container (Feste Größen ohne Verzerrung) -->
+                        <div id="crop-overlay-layer" class="absolute inset-0 select-none">
+                            <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
+                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_20px_rgba(52,211,153,0.5)] rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:shadow-[0_0_25px_rgba(52,211,153,0.8)]" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                                <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                                    <span>📷 Facecam</span>
+                                    <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
+                                </div>
+                                <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center shadow">
+                                    <span class="text-2xs text-white font-black">✚</span>
+                                </div>
+                                <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 3:2 Seitenverhältnis -->
+                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tr" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="bl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="br" title="Größe anpassen (3:2)"></div>
+                            </div>
+
+                            <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
+                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-[0_0_20px_rgba(56,189,248,0.5)] rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:shadow-[0_0_25px_rgba(56,189,248,0.8)]" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                                <div class="absolute -top-6 left-0 bg-sky-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                                    <span>🎮 Gameplay</span>
+                                    <span id="crop-game-format-badge" class="text-sky-200 text-2xs font-normal">(Festes 9:10 Format)</span>
+                                </div>
+                                <div class="w-5 h-5 rounded-full border border-white/70 bg-sky-500/60 pointer-events-none flex items-center justify-center shadow">
+                                    <span class="text-2xs text-white font-black">✚</span>
+                                </div>
+                                <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 9:10 Seitenverhältnis -->
+                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
+                            </div>
+
+                            <!-- 🟪 Reiner 9:16 IRL Vollbild-Rahmen (Festes 9:16 Format, horizontal verschiebbar) -->
+                            <div id="crop-box-single" class="absolute select-none border-2 border-fuchsia-400 bg-fuchsia-500/20 shadow-[0_0_25px_rgba(217,70,239,0.6)] rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:shadow-[0_0_30px_rgba(217,70,239,0.9)] hidden">
+                                <div class="absolute -top-6 left-0 bg-fuchsia-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                                    <span>📱 9:16 IRL Bildausschnitt</span>
+                                    <span class="text-fuchsia-200 text-2xs font-normal">(Festes 9:16 Vollbild)</span>
+                                </div>
+                                <div class="w-6 h-6 rounded-full border border-white/70 bg-fuchsia-500/60 pointer-events-none flex items-center justify-center shadow">
+                                    <span class="text-xs text-white font-black">↔</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video Scrubber / Timeline Bar -->
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <button onclick="seekCropVideo(-2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden zurück">⏪ -2s</button>
+                            <button onclick="toggleCropVideoPlay()" id="crop-play-btn" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-xs font-bold text-white rounded-lg transition">⏯️ Pause</button>
+                            <button onclick="seekCropVideo(2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden vor">⏩ +2s</button>
+                        </div>
+                        <input type="range" id="crop-time-slider" min="0" max="30" step="0.1" value="0" class="flex-1 accent-purple-500 cursor-pointer" oninput="onCropSliderInput(this.value)">
+                        <span id="crop-time-display" class="text-xs font-mono font-bold text-slate-300 min-w-[90px] text-right">00:00 / 00:00</span>
+                    </div>
+
+                    <!-- Presets & Quick Action Toolbar (Split vs Single 9:16) -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2.5">
+                        <!-- Toolbar für Split-Screen Modus -->
+                        <div id="toolbar-split" class="space-y-2.5">
+                            <div class="space-y-1.5">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs font-bold text-emerald-400 min-w-[100px]">📷 Cam-Position:</span>
+                                    <button onclick="applyPreset('cam_br')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Unten Rechts</button>
+                                    <button onclick="applyPreset('cam_tl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Oben Links</button>
+                                    <button onclick="applyPreset('cam_tr')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Oben Rechts</button>
+                                    <button onclick="applyPreset('cam_bl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Unten Links</button>
+                                    <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-purple-900/80 hover:bg-purple-800 border border-purple-500/80 text-purple-200 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
+                                        <span>🤖</span> KI Auto-Erkennen
+                                    </button>
+                                    <button onclick="toggleCamEnabled()" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition">
+                                        🚫 Keine Cam (Vollbild)
+                                    </button>
+                                </div>
+                                <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
+                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded-xl border border-slate-800/80">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-emerald-400 min-w-[90px] flex items-center gap-1">
+                                            <span>📏</span> Cam-Größe:
+                                        </span>
+                                        <input type="range" id="crop-cam-size-slider" min="200" max="1100" step="5" value="540" 
+                                            class="w-36 sm:w-48 accent-emerald-500 cursor-pointer" 
+                                            oninput="setCamPixelWidth(this.value)"
+                                            title="Stufenlose Größenregelung (3:2 bleibt immer gesperrt)">
+                                        <span id="crop-cam-size-display" class="font-mono text-xs text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60 min-w-[95px] text-center shadow-inner">
+                                            540 x 360 px
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+                                        <span class="text-2xs text-slate-400">Schnellwahl:</span>
+                                        <button type="button" onclick="setCamPixelWidth(420)" id="btn-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Kompakt (420px)</button>
+                                        <button type="button" onclick="setCamPixelWidth(540)" id="btn-size-normal" class="px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition">Standard (540px)</button>
+                                        <button type="button" onclick="setCamPixelWidth(680)" id="btn-size-large" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Groß (680px)</button>
+                                        <span class="text-2xs text-slate-500 hidden md:inline ml-1">🔒 3:2 fest • Mausrad / Ecken ziehen</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-800/60">
+                                    <span class="text-xs font-semibold text-emerald-400 min-w-[100px] flex items-center gap-1">
+                                        <span>🎭</span> Snapchat-Filter:
+                                    </span>
+                                    <select id="crop-cam-filter-select" onchange="draw916Preview()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1 focus:border-emerald-500 flex-1 max-w-sm">
+                                        <option value="none">🚫 Kein Filter (Original Facecam)</option>
+<option value="triangle">🔺 3D Dreimacs Pyramide (Prismen-Kopf)</option>
+<option value="inv_triangle">🔻 3D Trichter-Kopf (Megastirn, spitzes Kinn)</option>
+<option value="diamond">💎 3D Diamant-Kopf (Kristall-Facette)</option>
+<option value="cube">📦 3D Block-Kopf (Minecraft Steve)</option>
+<option value="gigachad">🗿 3D Gigachad (Breiter Meme-Kiefer)</option>
+<option value="alien">👽 3D Megamind / Alien (Riesen-Kuppelkopf)</option>
+<option value="hamster">🎈 3D Hamsterbacken (Prall aufgeblasen)</option>
+<option value="pinocchio">🤥 3D Pinocchio (Lange Nase)</option>
+<option value="big_eyes">👀 3D Glubschaugen (Anime / Manga)</option>
+<option value="tiny_face">🤏 3D Schrumpf-Gesicht (Charlie Kirk Meme)</option>
+<option value="big_mouth">👄 3D Riesenmund (Scream / Opernsänger)</option>
+<option value="hourglass">⏳ 3D Sanduhr (Wespentaille im Gesicht)</option>
+<option value="fisheye">🐟 3D Glaskugel-Bulge (Linsen-Zoom)</option>
+<option value="swirl">🌀 3D Strudel / Wirbel (Vortex-Twist)</option>
+<option value="wave">🌊 3D Wackelpudding (Wobble-Welle)</option>
+<option value="mirror_left">🪞 Doppel-Links (Alien-Symmetrie)</option>
+<option value="mirror_right">🪞 Doppel-Rechts (Alien-Symmetrie)</option>
+<option value="stretch_vert">📏 Bleistift-Kopf (Langgezogen)</option>
+<option value="squish_wide">🗜️ Wide Meme (Pfannkuchen-Kopf)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Gameplay-Bereich: Position & Stufenlose Größe mit festem 9:10 Seitenverhältnis -->
+                            <div class="space-y-2 pt-2 border-t border-slate-800/80">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs font-bold text-sky-400 min-w-[100px] flex items-center gap-1">
+                                        <span>🎮</span> Game-Position:
+                                    </span>
+                                    <button onclick="applyPreset('game_center')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">🎯 Mitte (Zentriert)</button>
+                                    <button onclick="applyPreset('game_left')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">⬅️ Links</button>
+                                    <button onclick="applyPreset('game_right')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded-xl border border-slate-800/80">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-sky-400 min-w-[90px] flex items-center gap-1">
+                                            <span>📏</span> Game-Größe:
+                                        </span>
+                                        <input type="range" id="crop-game-size-slider" min="360" max="1200" step="5" value="972" 
+                                            class="w-36 sm:w-48 accent-sky-500 cursor-pointer" 
+                                            oninput="setGamePixelWidth(this.value)"
+                                            title="Stufenlose Größenregelung (9:10 bleibt immer gesperrt)">
+                                        <span id="crop-game-size-display" class="font-mono text-xs text-sky-300 font-bold bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/60 min-w-[95px] text-center shadow-inner">
+                                            972 x 1080 px
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+                                        <span class="text-2xs text-slate-400">Schnellwahl:</span>
+                                        <button type="button" onclick="setGamePixelWidth(648)" id="btn-game-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition">Zoom (648px)</button>
+                                        <button type="button" onclick="setGamePixelWidth(810)" id="btn-game-size-medium" class="px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition">Mittel (810px)</button>
+                                        <button type="button" onclick="setGamePixelWidth(972)" id="btn-game-size-max" class="px-2 py-0.5 bg-sky-900/80 border border-sky-500 text-2xs font-bold rounded text-sky-200 shadow transition">Voll (972px)</button>
+                                        <span id="crop-game-hint-text" class="text-2xs text-slate-500 hidden md:inline ml-1">🔒 9:10 fest (Split) • Mausrad / Ecken ziehen</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Toolbar für Reines 9:16 IRL Vollbild -->
+                        <div id="toolbar-single" class="hidden flex flex-wrap items-center gap-2.5">
+                            <span class="text-xs font-bold text-fuchsia-400 min-w-[110px]">📱 IRL-Ausschnitt:</span>
+                            <button onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-fuchsia-900/60 border border-slate-700 hover:border-fuchsia-500 text-xs font-bold rounded-lg text-slate-200 transition">🎯 Mitte (Zentriert)</button>
+                            <button onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-fuchsia-900/60 border border-slate-700 hover:border-fuchsia-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
+                            <button onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-fuchsia-900/60 border border-slate-700 hover:border-fuchsia-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                            <span class="text-2xs text-fuchsia-300/80 ml-auto bg-fuchsia-950/80 px-2 py-1 rounded border border-fuchsia-800/60">🔒 Fester 9:16 Vollbild-Ausschnitt (608x1080 px)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: 9:16 Live Smartphone Mockup Preview (4 cols) -->
+                <div class="lg:col-span-4 flex flex-col items-center justify-between bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+                    <div class="text-center mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-purple-400 block">📱 Live 9:16 Vorschau</span>
+                        <span class="text-2xs text-slate-400">Aktualisiert in Echtzeit beim Verschieben</span>
+                    </div>
+
+                    <!-- Smartphone Bezel Mockup -->
+                    <div class="relative bg-slate-950 p-3 rounded-[38px] border-4 border-slate-700 shadow-2xl flex flex-col items-center">
+                        <!-- Top Notch -->
+                        <div class="w-16 h-3 bg-slate-800 rounded-full mb-2"></div>
+                        <!-- Canvas Screen (270x480 -> 9:16) -->
+                        <canvas id="crop-preview-canvas" width="270" height="480" class="w-[225px] h-[400px] bg-black rounded-[22px] overflow-hidden shadow-inner border border-slate-800"></canvas>
+                        <!-- Bottom Bar -->
+                        <div class="w-24 h-1 bg-slate-700 rounded-full mt-2"></div>
+                    </div>
+
+                    <!-- Coordinates Readout & Info -->
+                    <div class="mt-3 text-center w-full">
+                        <div id="crop-coords-readout" class="text-2xs font-mono text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 truncate">
+                            Cam: 480x360 • Game: 972x1080
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-800 bg-slate-950/80 gap-3">
+                <button onclick="closeCropModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition">
+                    Abbrechen
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="saveCropCoordinates(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded-xl transition">
+                        💾 Nur Speichern
+                    </button>
+                    <button onclick="saveCropCoordinates(true)" class="px-6 py-2.5 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/25 transition active:scale-95 flex items-center gap-2">
+                        <span>🚀</span> Zuschnitt speichern & Jetzt Rendern (NVENC)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Auto-Update Script -->
+    <div id="planner-empty-state" class="hidden"></div><div id="published-empty-state" class="hidden"></div>
+    <script src="app.js"></script>
+</body>
+</html>

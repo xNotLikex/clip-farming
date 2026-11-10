@@ -1,0 +1,28 @@
+[package]
+name = "clip-farming"
+version = "0.1.0"
+description = "Clip Farming Desktop App"
+authors = ["NotLike"]
+repository = "https://github.com/xNotLikex/clip-farming"
+edition = "2024"
+rust-version = "1.90"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "clip_farming_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4" }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+log = "0.4"
+tauri = { version = "2.12.5" }
+tauri-plugin-log = "2"
+rusqlite = { version = "0.33", features = ["bundled"] }
+tokio = { version = "1", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
