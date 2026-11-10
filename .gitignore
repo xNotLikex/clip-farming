@@ -10,6 +10,8 @@ src-tauri/target/
 **/target/
 node_modules/
 .github/
+archive/
+*.exe
 
 # Data, Downloads & Output
 data/
