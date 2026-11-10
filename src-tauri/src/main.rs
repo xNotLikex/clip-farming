@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::net::{SocketAddr, TcpStream};
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
@@ -17,19 +17,28 @@ fn ensure_backend_running() {
         }
     }
 
-    // Determine python interpreter path
-    let py_path = if Path::new(".venv\\Scripts\\python.exe").exists() {
-        ".venv\\Scripts\\python.exe"
-    } else if Path::new("..\\.venv\\Scripts\\python.exe").exists() {
-        "..\\.venv\\Scripts\\python.exe"
+    let mut working_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if exe_dir.join("src").exists() {
+                working_dir = exe_dir.to_path_buf();
+            }
+        }
+    }
+
+    let py_path = if working_dir.join(".venv\\Scripts\\python.exe").exists() {
+        working_dir.join(".venv\\Scripts\\python.exe")
+    } else if working_dir.join("..\\.venv\\Scripts\\python.exe").exists() {
+        working_dir.join("..\\.venv\\Scripts\\python.exe")
     } else {
-        "python"
+        PathBuf::from("python")
     };
 
     #[cfg(windows)]
     {
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let _ = Command::new(py_path)
+            .current_dir(&working_dir)
             .args(["-m", "src.web_studio"])
             .creation_flags(CREATE_NO_WINDOW)
             .spawn();
@@ -38,6 +47,7 @@ fn ensure_backend_running() {
     #[cfg(not(windows))]
     {
         let _ = Command::new(py_path)
+            .current_dir(&working_dir)
             .args(["-m", "src.web_studio"])
             .spawn();
     }

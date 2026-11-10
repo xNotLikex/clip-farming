@@ -3,7 +3,31 @@
 // CLIENT-SIDE REACTIVE SPA ENGINE FOR TAURI & WEB
 // ==========================================
 
-const isTauri = typeof window !== 'undefined' && window.__TAURI__ !== undefined;
+const isTauriApp = (typeof window !== 'undefined' && window.location.hostname === 'tauri.localhost') || 
+                   (typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.__TAURI_INTERNALS__ !== undefined));
+const BACKEND_BASE = isTauriApp ? 'http://127.0.0.1:5000' : '';
+
+function getBackendUrl(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const cleanPath = path.startsWith('/') ? path : '/' + path;
+    return BACKEND_BASE + cleanPath;
+}
+
+function apiFetch(url, options = {}) {
+    return fetch(getBackendUrl(url), options);
+}
+
+function getTauriInvoke() {
+    if (typeof window !== 'undefined') {
+        if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke.bind(window.__TAURI__.core);
+        if (window.__TAURI__?.invoke) return window.__TAURI__.invoke.bind(window.__TAURI__);
+        if (window.__TAURI_INTERNALS__?.invoke) return window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
+    }
+    return null;
+}
+
+const isTauri = isTauriApp;
 
 // Cam filters catalogue
 const CAM_FILTERS = {'none': '🚫 Kein Filter (Original Facecam)', 'triangle': '🔺 3D Dreimacs Pyramide (Prismen-Kopf)', 'inv_triangle': '🔻 3D Trichter-Kopf (Megastirn, spitzes Kinn)', 'diamond': '💎 3D Diamant-Kopf (Kristall-Facette)', 'cube': '📦 3D Block-Kopf (Minecraft Steve)', 'gigachad': '🗿 3D Gigachad (Breiter Meme-Kiefer)', 'alien': '👽 3D Megamind / Alien (Riesen-Kuppelkopf)', 'hamster': '🎈 3D Hamsterbacken (Prall aufgeblasen)', 'pinocchio': '🤥 3D Pinocchio (Lange Nase)', 'big_eyes': '👀 3D Glubschaugen (Anime / Manga)', 'tiny_face': '🤏 3D Schrumpf-Gesicht (Charlie Kirk Meme)', 'big_mouth': '👄 3D Riesenmund (Scream / Opernsänger)', 'hourglass': '⏳ 3D Sanduhr (Wespentaille im Gesicht)', 'fisheye': '🐟 3D Glaskugel-Bulge (Linsen-Zoom)', 'swirl': '🌀 3D Strudel / Wirbel (Vortex-Twist)', 'wave': '🌊 3D Wackelpudding (Wobble-Welle)', 'mirror_left': '🪞 Doppel-Links (Alien-Symmetrie)', 'mirror_right': '🪞 Doppel-Rechts (Alien-Symmetrie)', 'stretch_vert': '📏 Bleistift-Kopf (Langgezogen)', 'squish_wide': '🗜️ Wide Meme (Pfannkuchen-Kopf)'};
@@ -27,16 +51,20 @@ function escapeJs(str) {
 
 // Universal backend invoker (supports Tauri invoke and fallback REST API)
 async function callBackend(command, args = {}) {
-    if (isTauri && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-        return await window.__TAURI__.core.invoke(command, args);
-    } else {
-        const res = await fetch('/api/' + command, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(args)
-        });
-        return await res.json();
+    const invoke = getTauriInvoke();
+    if (invoke) {
+        try {
+            return await invoke(command, args);
+        } catch (e) {
+            console.warn(`Tauri invoke ${command} error, falling back to REST:`, e);
+        }
     }
+    const res = await apiFetch('/api/' + command, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args)
+    });
+    return await res.json();
 }
 
 // Global state cache
@@ -45,11 +73,17 @@ let gDashboardData = null;
 // Initial load & periodic refresh
 async function refreshDashboard() {
     try {
-        let data;
-        if (isTauri && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-            data = await window.__TAURI__.core.invoke('get_dashboard_data');
-        } else {
-            const res = await fetch('/api/dashboard');
+        let data = null;
+        const invoke = getTauriInvoke();
+        if (invoke) {
+            try {
+                data = await invoke('get_dashboard_data');
+            } catch (invokeErr) {
+                console.warn('Tauri invoke get_dashboard_data failed, trying REST fallback:', invokeErr);
+            }
+        }
+        if (!data) {
+            const res = await apiFetch('/api/dashboard');
             data = await res.json();
         }
         if (data) {
@@ -174,7 +208,7 @@ function renderQueue(clips, olderCount) {
 
 async function processOneClip(clipId) {
     try {
-        await fetch('/process-one/' + clipId, { method: 'POST' });
+        await apiFetch('/process-one/' + clipId, { method: 'POST' });
         updateStatus();
     } catch (e) {
         console.error(e);
@@ -184,10 +218,11 @@ async function processOneClip(clipId) {
 async function deleteSingleQueueClip(clipId) {
     if (!confirm('Clip unwiderruflich aus der Warteschlange löschen?')) return;
     try {
-        if (isTauri && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-            await window.__TAURI__.core.invoke('delete_queue_clip', { clipId });
+        const invoke = getTauriInvoke();
+        if (invoke) {
+            await invoke('delete_queue_clip', { clipId });
         } else {
-            await fetch('/queue/delete/' + clipId, { method: 'POST' });
+            await apiFetch('/queue/delete/' + clipId, { method: 'POST' });
         }
         refreshDashboard();
     } catch (e) {
@@ -198,7 +233,7 @@ async function deleteSingleQueueClip(clipId) {
 async function deleteOlderQueue() {
     if (!confirm('Wirklich alle Roh-Clips von gestern und älter löschen?\n\n(Clips von heute bleiben vollständig erhalten)')) return;
     try {
-        await fetch('/queue/delete-older', { method: 'POST' });
+        await apiFetch('/queue/delete-older', { method: 'POST' });
         refreshDashboard();
     } catch (e) {
         alert('Fehler: ' + e);
@@ -265,7 +300,7 @@ function renderStudio(clips, streamerCounts) {
             <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                 ${clip.has_video ? `
                 <video controls preload="metadata" class="w-full h-full object-contain">
-                    <source src="/video/${clip.clip_id}" type="video/mp4">
+                    <source src="${getBackendUrl('/video/' + clip.clip_id)}" type="video/mp4">
                 </video>
                 ` : `
                 <div class="text-center p-6 text-slate-500">
@@ -277,7 +312,7 @@ function renderStudio(clips, streamerCounts) {
                     👁️ ${clip.view_count}
                 </span>
                 ${clip.has_video ? `
-                <a href="/download/short/${clip.clip_id}" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5" title="Fertiges 9:16 Short in HQ herunterladen">
+                <a href="${getBackendUrl('/download/short/' + clip.clip_id)}" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5" title="Fertiges 9:16 Short in HQ herunterladen">
                     <span>💾</span> HQ Download
                 </a>
                 ` : ''}
@@ -357,7 +392,7 @@ function renderStudio(clips, streamerCounts) {
 
 async function scheduleSingleClip(clipId) {
     try {
-        await fetch('/schedule-one/' + clipId, { method: 'POST' });
+        await apiFetch('/schedule-one/' + clipId, { method: 'POST' });
         refreshDashboard();
     } catch (e) {
         console.error(e);
@@ -400,7 +435,7 @@ function renderPlanner(scheduledClips) {
 async function publishNow(clipId) {
     if (!confirm('Dieses Video jetzt sofort veröffentlichen?')) return;
     try {
-        await fetch('/schedule/publish-now/' + clipId, { method: 'POST' });
+        await apiFetch('/schedule/publish-now/' + clipId, { method: 'POST' });
         refreshDashboard();
     } catch (e) {
         alert('Fehler: ' + e);
@@ -409,7 +444,7 @@ async function publishNow(clipId) {
 
 async function cancelSchedule(clipId) {
     try {
-        await fetch('/schedule/cancel/' + clipId, { method: 'POST' });
+        await apiFetch('/schedule/cancel/' + clipId, { method: 'POST' });
         refreshDashboard();
     } catch (e) {
         alert('Fehler: ' + e);
@@ -474,7 +509,7 @@ function renderStreamers(streamers) {
 async function removeStreamer(name) {
     if (!confirm('Streamer ' + name + ' wirklich entfernen?')) return;
     try {
-        await fetch('/api/streamers/remove/' + encodeURIComponent(name), { method: 'POST' });
+        await apiFetch('/api/streamers/remove/' + encodeURIComponent(name), { method: 'POST' });
         refreshDashboard();
     } catch (e) {
         alert('Fehler: ' + e);
@@ -484,10 +519,15 @@ async function removeStreamer(name) {
 // ----------------------------------------
 // INITIALIZATION
 // ----------------------------------------
-window.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => {
+        refreshDashboard();
+        setInterval(refreshDashboard, 5000);
+    });
+} else {
     refreshDashboard();
     setInterval(refreshDashboard, 5000);
-});
+}
 
 
 
@@ -539,7 +579,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                await fetch('/api/clip/' + clipId + '/toggle-published', {
+                await apiFetch('/api/clip/' + clipId + '/toggle-published', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ is_published: isChecked })
@@ -582,13 +622,13 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             
             const player = document.getElementById('modal-video-player');
-            player.src = '/raw-video/' + clipId;
+            player.src = getBackendUrl('/raw-video/' + clipId);
             player.load();
             player.play();
 
             document.getElementById('modal-process-form').action = '/process-one/' + clipId;
             document.getElementById('modal-delete-form').action = '/queue/delete/' + clipId;
-            document.getElementById('modal-download-raw').href = '/download/raw/' + clipId;
+            document.getElementById('modal-download-raw').href = getBackendUrl('/download/raw/' + clipId);
             document.getElementById('preview-modal').classList.remove('hidden');
         }
 
@@ -615,12 +655,28 @@ window.addEventListener('DOMContentLoaded', () => {
 
         async function triggerRun() {
             const btn = document.getElementById('btn-trigger');
-            btn.disabled = true;
-            btn.innerHTML = '<span>⏳</span> Scanne Twitch...';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span>⏳</span> Scanne Twitch...';
+            }
             try {
-                await fetch('/api/run', { method: 'POST' });
+                const invoke = getTauriInvoke();
+                if (invoke) {
+                    const count = await invoke('trigger_twitch_run');
+                    alert(`Twitch-Suche abgeschlossen! ${count} neue Clips in die Warteschlange geladen.`);
+                    refreshDashboard();
+                } else {
+                    await apiFetch('/api/run', { method: 'POST' });
+                    updateStatus();
+                }
             } catch (e) {
                 console.error(e);
+                alert('Fehler: ' + e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>⚡</span> Neue Clips auf Twitch suchen';
+                }
             }
         }
 
@@ -631,16 +687,23 @@ window.addEventListener('DOMContentLoaded', () => {
                 btn.innerHTML = '<span>⏳</span> Schneide alle Clips...';
             }
             try {
-                await fetch('/api/process-all', { method: 'POST' });
+                await apiFetch('/api/process-all', { method: 'POST' });
                 switchTab('studio');
+                updateStatus();
             } catch (e) {
                 console.error(e);
+                alert('Fehler: ' + e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>⚡</span> Alle Warteschlangen-Clips ins Studio übernehmen';
+                }
             }
         }
 
         async function updateStatus() {
             try {
-                const res = await fetch('/api/status');
+                const res = await apiFetch('/api/status');
                 const data = await res.json();
                 
                 const dot = document.getElementById('live-dot');
@@ -782,7 +845,7 @@ window.addEventListener('DOMContentLoaded', () => {
             modal.classList.remove('hidden');
 
             const vid = document.getElementById('crop-stage-video');
-            vid.src = '/raw-video/' + clipId;
+            vid.src = getBackendUrl('/raw-video/' + clipId);
             vid.load();
 
             // Default Box States: Feste Seitenverhältnisse (3:2 für Cam, 9:10 für Gameplay, 9:16 für Single)
@@ -811,7 +874,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             // Saved metadata abrufen falls vorhanden
             try {
-                const resp = await fetch(`/api/clip/${clipId}/meta`);
+                const resp = await apiFetch(`/api/clip/${clipId}/meta`);
                 const meta = await resp.json();
                 if (meta) {
                     if (meta.layout_mode === 'single_916' || (meta.custom_crops && meta.custom_crops.mode === 'single_916')) {
@@ -1510,7 +1573,7 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.innerHTML = '<span>⏳</span> Erkenne...';
             btn.disabled = true;
             try {
-                const resp = await fetch(`/api/clip/${currentCropClipId}/detect-cam`);
+                const resp = await apiFetch(`/api/clip/${currentCropClipId}/detect-cam`);
                 const data = await resp.json();
                 if (data && data.cam) {
                     const faceCenterX = data.cam.x_pct + (data.cam.w_pct / 2);
@@ -1963,7 +2026,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const resp = await fetch(`/api/clip/${currentCropClipId}/save-crop`, {
+                const resp = await apiFetch(`/api/clip/${currentCropClipId}/save-crop`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -1994,7 +2057,7 @@ window.addEventListener('DOMContentLoaded', () => {
             if (text) text.innerText = 'Chrome wird gestartet... Bitte im geöffneten Fenster einloggen (z. B. QR-Code scannen)!';
 
             try {
-                const resp = await fetch('/api/accounts/tiktok/browser-login', { method: 'POST' });
+                const resp = await apiFetch('/api/accounts/tiktok/browser-login', { method: 'POST' });
                 const data = await resp.json();
                 if (!data.success) {
                     alert(data.message);
@@ -2008,7 +2071,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 const pollTimer = setInterval(async () => {
                     try {
-                        const sResp = await fetch('/api/accounts/tiktok/browser-login/status');
+                        const sResp = await apiFetch('/api/accounts/tiktok/browser-login/status');
                         const sData = await sResp.json();
                         if (text && sData.message) text.innerText = sData.message;
 
@@ -2016,7 +2079,7 @@ window.addEventListener('DOMContentLoaded', () => {
                             clearInterval(pollTimer);
                             if (sData.message && sData.message.includes('Erfolgreich')) {
                                 if (text) text.innerText = '✅ Erfolgreich verbunden! Aktualisiere Dashboard...';
-                                setTimeout(() => window.location.reload(), 1200);
+                                setTimeout(() => refreshDashboard(), 1200);
                             } else {
                                 if (btn) {
                                     btn.disabled = false;
@@ -2053,7 +2116,7 @@ window.addEventListener('DOMContentLoaded', () => {
             if (text) text.innerText = 'Google-Anmeldung wird vorbereitet...';
 
             try {
-                const resp = await fetch('/api/accounts/youtube/authorize', { method: 'POST' });
+                const resp = await apiFetch('/api/accounts/youtube/authorize', { method: 'POST' });
                 const data = await resp.json();
                 if (!data.success || !data.auth_url) {
                     alert(data.message || 'Fehler beim Starten der Google-Anmeldung.');
@@ -2072,12 +2135,12 @@ window.addEventListener('DOMContentLoaded', () => {
                 // Status überwachen bis YouTube auf verbunden springt
                 const pollTimer = setInterval(async () => {
                     try {
-                        const aResp = await fetch('/api/accounts/status');
+                        const aResp = await apiFetch('/api/accounts/status');
                         const aData = await aResp.json();
                         if (aData && aData.youtube && aData.youtube.is_connected) {
                             clearInterval(pollTimer);
                             if (text) text.innerText = '✅ YouTube erfolgreich verbunden! Seite wird aktualisiert...';
-                            setTimeout(() => window.location.reload(), 1500);
+                            setTimeout(() => refreshDashboard(), 1500);
                         }
                     } catch (err) {
                         console.error('Polling YT status error:', err);
@@ -2093,6 +2156,30 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (box) box.classList.add('hidden');
             }
         }
+
+        // Global Form Interceptor for SPA
+        document.addEventListener('submit', async (e) => {
+            const form = e.target;
+            if (form && form.tagName === 'FORM') {
+                const rawAction = form.getAttribute('action');
+                if (rawAction && !rawAction.startsWith('javascript:')) {
+                    e.preventDefault();
+                    const action = getBackendUrl(rawAction);
+                    const method = (form.getAttribute('method') || 'GET').toUpperCase();
+                    try {
+                        let options = { method };
+                        if (method === 'POST') {
+                            options.body = new FormData(form);
+                        }
+                        await fetch(action, options);
+                        await refreshDashboard();
+                    } catch (err) {
+                        console.error('Form submission failed:', err);
+                        alert('Aktion fehlgeschlagen: ' + err);
+                    }
+                }
+            }
+        });
 
         setInterval(updateStatus, 1500);
         updateStatus();

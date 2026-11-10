@@ -29,6 +29,23 @@ if sys.platform == "win32":
         pass
 
 app = Flask(__name__)
+
+@app.before_request
+def handle_options():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return response
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
+
 composer = VideoComposer()
 yt_uploader = YouTubeUploader()
 tt_uploader = TikTokUploader()
@@ -3024,8 +3041,7 @@ HTML_DASHBOARD = """
 </html>
 """
 
-@app.route("/")
-def index():
+def get_dashboard_dict():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
@@ -3068,11 +3084,11 @@ def index():
 
         # Scheduled Clips (Zeitplan)
         cursor.execute("SELECT * FROM clips WHERE status = 'scheduled' ORDER BY scheduled_publish_at ASC")
-        scheduled_rows = cursor.fetchall()
+        scheduled_rows = [dict(r) for r in cursor.fetchall()]
 
         # Published Clips
         cursor.execute("SELECT * FROM clips WHERE status = 'published' ORDER BY rowid DESC")
-        published_rows = cursor.fetchall()
+        published_rows = [dict(r) for r in cursor.fetchall()]
 
     ready_clips = []
     for r in ready_rows:
@@ -3081,9 +3097,9 @@ def index():
         sticker_text = ""
         title = r["ai_title"] or r["original_title"] or ""
         sub_position = "bottom"
-        
-        is_manually_published = bool(r["is_manually_published"]) if "is_manually_published" in r.keys() and r["is_manually_published"] else False
+        layout_mode = "auto"
         cam_filter = "none"
+        is_manually_published = bool(r["is_manually_published"]) if "is_manually_published" in r.keys() and r["is_manually_published"] else False
         if meta_file.exists():
             try:
                 with open(meta_file, "r", encoding="utf-8") as mf:
@@ -3136,19 +3152,27 @@ def index():
     account_status = account_manager.get_status()
     all_streamers = get_streamers()
 
-    return render_template_string(
-        HTML_DASHBOARD,
-        counts=counts,
-        ready_clips=ready_clips,
-        queue_clips=queue_rows,
-        older_queue_count=older_queue_count,
-        scheduled_clips=scheduled_rows,
-        published_clips=published_rows,
-        account_status=account_status,
-        streamers=all_streamers,
-        streamer_counts=streamer_counts,
-        cam_filters=AVAILABLE_CAM_FILTERS
-    )
+    return {
+        "counts": counts,
+        "ready_clips": ready_clips,
+        "queue_clips": queue_rows,
+        "older_queue_count": older_queue_count,
+        "scheduled_clips": scheduled_rows,
+        "published_clips": published_rows,
+        "account_status": account_status,
+        "streamers": all_streamers,
+        "streamer_counts": streamer_counts,
+        "cam_filters": AVAILABLE_CAM_FILTERS
+    }
+
+@app.route("/")
+def index():
+    d = get_dashboard_dict()
+    return render_template_string(HTML_DASHBOARD, **d)
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    return jsonify(get_dashboard_dict())
 
 @app.route("/api/status")
 def get_status():
