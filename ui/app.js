@@ -1,4 +1,17 @@
 
+const SVG_ICONS = {
+    scan: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
+    scissors: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg>',
+    crop: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg>',
+    trash: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
+    save: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>',
+    calendar: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>',
+    clock: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+    eye: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>',
+    play: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+};
+
+
 // ==========================================
 // CLIENT-SIDE REACTIVE SPA ENGINE FOR TAURI & WEB
 // ==========================================
@@ -47,7 +60,7 @@ async function apiFetch(url, options = {}) {
 const isTauri = typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.__TAURI_INTERNALS__ !== undefined);
 
 // Cam filters catalogue
-const CAM_FILTERS = {'none': '🚫 Kein Filter (Original Facecam)', 'triangle': '🔺 3D Dreimacs Pyramide (Prismen-Kopf)', 'inv_triangle': '🔻 3D Trichter-Kopf (Megastirn, spitzes Kinn)', 'diamond': '💎 3D Diamant-Kopf (Kristall-Facette)', 'cube': '📦 3D Block-Kopf (Minecraft Steve)', 'gigachad': '🗿 3D Gigachad (Breiter Meme-Kiefer)', 'alien': '👽 3D Megamind / Alien (Riesen-Kuppelkopf)', 'hamster': '🎈 3D Hamsterbacken (Prall aufgeblasen)', 'pinocchio': '🤥 3D Pinocchio (Lange Nase)', 'big_eyes': '👀 3D Glubschaugen (Anime / Manga)', 'tiny_face': '🤏 3D Schrumpf-Gesicht (Charlie Kirk Meme)', 'big_mouth': '👄 3D Riesenmund (Scream / Opernsänger)', 'hourglass': '⏳ 3D Sanduhr (Wespentaille im Gesicht)', 'fisheye': '🐟 3D Glaskugel-Bulge (Linsen-Zoom)', 'swirl': '🌀 3D Strudel / Wirbel (Vortex-Twist)', 'wave': '🌊 3D Wackelpudding (Wobble-Welle)', 'mirror_left': '🪞 Doppel-Links (Alien-Symmetrie)', 'mirror_right': '🪞 Doppel-Rechts (Alien-Symmetrie)', 'stretch_vert': '📏 Bleistift-Kopf (Langgezogen)', 'squish_wide': '🗜️ Wide Meme (Pfannkuchen-Kopf)'};
+const CAM_FILTERS = {'none': 'Kein Filter (Original Facecam)', 'triangle': '3D Dreimacs Pyramide (Prismen-Kopf)', 'inv_triangle': '3D Trichter-Kopf (Megastirn, spitzes Kinn)', 'diamond': '3D Diamant-Kopf (Kristall-Facette)', 'cube': '3D Block-Kopf (Voxel / Steve)', 'gigachad': '3D Gigachad (Breiter Meme-Kiefer)', 'alien': '3D Megamind / Alien (Riesen-Kuppelkopf)', 'hamster': '3D Hamsterbacken (Prall aufgeblasen)', 'pinocchio': '3D Pinocchio (Lange Nase)', 'big_eyes': '3D Glubschaugen (Anime / Manga)', 'tiny_face': '3D Schrumpf-Gesicht (Charlie Kirk Meme)', 'big_mouth': '3D Riesenmund (Scream / Opernsänger)', 'hourglass': '3D Sanduhr (Wespentaille im Gesicht)', 'fisheye': '3D Glaskugel-Bulge (Linsen-Zoom)', 'swirl': '3D Strudel / Wirbel (Vortex-Twist)', 'wave': '3D Wackelpudding (Wobble-Welle)', 'mirror_left': 'Doppel-Links (Alien-Symmetrie)', 'mirror_right': 'Doppel-Rechts (Alien-Symmetrie)', 'stretch_vert': 'Bleistift-Kopf (Langgezogen)', 'squish_wide': 'Wide Meme (Pfannkuchen-Kopf)'};
 
 // Helper: Escape HTML
 function escapeHtml(str) {
@@ -196,27 +209,27 @@ function renderQueue(clips, olderCount) {
     tbody.innerHTML = clips.map(clip => `
         <tr onclick="openRawPreview('${escapeJs(clip.clip_id)}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.original_title)}', '${clip.view_count}', '${Math.round(clip.duration)}', '${escapeJs(clip.created_ago || '')}', '${escapeJs(clip.created_full || '')}')"
             class="hover:bg-slate-800/40 transition cursor-pointer group">
-            <td class="py-3.5 px-4 font-bold text-purple-400 whitespace-nowrap">${escapeHtml(clip.streamer)}</td>
+            <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">${escapeHtml(clip.streamer)}</td>
             <td class="py-3.5 px-4 font-medium text-slate-200">
                 <div class="line-clamp-2" title="${escapeHtml(clip.original_title)}">${escapeHtml(clip.original_title)}</div>
             </td>
             <td class="py-3.5 px-4 whitespace-nowrap" title="${escapeHtml(clip.created_full || '')}">
                 <div class="flex items-center gap-1.5 text-slate-300 font-medium">
-                    <span>📅</span> ${escapeHtml(clip.created_ago || '-')}
+                    ${SVG_ICONS.calendar} ${escapeHtml(clip.created_ago || '-')}
                 </div>
                 ${clip.created_full ? `<span class="text-[11px] text-slate-500 block">${escapeHtml(clip.created_full)}</span>` : ''}
             </td>
-            <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap">👁️ ${clip.view_count}</td>
+            <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap">${SVG_ICONS.eye} ${clip.view_count}</td>
             <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">${Math.round(clip.duration)}s</td>
             <td class="py-3.5 px-4 text-right space-x-2 whitespace-nowrap" onclick="event.stopPropagation()">
-                <button onclick="processOneClip('${clip.clip_id}')" class="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-bold text-xs rounded-lg shadow-md text-white transition active:scale-95">
-                    ✂️ Zuschneiden & Verarbeiten
+                <button onclick="processOneClip('${clip.clip_id}')" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5">
+                    ${SVG_ICONS.scissors} Zuschneiden & Verarbeiten
                 </button>
                 <button onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.original_title)}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs rounded-lg text-slate-200 transition">
-                    🎛️ Manuell zuschneiden
+                    ${SVG_ICONS.crop} Visueller Zuschnitt
                 </button>
                 <button onclick="deleteSingleQueueClip('${clip.clip_id}')" class="px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-900/50 font-bold text-xs rounded-lg text-rose-300 hover:text-white transition" title="Löschen">
-                    🗑️
+                    ${SVG_ICONS.trash}
                 </button>
             </td>
         </tr>
@@ -269,13 +282,13 @@ function renderStudio(clips, streamerCounts) {
     if (pillsContainer && streamerCounts) {
         const totalCount = clips ? clips.length : 0;
         let pillsHtml = `
-            <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-600 text-white transition shadow">
+            <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 text-white transition shadow">
                 Alle (${totalCount})
             </button>
         `;
         for (const [stName, count] of Object.entries(streamerCounts)) {
             pillsHtml += `
-                <button onclick="filterStudioByStreamer('${stName.toLowerCase()}')" id="pill-${stName.toLowerCase()}" class="streamer-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                <button onclick="filterStudioByStreamer('${stName.toLowerCase()}')" id="pill-${stName.toLowerCase()}" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
                     ${stName} (${count})
                 </button>
             `;
@@ -292,16 +305,16 @@ function renderStudio(clips, streamerCounts) {
 
     if (!grid) return;
     grid.innerHTML = clips.map(clip => `
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col hover:border-slate-700 transition-all duration-300 studio-clip-card ${clip.is_manually_published ? 'opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90' : ''}" id="card-${clip.clip_id}" data-streamer="${escapeHtml(clip.streamer.toLowerCase())}">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-700 transition-all duration-300 studio-clip-card ${clip.is_manually_published ? 'opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90' : ''}" id="card-${clip.clip_id}" data-streamer="${escapeHtml(clip.streamer.toLowerCase())}">
             <!-- Header -->
             <div class="flex justify-between items-center bg-slate-950/90 px-4 py-2.5 border-b border-slate-800">
                 <div class="flex items-center gap-2">
-                    <span class="bg-purple-600/90 text-xs font-bold px-2.5 py-1 rounded-md shadow text-white">
+                    <span class="bg-zinc-800 border border-zinc-700 text-xs font-semibold px-2 py-0.5 rounded text-amber-400">
                         ${escapeHtml(clip.streamer)}
                     </span>
                     ${clip.created_ago ? `
                     <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap" title="${escapeHtml(clip.created_full || '')}">
-                        📅 ${escapeHtml(clip.created_ago)}
+                        ${SVG_ICONS.calendar} ${escapeHtml(clip.created_ago)}
                     </span>
                     ` : ''}
                 </div>
@@ -326,11 +339,11 @@ function renderStudio(clips, streamerCounts) {
                 </div>
                 `}
                 <span class="absolute top-3 right-3 bg-slate-900/80 text-xs text-slate-300 font-semibold px-2 py-1 rounded-md backdrop-blur">
-                    👁️ ${clip.view_count}
+                    ${SVG_ICONS.eye} ${clip.view_count}
                 </span>
                 ${clip.has_video ? `
                 <a href="${getBackendUrl('/download/short/' + clip.clip_id)}" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5" title="Fertiges 9:16 Short in HQ herunterladen">
-                    <span>💾</span> HQ Download
+                    ${SVG_ICONS.save} HQ Download
                 </a>
                 ` : ''}
             </div>
@@ -339,18 +352,18 @@ function renderStudio(clips, streamerCounts) {
             <form action="/save/${clip.clip_id}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs font-semibold text-pink-400 uppercase tracking-wider mb-1 flex justify-between">
+                        <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1 flex justify-between">
                             <span>💬 TikTok / Shorts Sprechblasen-Hook</span>
                             <span class="text-slate-500 font-normal">Mitte</span>
                         </label>
-                        <input type="text" name="sticker_text" value="${escapeHtml(clip.sticker_text || '')}" placeholder="z. B. Was macht er da?!" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pink-500">
+                        <input type="text" name="sticker_text" value="${escapeHtml(clip.sticker_text || '')}" placeholder="z. B. Was macht er da?!" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
                             📝 Titel (YouTube / TikTok)
                         </label>
-                        <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                        <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
                     <div>
@@ -366,18 +379,18 @@ function renderStudio(clips, streamerCounts) {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
+                        <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
                             📐 Video-Layout & Aufteilung
                         </label>
-                        <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                        <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             <option value="auto" ${clip.layout_mode === 'auto' ? 'selected' : ''}>🤖 Automatisch (KI erkennt Facecam)</option>
-                            <option value="custom" ${clip.layout_mode === 'custom' ? 'selected' : ''}>🎯 Benutzerdefiniert (Visuelle Rahmen)</option>
-                            <option value="single_916" ${clip.layout_mode === 'single_916' ? 'selected' : ''}>📱 Reines 9:16 Vollbild (IRL)</option>
-                            <option value="split_cam_top" ${clip.layout_mode === 'split_cam_top' ? 'selected' : ''}>✂️ Split-Screen (Cam oben, Game unten)</option>
-                            <option value="blur_stack" ${clip.layout_mode === 'blur_stack' ? 'selected' : ''}>🌫️ Blur-Stack (Hintergrund unscharf)</option>
+                            <option value="custom" ${clip.layout_mode === 'custom' ? 'selected' : ''}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
+                            <option value="single_916" ${clip.layout_mode === 'single_916' ? 'selected' : ''}>Reines 9:16 Vollbild (IRL / Fullscreen)</option>
+                            <option value="split_cam_top" ${clip.layout_mode === 'split_cam_top' ? 'selected' : ''}>Split-Screen (Facecam oben, Gameplay unten)</option>
+                            <option value="blur_stack" ${clip.layout_mode === 'blur_stack' ? 'selected' : ''}>Blur-Stack (Hintergrund unscharf)</option>
                         </select>
-                        <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full mt-2 py-2 px-3 bg-gradient-to-r from-purple-900/70 to-indigo-900/70 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/60 hover:border-purple-400 text-purple-200 hover:text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow">
-                            <span>🎯</span> Bildausschnitt anpassen (Split-Cam oder IRL 9:16)
+                        <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
+                            ${SVG_ICONS.crop} Bildausschnitt anpassen (Split-Cam oder 9:16)
                         </button>
                     </div>
 
@@ -395,11 +408,11 @@ function renderStudio(clips, streamerCounts) {
                 </div>
 
                 <div class="pt-3 border-t border-slate-800 flex items-center gap-3">
-                    <button type="submit" class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5">
-                        <span>💾</span> Speichern
+                    <button type="submit" class="flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
+                        ${SVG_ICONS.save} Speichern
                     </button>
-                    <button type="button" onclick="scheduleSingleClip('${clip.clip_id}')" class="px-3.5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5" title="Im Zeitplan eintragen">
-                        <span>🚀</span> Einplanen
+                    <button type="button" onclick="scheduleSingleClip('${clip.clip_id}')" class="px-3.5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded shadow-md transition active:scale-95 flex items-center justify-center gap-1.5" title="Im Zeitplan eintragen">
+                        ${SVG_ICONS.calendar} Einplanen
                     </button>
                 </div>
             </form>
@@ -430,12 +443,12 @@ function renderPlanner(scheduledClips) {
 
     tbody.innerHTML = scheduledClips.map(clip => `
         <tr class="hover:bg-slate-800/40 transition">
-            <td class="py-3.5 px-4 font-bold text-purple-400">${escapeHtml(clip.streamer)}</td>
+            <td class="py-3.5 px-4 font-bold text-amber-400">${escapeHtml(clip.streamer)}</td>
             <td class="py-3.5 px-4 text-slate-200">
                 <div class="font-medium line-clamp-1">${escapeHtml(clip.ai_title || clip.original_title)}</div>
             </td>
             <td class="py-3.5 px-4 text-sky-400 font-mono text-xs whitespace-nowrap">
-                <span>⏰</span> ${escapeHtml(clip.scheduled_publish_at || '-')}
+                ${SVG_ICONS.clock} ${escapeHtml(clip.scheduled_publish_at || '-')}
             </td>
             <td class="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
                 <button onclick="publishNow('${clip.clip_id}')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs rounded-lg text-white transition active:scale-95 shadow">
@@ -482,7 +495,7 @@ function renderPublished(publishedClips) {
 
     tbody.innerHTML = publishedClips.map(clip => `
         <tr class="hover:bg-slate-800/40 transition">
-            <td class="py-3.5 px-4 font-bold text-purple-400">${escapeHtml(clip.streamer)}</td>
+            <td class="py-3.5 px-4 font-bold text-amber-400">${escapeHtml(clip.streamer)}</td>
             <td class="py-3.5 px-4 text-slate-200">
                 <div class="font-medium line-clamp-1">${escapeHtml(clip.ai_title || clip.original_title)}</div>
             </td>
@@ -492,7 +505,7 @@ function renderPublished(publishedClips) {
             <td class="py-3.5 px-4 text-right">
                 ${clip.youtube_video_id ? `
                 <a href="https://youtube.com/shorts/${clip.youtube_video_id}" target="_blank" class="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1 justify-end">
-                    <span>▶️</span> Auf YouTube ansehen
+                    ${SVG_ICONS.play} Auf YouTube ansehen
                 </a>
                 ` : `
                 <span class="text-xs text-slate-500">Erledigt</span>
@@ -510,14 +523,14 @@ function renderStreamers(streamers) {
     if (!container || !streamers) return;
 
     container.innerHTML = streamers.map(s => `
-        <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded-xl hover:border-slate-600 transition">
+        <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded hover:border-slate-600 transition">
             <div class="flex items-center gap-3">
-                <span class="font-bold text-sm text-purple-300">${escapeHtml(s.name)}</span>
+                <span class="font-bold text-sm text-amber-400">${escapeHtml(s.name)}</span>
                 <span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-md font-mono">Min. ${s.min_clip_views} Views</span>
                 <span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-md font-mono">Max. ${s.max_clips_per_run} Clips</span>
             </div>
             <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-lg transition" title="Entfernen">
-                🗑️
+                ${SVG_ICONS.trash}
             </button>
         </div>
     `).join('');
@@ -571,14 +584,14 @@ if (document.readyState === 'loading') {
 
         function filterStudioByStreamer(streamerName) {
             document.querySelectorAll('.streamer-pill').forEach(btn => {
-                btn.classList.remove('active', 'bg-purple-600', 'text-white');
+                btn.classList.remove('active', 'bg-amber-500 text-zinc-950', 'text-white');
                 btn.classList.add('bg-slate-800', 'text-slate-300');
             });
             
             const activePill = document.getElementById('pill-' + streamerName);
             if (activePill) {
                 activePill.classList.remove('bg-slate-800', 'text-slate-300');
-                activePill.classList.add('active', 'bg-purple-600', 'text-white');
+                activePill.classList.add('active', 'bg-amber-500 text-zinc-950', 'text-white');
             }
 
             document.querySelectorAll('.studio-clip-card').forEach(card => {
@@ -624,7 +637,7 @@ if (document.readyState === 'loading') {
                 el.style.display = 'none';
             });
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('active', 'text-purple-400');
+                el.classList.remove('active', 'text-amber-400');
                 el.classList.add('text-slate-400');
             });
             
@@ -635,7 +648,7 @@ if (document.readyState === 'loading') {
             }
             const btn = document.getElementById('tab-' + tabId + '-btn');
             if (btn) {
-                btn.classList.add('active', 'text-purple-400');
+                btn.classList.add('active', 'text-amber-400');
                 btn.classList.remove('text-slate-400');
             }
         }
@@ -736,7 +749,7 @@ if (document.readyState === 'loading') {
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<span>⚡</span> Neue Clips auf Twitch suchen';
+                    btn.innerHTML = SVG_ICONS.scan + ' Neue Clips auf Twitch suchen';
                 }
             }
         }
@@ -757,7 +770,7 @@ if (document.readyState === 'loading') {
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<span>⚡</span> Alle Warteschlangen-Clips ins Studio übernehmen';
+                    btn.innerHTML = SVG_ICONS.scan + ' Alle Warteschlangen-Clips ins Studio übernehmen';
                 }
             }
         }
@@ -786,7 +799,7 @@ if (document.readyState === 'loading') {
                     desc.innerText = data.current_task + (data.streamer ? ' (' + data.streamer + ')' : '');
                     if (btn) {
                         btn.disabled = true;
-                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-slate-400 font-bold text-sm rounded-xl cursor-not-allowed';
+                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-slate-400 font-bold text-sm rounded cursor-not-allowed';
                     }
 
                     // Render Fortschritt einblenden
@@ -815,8 +828,8 @@ if (document.readyState === 'loading') {
                     progressCard.classList.add('hidden');
                     if (btn) {
                         btn.disabled = false;
-                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-sm rounded-xl shadow-lg shadow-purple-500/20 transition transform active:scale-95 text-white';
-                        btn.innerHTML = '<span>⚡</span> Neue Clips auf Twitch suchen';
+                        btn.className = 'flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition shadow-sm';
+                        btn.innerHTML = SVG_ICONS.scan + ' Neue Clips auf Twitch suchen';
                     }
                 }
 
@@ -860,10 +873,10 @@ if (document.readyState === 'loading') {
 
             if (mode === 'single_916') {
                 if (btnSplit) {
-                    btnSplit.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300';
+                    btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
                 }
                 if (btnSingle) {
-                    btnSingle.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-500/20';
+                    btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
                 }
                 if (tbSplit) tbSplit.classList.add('hidden');
                 if (tbSingle) tbSingle.classList.remove('hidden');
@@ -873,10 +886,10 @@ if (document.readyState === 'loading') {
                 updateBoxDom('single');
             } else {
                 if (btnSplit) {
-                    btnSplit.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20';
+                    btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
                 }
                 if (btnSingle) {
-                    btnSingle.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300';
+                    btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
                 }
                 if (tbSplit) tbSplit.classList.remove('hidden');
                 if (tbSingle) tbSingle.classList.add('hidden');
@@ -1193,7 +1206,7 @@ if (document.readyState === 'loading') {
                     if (document.activeElement !== slider) slider.value = w_px;
                 }
                 if (badge) badge.innerText = '(Festes 9:16 Vollbild)';
-                if (hint) hint.innerText = '🔒 9:16 fest (Vollbild) • Mausrad / Ecken ziehen';
+                if (hint) hint.innerText = '9:16 fest (Vollbild) • Mausrad / Ecken ziehen';
 
                 if (bSmall) {
                     bSmall.innerText = `Zoom (${zoomW}px)`;
@@ -1221,7 +1234,7 @@ if (document.readyState === 'loading') {
                     if (document.activeElement !== slider) slider.value = w_px;
                 }
                 if (badge) badge.innerText = '(Festes 9:10 Format)';
-                if (hint) hint.innerText = '🔒 9:10 fest (Split) • Mausrad / Ecken ziehen';
+                if (hint) hint.innerText = '9:10 fest (Split) • Mausrad / Ecken ziehen';
 
                 if (bSmall) {
                     bSmall.innerText = 'Zoom (648px)';
@@ -1677,7 +1690,7 @@ if (document.readyState === 'loading') {
                 const targetWpx = Math.round(curHpx * (9 / 10));
                 setGamePixelWidth(targetWpx);
             } else {
-                btn.innerText = '✅ Facecam wieder aktivieren';
+                btn.innerText = 'Facecam wieder aktivieren';
                 btn.className = 'px-2.5 py-1 bg-emerald-900/80 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
                 
                 // Zu 9:16 Vollbild-Format wechseln (Höhe beibehalten, Breite anpassen)
@@ -1704,7 +1717,7 @@ if (document.readyState === 'loading') {
             ctx.fillRect(0, 0, 270, 480);
 
             if (currentCropMode === 'single_916') {
-                // 📱 Reines 9:16 Vollbild (IRL) - 1:1 unverzerrt in 9:16 Canvas
+                // Reines 9:16 Vollbild (IRL / Fullscreen) - 1:1 unverzerrt in 9:16 Canvas
                 const sx = cropState.single.x * vw;
                 const sy = 0;
                 const sw = Math.max(16, cropState.single.w * vw);
@@ -2148,7 +2161,7 @@ if (document.readyState === 'loading') {
                         if (!sData.running) {
                             clearInterval(pollTimer);
                             if (sData.message && sData.message.includes('Erfolgreich')) {
-                                if (text) text.innerText = '✅ Erfolgreich verbunden! Aktualisiere Dashboard...';
+                                if (text) text.innerText = 'Erfolgreich verbunden! Aktualisiere Dashboard...';
                                 setTimeout(() => refreshDashboard(), 1200);
                             } else {
                                 if (btn) {
@@ -2200,7 +2213,7 @@ if (document.readyState === 'loading') {
 
                 // Im neuen Tab öffnen!
                 window.open(data.auth_url, '_blank');
-                if (text) text.innerText = '👉 Google-Login im neuen Tab geöffnet! Wähle deinen YouTube-Kanal und klicke auf "Zulassen"...';
+                if (text) text.innerText = 'Google-Login im neuen Tab geöffnet! Wähle deinen YouTube-Kanal und klicke auf "Zulassen"...';
 
                 // Status überwachen bis YouTube auf verbunden springt
                 const pollTimer = setInterval(async () => {
@@ -2209,7 +2222,7 @@ if (document.readyState === 'loading') {
                         const aData = await aResp.json();
                         if (aData && aData.youtube && aData.youtube.is_connected) {
                             clearInterval(pollTimer);
-                            if (text) text.innerText = '✅ YouTube erfolgreich verbunden! Seite wird aktualisiert...';
+                            if (text) text.innerText = 'YouTube erfolgreich verbunden! Seite wird aktualisiert...';
                             setTimeout(() => refreshDashboard(), 1500);
                         }
                     } catch (err) {

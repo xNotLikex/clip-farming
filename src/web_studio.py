@@ -278,11 +278,11 @@ HTML_DASHBOARD = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clip-Farming Mission Control</title>
+    <title>Clip-Farming Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        .tab-btn.active { border-bottom: 2px solid #a855f7; color: #c084fc; font-weight: 700; }
+        .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #f3f4f6; font-weight: 600; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -318,10 +318,10 @@ HTML_DASHBOARD = """
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-6 border-b border-slate-800 gap-4">
             <div>
                 <div class="flex items-center gap-3">
-                    <h1 class="text-3xl font-black tracking-tight bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
-                        🎬 CLIP-FARMING MISSION CONTROL
+                    <h1 class="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
+                        <span>CLIP-FARMING</span><span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">STUDIO</span>
                     </h1>
-                    <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
+                    <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
                         <span class="w-2 h-2 rounded-full bg-slate-400" id="live-dot"></span>
                         <span id="live-status-text">Standby</span>
                     </span>
@@ -331,47 +331,47 @@ HTML_DASHBOARD = """
 
             <!-- Quick Action Buttons -->
             <div class="flex flex-wrap items-center gap-3">
-                <button onclick="openStreamerModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded-xl transition text-slate-200 shadow">
-                    <span>👥</span> Streamer verwalten ({{ streamers|length }})
+                <button onclick="openStreamerModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Streamer verwalten ({{ streamers|length }})
                 </button>
-                <button onclick="triggerRun()" id="btn-trigger" class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-sm rounded-xl shadow-lg shadow-purple-500/20 transition transform active:scale-95 text-white">
-                    <span>⚡</span> Neue Clips auf Twitch suchen
+                <button onclick="triggerRun()" id="btn-trigger" class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen
                 </button>
             </div>
         </header>
 
         <!-- LIVE RENDER PROGRESS CARD (Wird eingeblendet wenn aktiv) -->
-        <div id="render-progress-card" class="hidden bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-500/50 rounded-2xl p-5 shadow-2xl animate-pulse-subtle">
+        <div id="render-progress-card" class="hidden bg-zinc-900 border border-zinc-700 rounded-lg p-5 shadow-2xl animate-pulse-subtle">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
                 <div class="flex items-center gap-2.5">
                     <span class="w-3 h-3 rounded-full bg-pink-500 animate-ping"></span>
                     <span id="render-progress-title" class="text-sm font-bold text-white tracking-wide">Rendern aktiv...</span>
                 </div>
                 <div class="flex items-center gap-3 font-mono">
-                    <span id="render-speed-badge" class="text-xs bg-purple-900/80 text-purple-200 px-2.5 py-0.5 rounded-full border border-purple-700">NVENC</span>
-                    <span id="render-eta-text" class="text-xs font-semibold text-amber-300 bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-800/60">Noch ca. --s</span>
+                    <span id="render-speed-badge" class="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-0.5 rounded border border-zinc-700">NVENC</span>
+                    <span id="render-eta-text" class="text-xs font-semibold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">Noch ca. --s</span>
                     <span id="render-percent-text" class="text-lg font-black text-white">0%</span>
                 </div>
             </div>
             <!-- Progress Bar -->
-            <div class="w-full bg-slate-950 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-700/80 shadow-inner">
-                <div id="render-progress-bar" class="bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-400 h-full rounded-full transition-all duration-300 shadow-lg" style="width: 0%"></div>
+            <div class="w-full bg-slate-950 rounded h-2.5 overflow-hidden p-0.5 border border-slate-700/80 shadow-inner">
+                <div id="render-progress-bar" class="bg-amber-500 h-full rounded transition-all duration-300 shadow-lg" style="width: 0%"></div>
             </div>
         </div>
 
         <!-- KPI Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-amber-500/50 transition" onclick="switchTab('queue')">
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('queue')">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">1. Warteschlange</span>
                 <span class="text-3xl font-black text-amber-400 mt-1 block">{{ counts.harvested }}</span>
                 <span class="text-xs text-slate-500 mt-1 block">Rohdateien gespeichert</span>
             </div>
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-purple-500/50 transition" onclick="switchTab('studio')">
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('studio')">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">2. Studio & Freigabe</span>
-                <span class="text-3xl font-black text-purple-400 mt-1 block">{{ counts.ready }}</span>
+                <span class="text-3xl font-black text-amber-400 mt-1 block">{{ counts.ready }}</span>
                 <span class="text-xs text-slate-500 mt-1 block">9:16 Shorts bereit</span>
             </div>
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-sky-500/50 transition" onclick="switchTab('planner')">
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('planner')">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">3. Veröffentlichungs-Plan</span>
                 <div class="flex items-baseline gap-2 mt-1">
                     <span class="text-3xl font-black text-sky-400">{{ counts.scheduled }}</span>
@@ -379,7 +379,7 @@ HTML_DASHBOARD = """
                 </div>
                 <span class="text-xs text-slate-500 mt-1 block">Zeitgesteuerte Veröffentlichung</span>
             </div>
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl cursor-pointer hover:border-pink-500/50 transition" onclick="switchTab('accounts')">
+            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('accounts')">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">4. Konten-Status</span>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="text-sm font-bold {% if account_status.youtube.is_connected %}text-emerald-400{% else %}text-slate-500{% endif %}">YT: {% if account_status.youtube.is_connected %}✓{% else %}✗{% endif %}</span>
@@ -391,15 +391,15 @@ HTML_DASHBOARD = """
         </div>
 
         <!-- Live Activity Log Bar (Collapsible) -->
-        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-lg p-4">
             <div class="flex justify-between items-center cursor-pointer" onclick="toggleLogs()">
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold uppercase tracking-wider text-purple-400">📡 Live Activity Feed</span>
-                    <span id="log-count" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0 Einträge</span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">📡 Live Activity Feed</span>
+                    <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">0 Einträge</span>
                 </div>
                 <span id="log-toggle-icon" class="text-slate-400 text-xs">▼ Anzeigen</span>
             </div>
-            <div id="log-box" class="mt-3 hidden bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800/50">
+            <div id="log-box" class="mt-3 hidden bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800/50">
                 <div class="text-slate-500">Warte auf Aktionen...</div>
             </div>
         </div>
@@ -407,38 +407,38 @@ HTML_DASHBOARD = """
         <!-- Tabs Navigation -->
         <div class="flex flex-wrap gap-4 border-b border-slate-800 text-sm font-semibold">
             <button onclick="switchTab('queue')" id="tab-queue-btn" class="tab-btn pb-3 active flex items-center gap-2">
-                📥 1. Warteschlange ({{ counts.harvested }})
+                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg> 1. Warteschlange ({{ counts.harvested }})
             </button>
             <button onclick="switchTab('studio')" id="tab-studio-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                🎬 2. Studio & Freigabe ({{ counts.ready }})
+                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg> 2. Studio & Freigabe ({{ counts.ready }})
             </button>
             <button onclick="switchTab('planner')" id="tab-planner-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                🚀 3. Veröffentlichungs-Planer ({{ counts.scheduled }})
+                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> 3. Veröffentlichungs-Planer ({{ counts.scheduled }})
             </button>
             <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                🔗 4. Konten verknüpfen
+                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg> 4. Konten verknüpfen
             </button>
         </div>
 
         <!-- TAB 1: WARTESCHLANGE -->
         <div id="tab-queue" class="tab-content space-y-4">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/70 border-b border-slate-800 gap-3">
                     <div>
                         <span class="text-sm font-bold text-slate-200">📥 {{ counts.harvested }} Roh-Clips lokal auf der Festplatte</span>
-                        <span class="text-xs text-slate-400 block">💡 Klicke auf eine Zeile, um das Video vor dem Schneiden abzuspielen.</span>
+                        <span class="text-xs text-slate-400 block">Tipp: Klicke auf eine Zeile, um das Video vor dem Schneiden abzuspielen.</span>
                     </div>
                     {% if counts.harvested > 0 %}
                     <div class="flex flex-wrap items-center gap-2.5">
                         {% if older_queue_count > 0 %}
                         <form action="/queue/delete-older" method="POST" class="inline" onsubmit="return confirm('Wirklich alle {{ older_queue_count }} Roh-Clips von gestern und älter aus der Warteschlange löschen?\n\n(Clips von heute bleiben vollständig erhalten)');">
-                            <button type="submit" class="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 font-bold text-xs rounded-xl shadow-lg shadow-rose-950/40 text-rose-300 hover:text-white flex items-center gap-2 transition active:scale-95" title="Löscht alle {{ older_queue_count }} Roh-Clips von gestern & älter">
-                                <span>🗑️</span> Gestern & älter löschen ({{ older_queue_count }})
+                            <button type="submit" class="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 font-bold text-xs rounded shadow-lg shadow-rose-950/40 text-rose-300 hover:text-white flex items-center gap-2 transition active:scale-95" title="Löscht alle {{ older_queue_count }} Roh-Clips von gestern & älter">
+                                <span><svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></span> Gestern & älter löschen ({{ older_queue_count }})
                             </button>
                         </form>
                         {% endif %}
-                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-bold text-xs rounded-xl shadow-lg shadow-purple-500/20 text-white flex items-center gap-2">
-                            <span>⚡</span> Alle Warteschlangen-Clips ins Studio übernehmen
+                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Alle Warteschlangen-Clips ins Studio übernehmen
                         </button>
                     </div>
                     {% endif %}
@@ -463,40 +463,40 @@ HTML_DASHBOARD = """
                             <tr onclick="openRawPreview('{{ clip.clip_id }}', '{{ clip.streamer|e }}', '{{ clip.original_title|e }}', '{{ clip.view_count }}', '{{ '%.0f'|format(clip.duration) }}', '{{ clip.created_ago|e }}', '{{ clip.created_full|e }}')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
-                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-purple-600 flex items-center justify-center text-xs text-white transition shadow">
+                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
                                         ▶
                                     </span>
                                 </td>
-                                <td class="py-3.5 px-4 font-bold text-purple-400 whitespace-nowrap">{{ clip.streamer }}</td>
-                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-purple-300 transition">
+                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">{{ clip.streamer }}</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
                                     <div>{{ clip.original_title }}</div>
                                     <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
                                 </td>
                                 <td class="py-3.5 px-4 whitespace-nowrap" title="{{ clip.created_full }}">
                                     <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <span>📅</span> {{ clip.created_ago }}
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> {{ clip.created_ago }}
                                     </div>
                                     {% if clip.created_full %}
                                     <span class="text-[11px] text-slate-500 block">{{ clip.created_full }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap">👁️ {{ clip.view_count }}</td>
+                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> {{ clip.view_count }}</td>
                                 <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">{{ "%.0f"|format(clip.duration) }}s</td>
                                 <td class="py-3.5 px-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
                                         ✓ Lokal geladen
                                     </span>
                                 </td>
                                 <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                                     <div class="flex items-center justify-end gap-2">
                                         <form action="/process-one/{{ clip.clip_id }}" method="POST" class="inline">
-                                            <button type="submit" class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-xs rounded-lg shadow text-white transition active:scale-95 whitespace-nowrap">
-                                                ✂️ In Studio übernehmen
+                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
                                             </button>
                                         </form>
                                         <form action="/queue/delete/{{ clip.clip_id }}" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
                                             <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
-                                                🗑️
+                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
                                         </form>
                                     </div>
@@ -517,7 +517,7 @@ HTML_DASHBOARD = """
         <div id="tab-studio" class="tab-content hidden space-y-6">
             {% if ready_clips %}
             <!-- Sammel-Aktionen Header -->
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 p-4 rounded-2xl gap-3">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 p-4 rounded-lg gap-3">
                 <div>
                     <span class="text-sm font-bold text-white">🎬 {{ counts.ready }} Shorts bereit zur Bearbeitung & Veröffentlichung</span>
                     <span class="text-xs text-slate-400 block">Du kannst jeden Clip einzeln anpassen oder alle gestaffelt im Zeitplan veröffentlichen.</span>
@@ -531,20 +531,20 @@ HTML_DASHBOARD = """
                         <option value="60">jede 1 Stunde</option>
                         <option value="120">alle 2 Stunden</option>
                     </select>
-                    <button type="submit" class="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow transition">
-                        📅 Alle gestaffelt einplanen
+                    <button type="submit" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-semibold text-xs rounded transition flex items-center gap-2">
+                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Alle gestaffelt einplanen
                     </button>
                 </form>
             </div>
 
             <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
-            <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-2xl shadow">
+            <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">🔍 Filter nach Streamer:</span>
-                <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-600 text-white transition shadow">
+                <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 font-semibold transition">
                     Alle ({{ ready_clips|length }})
                 </button>
                 {% for st_name, count in streamer_counts.items() %}
-                <button onclick="filterStudioByStreamer('{{ st_name|lower }}')" id="pill-{{ st_name|lower }}" class="streamer-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                <button onclick="filterStudioByStreamer('{{ st_name|lower }}')" id="pill-{{ st_name|lower }}" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
                     {{ st_name }} ({{ count }})
                 </button>
                 {% endfor %}
@@ -552,16 +552,16 @@ HTML_DASHBOARD = """
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {% for clip in ready_clips %}
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col hover:border-slate-700 transition-all duration-300 studio-clip-card {% if clip.is_manually_published %}opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90{% endif %}" id="card-{{ clip.clip_id }}" data-streamer="{{ clip.streamer|lower }}">
+                <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl flex flex-col hover:border-slate-700 transition-all duration-300 studio-clip-card {% if clip.is_manually_published %}opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90{% endif %}" id="card-{{ clip.clip_id }}" data-streamer="{{ clip.streamer|lower }}">
                     <!-- Card Header: Streamer & Veröffentlicht-Checkbox -->
                     <div class="flex justify-between items-center bg-slate-950/90 px-4 py-2.5 border-b border-slate-800">
                         <div class="flex items-center gap-2">
-                            <span class="bg-purple-600/90 text-xs font-bold px-2.5 py-1 rounded-md shadow text-white">
+                            <span class="bg-zinc-800 border border-zinc-700 text-xs font-semibold px-2 py-0.5 rounded text-amber-400">
                                 {{ clip.streamer }}
                             </span>
                             {% if clip.created_ago %}
                             <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap" title="{{ clip.created_full }}">
-                                📅 {{ clip.created_ago }}
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> {{ clip.created_ago }}
                             </span>
                             {% endif %}
                         </div>
@@ -587,14 +587,14 @@ HTML_DASHBOARD = """
                         {% endif %}
                         
                         <span class="absolute top-3 right-3 bg-slate-900/80 text-xs text-slate-300 font-semibold px-2 py-1 rounded-md backdrop-blur">
-                            👁️ {{ clip.view_count }}
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> {{ clip.view_count }}
                         </span>
 
                         {% if clip.has_video %}
                         <a href="/download/short/{{ clip.clip_id }}" 
                             class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5"
                             title="Fertiges 9:16 Short in HQ auf deinen PC herunterladen">
-                            <span>💾</span> HQ Download
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> HQ Download
                         </a>
                         {% endif %}
                     </div>
@@ -604,28 +604,28 @@ HTML_DASHBOARD = """
                         <div class="space-y-3">
                             <!-- Sticker Hook Text -->
                             <div>
-                                <label class="block text-xs font-semibold text-pink-400 uppercase tracking-wider mb-1 flex justify-between">
-                                    <span>💬 TikTok / Shorts Sprechblasen-Hook</span>
+                                <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1 flex justify-between">
+                                    <span>TikTok / Shorts Hook</span>
                                     <span class="text-slate-500 font-normal">Mitte</span>
                                 </label>
                                 <input type="text" name="sticker_text" value="{{ clip.sticker_text }}" 
                                     placeholder="z. B. Gtastys ki hittet double mace"
-                                    class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pink-500">
+                                    class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
 
                             <!-- Video Title -->
                             <div>
                                 <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                                    📝 Titel (YouTube / TikTok)
+                                    Titel (YouTube / TikTok)
                                 </label>
                                 <input type="text" name="title" value="{{ clip.title }}" 
-                                    class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                                    class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
 
                             <!-- Untertitel-Platzierung -->
                             <div>
                                 <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
-                                    💬 Untertitel-Platzierung
+                                    Untertitel-Platzierung
                                 </label>
                                 <select name="sub_position" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                                     <option value="bottom" {% if clip.sub_position == 'bottom' %}selected{% endif %}>📌 Unten (Standard, über Shorts-UI)</option>
@@ -637,26 +637,26 @@ HTML_DASHBOARD = """
 
                             <!-- Video-Layout & Aufteilung (Split-Screen vs. Blur vs. IRL 9:16) -->
                             <div>
-                                <label class="block text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
-                                    📐 Video-Layout & Aufteilung
+                                <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                                    Video-Layout & Aufteilung
                                 </label>
-                                <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                                <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                                     <option value="auto" {% if clip.layout_mode == 'auto' %}selected{% endif %}>🤖 Automatisch (KI erkennt Facecam vs. IRL)</option>
-                                    <option value="custom" {% if clip.layout_mode == 'custom' %}selected{% endif %}>🎯 Benutzerdefiniert (Visuelle Rahmen)</option>
+                                    <option value="custom" {% if clip.layout_mode == 'custom' %}selected{% endif %}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
                                     <option value="single_916" {% if clip.layout_mode == 'single_916' %}selected{% endif %}>📱 Reines 9:16 Vollbild (IRL / Einzelfokus)</option>
                                     <option value="split_cam_top" {% if clip.layout_mode == 'split_cam_top' %}selected{% endif %}>✂️ Split-Screen (Cam oben, Gameplay unten)</option>
                                     <option value="blur_stack" {% if clip.layout_mode == 'blur_stack' %}selected{% endif %}>🌫️ Blur-Stack (IRL / Vollbild mit unscharfem Hintergrund)</option>
                                 </select>
                                 <button type="button" onclick="openCropModal('{{ clip.clip_id }}', '{{ clip.streamer }}', '{{ clip.title }}')" 
-                                    class="w-full mt-2 py-2 px-3 bg-gradient-to-r from-purple-900/70 to-indigo-900/70 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/60 hover:border-purple-400 text-purple-200 hover:text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow">
-                                    <span>🎯</span> Bildausschnitt anpassen (Split-Cam oder IRL 9:16)
+                                    class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Bildausschnitt anpassen (Split-Cam oder 9:16)
                                 </button>
                             </div>
 
                             <!-- Cam-Filter / Effekte (Snapchat / TikTok Style) -->
                             <div>
                                 <label class="block text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 flex justify-between">
-                                    <span>🎭 Cam-Filter / Effekt (Snapchat-Style)</span>
+                                    <span>Facecam-Effekt & Warp (MLS 3D)</span>
                                     <span class="text-slate-500 font-normal">Fun-Warp für Facecam</span>
                                 </label>
                                 <select name="cam_filter" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
@@ -680,8 +680,8 @@ HTML_DASHBOARD = """
                         <!-- Action Buttons -->
                         <div class="pt-4 border-t border-slate-800 flex flex-col gap-2">
                             <button type="submit" name="action" value="rerender" 
-                                class="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-bold text-sm rounded-lg shadow-md transition flex items-center justify-center gap-2 text-white active:scale-95">
-                                <span>⚡</span> Speichern & Neu Rendern
+                                class="w-full py-2 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-2 shadow-sm">
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Speichern & Neu Rendern
                             </button>
 
                             {% if clip.has_video %}
@@ -694,18 +694,18 @@ HTML_DASHBOARD = """
                             <div class="grid grid-cols-2 gap-2">
                                 <button type="submit" name="action" value="schedule" 
                                     class="py-2 px-3 bg-sky-700 hover:bg-sky-600 font-bold text-xs rounded-lg transition text-white flex items-center justify-center gap-1">
-                                    📅 Zeitplan
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Zeitplan
                                 </button>
                                 <button type="submit" name="action" value="publish_now" 
                                     class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs rounded-lg transition text-white flex items-center justify-center gap-1">
-                                    🚀 Sofort Posten
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Sofort posten
                                 </button>
                             </div>
                             <div class="text-right">
                                 <button type="submit" name="action" value="delete" 
                                     onclick="return confirm('Clip wirklich löschen?');"
                                     class="text-xs text-rose-400 hover:text-rose-300 transition">
-                                    🗑️ Löschen & Ignorieren
+                                    <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Löschen & Ignorieren
                                 </button>
                             </div>
                         </div>
@@ -714,11 +714,11 @@ HTML_DASHBOARD = """
                 {% endfor %}
             </div>
             {% else %}
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-12 text-center">
                 <span class="text-5xl block mb-3">🎬</span>
                 <h3 class="text-lg font-bold text-slate-300">Noch keine fertig gerenderten Shorts im Studio</h3>
                 <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                    Klicke im Reiter <strong>„1. Warteschlange“</strong> bei deinen Wunsch-Clips auf <strong>„✂️ In Studio übernehmen“</strong>!
+                    Klicke im Reiter <strong>„1. Warteschlange“</strong> bei deinen Wunsch-Clips auf <strong>„<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen“</strong>!
                 </p>
             </div>
             {% endif %}
@@ -728,10 +728,10 @@ HTML_DASHBOARD = """
         <div id="tab-planner" class="tab-content hidden space-y-6">
             
             <!-- Planer Einstellungen Card -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <span>⏰</span> Automatische Veröffentlichungs-Warteschlange (Drip-Feed)
+                        <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Automatische Veröffentlichungs-Warteschlange (Drip-Feed)
                     </h3>
                     <p class="text-xs text-slate-400 mt-1">
                         Verhindert Spam: Eingeplante Clips werden automatisch im gewählten Zeitabstand nacheinander auf YouTube Shorts & TikTok hochgeladen.
@@ -740,17 +740,17 @@ HTML_DASHBOARD = """
                 <form action="/api/schedule/set-interval" method="POST" class="flex items-center gap-2">
                     <span class="text-xs font-semibold text-slate-300">Standard-Intervall:</span>
                     <select name="interval_minutes" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 font-semibold">
-                        <option value="15" {% if account_status.publishing_interval == 15 %}selected{% endif %}>⏱️ 15 Minuten</option>
-                        <option value="30" {% if account_status.publishing_interval == 30 %}selected{% endif %}>⏱️ 30 Minuten (Empfohlen)</option>
-                        <option value="45" {% if account_status.publishing_interval == 45 %}selected{% endif %}>⏱️ 45 Minuten</option>
-                        <option value="60" {% if account_status.publishing_interval == 60 %}selected{% endif %}>⏱️ 1 Stunde</option>
-                        <option value="120" {% if account_status.publishing_interval == 120 %}selected{% endif %}>⏱️ 2 Stunden</option>
+                        <option value="15" {% if account_status.publishing_interval == 15 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 15 Minuten</option>
+                        <option value="30" {% if account_status.publishing_interval == 30 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 30 Minuten (Empfohlen)</option>
+                        <option value="45" {% if account_status.publishing_interval == 45 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 45 Minuten</option>
+                        <option value="60" {% if account_status.publishing_interval == 60 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 1 Stunde</option>
+                        <option value="120" {% if account_status.publishing_interval == 120 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 2 Stunden</option>
                     </select>
                 </form>
             </div>
 
             <!-- 1. Geplante Clips (Warteschlange) -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
                 <div class="p-4 bg-slate-950/70 border-b border-slate-800 flex justify-between items-center">
                     <span class="text-sm font-bold text-sky-400">⏳ Geplante Veröffentlichungen ({{ scheduled_clips|length }})</span>
                     <span class="text-xs text-slate-400">Hintergrund-Worker prüft alle 15 Sekunden</span>
@@ -769,7 +769,7 @@ HTML_DASHBOARD = """
                         <tbody class="divide-y divide-slate-800/80">
                             {% for clip in scheduled_clips %}
                             <tr class="hover:bg-slate-800/40 transition">
-                                <td class="py-3.5 px-4 font-bold text-purple-400">{{ clip.streamer }}</td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400">{{ clip.streamer }}</td>
                                 <td class="py-3.5 px-4 font-semibold text-slate-200">{{ clip.ai_title or clip.original_title }}</td>
                                 <td class="py-3.5 px-4 font-mono text-amber-300">
                                     <div class="flex items-center gap-1.5">
@@ -786,7 +786,7 @@ HTML_DASHBOARD = """
                                     <div class="flex items-center justify-end gap-2">
                                         <form action="/schedule/publish-now/{{ clip.clip_id }}" method="POST" class="inline">
                                             <button type="submit" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 font-bold text-xs rounded-lg text-white transition">
-                                                🚀 Jetzt posten
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Jetzt posten
                                             </button>
                                         </form>
                                         <form action="/schedule/cancel/{{ clip.clip_id }}" method="POST" class="inline">
@@ -799,7 +799,7 @@ HTML_DASHBOARD = """
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" class="py-8 text-center text-slate-500">Keine Clips im Veröffentlichungs-Zeitplan. Klicke im Studio auf „📅 Zeitplan“!</td>
+                                <td colspan="5" class="py-8 text-center text-slate-500">Keine Clips im Veröffentlichungs-Zeitplan. Klicke im Studio auf „<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Zeitplan“!</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -808,7 +808,7 @@ HTML_DASHBOARD = """
             </div>
 
             <!-- 2. Historie (Bereits veröffentlicht) -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
                 <div class="p-4 bg-slate-950/70 border-b border-slate-800">
                     <span class="text-sm font-bold text-emerald-400">✓ Bereits veröffentlichte Shorts ({{ published_clips|length }})</span>
                 </div>
@@ -825,7 +825,7 @@ HTML_DASHBOARD = """
                         <tbody class="divide-y divide-slate-800/80">
                             {% for clip in published_clips %}
                             <tr class="hover:bg-slate-800/40 transition">
-                                <td class="py-3.5 px-4 font-bold text-purple-400">{{ clip.streamer }}</td>
+                                <td class="py-3.5 px-4 font-bold text-amber-400">{{ clip.streamer }}</td>
                                 <td class="py-3.5 px-4 font-medium text-slate-200">{{ clip.ai_title or clip.original_title }}</td>
                                 <td class="py-3.5 px-4 font-mono text-slate-400 text-xs">{{ clip.published_at or '-' }}</td>
                                 <td class="py-3.5 px-4">
@@ -851,7 +851,7 @@ HTML_DASHBOARD = """
 
         <!-- TAB 4: KONTEN VERKNÜPFEN -->
         <div id="tab-accounts" class="tab-content hidden space-y-6">
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <span class="text-3xl">🔗</span>
                     <div>
@@ -860,10 +860,10 @@ HTML_DASHBOARD = """
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold px-3 py-1.5 rounded-xl {% if account_status.youtube.is_connected %}bg-emerald-950 text-emerald-400 border border-emerald-800{% else %}bg-slate-800 text-slate-400{% endif %}">
+                    <span class="text-xs font-bold px-3 py-1.5 rounded {% if account_status.youtube.is_connected %}bg-emerald-950 text-emerald-400 border border-emerald-800{% else %}bg-slate-800 text-slate-400{% endif %}">
                         YouTube: {% if account_status.youtube.is_connected %}✓ Verbunden{% else %}✗ Getrennt{% endif %}
                     </span>
-                    <span class="text-xs font-bold px-3 py-1.5 rounded-xl {% if account_status.tiktok.is_connected %}bg-emerald-950 text-emerald-400 border border-emerald-800{% else %}bg-slate-800 text-slate-400{% endif %}">
+                    <span class="text-xs font-bold px-3 py-1.5 rounded {% if account_status.tiktok.is_connected %}bg-emerald-950 text-emerald-400 border border-emerald-800{% else %}bg-slate-800 text-slate-400{% endif %}">
                         TikTok: {% if account_status.tiktok.is_connected %}✓ Verbunden{% else %}✗ Getrennt{% endif %}
                     </span>
                 </div>
@@ -872,7 +872,7 @@ HTML_DASHBOARD = """
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 <!-- Card 1: YouTube Shorts -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl flex flex-col justify-between">
                     <div class="space-y-4">
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-3">
@@ -883,22 +883,22 @@ HTML_DASHBOARD = """
                                 </div>
                             </div>
                             {% if account_status.youtube.is_connected %}
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
                                 🟢 Verbunden
                             </span>
                             {% elif account_status.youtube.has_secrets %}
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-950 text-amber-400 border border-amber-800">
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-950 text-amber-400 border border-amber-800">
                                 🟡 Secrets bereit
                             </span>
                             {% else %}
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-zinc-800 text-slate-400 border border-slate-700">
                                 ⚪ Nicht eingerichtet
                             </span>
                             {% endif %}
                         </div>
 
                         {% if account_status.youtube.is_connected %}
-                        <div class="p-4 bg-emerald-950/40 border border-emerald-800/50 rounded-xl space-y-2">
+                        <div class="p-4 bg-emerald-950/40 border border-emerald-800/50 rounded space-y-2">
                             <div class="text-xs text-slate-300">
                                 <strong>Kanal:</strong> <span class="text-emerald-300 font-bold">{{ account_status.youtube.channel_name }}</span>
                             </div>
@@ -910,13 +910,13 @@ HTML_DASHBOARD = """
 
                         <!-- Login-Button immer prominent wenn Secrets vorhanden -->
                         {% if account_status.youtube.has_secrets and not account_status.youtube.is_connected %}
-                        <div class="p-4 bg-red-950/40 border border-red-500/50 rounded-xl space-y-3 text-center">
+                        <div class="p-4 bg-red-950/40 border border-red-500/50 rounded space-y-3 text-center">
                             <span class="text-xs font-bold text-red-300 block">Secrets hinterlegt! Letzter Schritt:</span>
                             <button type="button" onclick="startYouTubeOAuthLogin()" id="btn-yt-login"
-                                class="w-full py-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 font-bold text-sm rounded-xl text-white flex items-center justify-center gap-2 shadow-lg shadow-red-500/25 transition transform active:scale-95">
-                                <span>🚀</span> Jetzt mit Google / YouTube einloggen
+                                class="w-full py-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 font-bold text-sm rounded text-white flex items-center justify-center gap-2 shadow-lg shadow-red-500/25 transition transform active:scale-95">
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Jetzt mit Google / YouTube einloggen
                             </button>
-                            <div id="yt-login-status-box" class="hidden p-3 bg-slate-900/95 border border-red-500/60 rounded-xl text-xs font-semibold text-red-200 flex items-center justify-center gap-2">
+                            <div id="yt-login-status-box" class="hidden p-3 bg-slate-900/95 border border-red-500/60 rounded text-xs font-semibold text-red-200 flex items-center justify-center gap-2">
                                 <span class="animate-spin text-base">⏳</span>
                                 <span id="yt-login-status-text">Google-Login im neuen Tab geöffnet...</span>
                             </div>
@@ -928,12 +928,12 @@ HTML_DASHBOARD = """
                         <div class="space-y-3 pt-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-slate-200">Google OAuth Zugangsdaten:</span>
-                                <a href="https://console.cloud.google.com/apis/credentials/wizard" target="_blank" class="text-2xs text-purple-400 hover:text-purple-300 underline flex items-center gap-1">
+                                <a href="https://console.cloud.google.com/apis/credentials/wizard" target="_blank" class="text-2xs text-amber-400 hover:text-amber-400 underline flex items-center gap-1">
                                     <span>↗</span> Google Cloud Wizard öffnen
                                 </a>
                             </div>
 
-                            <form action="/api/accounts/youtube/save-credentials" method="POST" class="space-y-2 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                            <form action="/api/accounts/youtube/save-credentials" method="POST" class="space-y-2 bg-slate-950/70 p-3 rounded border border-slate-800">
                                 <input type="text" name="client_id" placeholder="Google Client-ID (z. B. 123456...apps.googleusercontent.com)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
                                 <input type="password" name="client_secret" placeholder="Google Client-Secret (z. B. GOCSPX-...)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
                                 <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg text-slate-200 transition">
@@ -945,15 +945,15 @@ HTML_DASHBOARD = """
                             <details class="text-2xs text-slate-400">
                                 <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">📁 Oder client_secrets.json Datei hochladen...</summary>
                                 <form action="/api/accounts/youtube/save-secrets" method="POST" enctype="multipart/form-data" class="space-y-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-                                    <input type="file" name="secrets_file" accept=".json" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-2xs file:font-bold file:bg-purple-600 file:text-white cursor-pointer">
+                                    <input type="file" name="secrets_file" accept=".json" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-2xs file:font-bold file:bg-zinc-800 file:text-zinc-200 border-zinc-700 cursor-pointer">
                                     <button type="submit" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-2xs font-bold rounded text-slate-300">JSON speichern</button>
                                 </form>
                             </details>
 
                             <!-- 3-Schritte Mini-Anleitung -->
-                            <div class="text-2xs text-slate-400 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
+                            <div class="text-2xs text-slate-400 bg-slate-950/40 p-2.5 rounded border border-slate-800/80 space-y-1">
                                 <div class="font-bold text-slate-300">30-Sekunden Schnell-Anleitung:</div>
-                                <div>1. In der <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" class="text-purple-400 underline">Google Cloud Console</a> die <strong>YouTube Data API v3</strong> aktivieren.</div>
+                                <div>1. In der <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" class="text-amber-400 underline">Google Cloud Console</a> die <strong>YouTube Data API v3</strong> aktivieren.</div>
                                 <div>2. Unter Anmeldedaten eine <strong>OAuth-Client-ID</strong> (Typ: Desktop-App) erstellen.</div>
                                 <div>3. Client-ID & Secret oben einfügen und einloggen!</div>
                             </div>
@@ -981,7 +981,7 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Card 2: TikTok -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl flex flex-col justify-between">
                     <div class="space-y-4">
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-3">
@@ -992,11 +992,11 @@ HTML_DASHBOARD = """
                                 </div>
                             </div>
                             {% if account_status.tiktok.is_connected %}
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
                                 🟢 Session aktiv
                             </span>
                             {% else %}
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-zinc-800 text-slate-400 border border-slate-700">
                                 ⚪ Nicht verknüpft
                             </span>
                             {% endif %}
@@ -1004,8 +1004,8 @@ HTML_DASHBOARD = """
 
                         {% if account_status.tiktok.is_connected %}
                         <!-- TikTok bereits verbunden -->
-                        <div class="p-5 bg-emerald-950/40 border border-emerald-800/60 rounded-2xl text-center space-y-2">
-                            <div class="text-3xl">✅</div>
+                        <div class="p-5 bg-emerald-950/40 border border-emerald-800/60 rounded-lg text-center space-y-2">
+                            <div class="text-2xl text-emerald-400"><svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
                             <div class="text-sm font-bold text-emerald-300">TikTok-Konto ist erfolgreich verknüpft!</div>
                             <div class="text-xs text-slate-300">Session aktiv • Bereit für automatische Uploads</div>
                             <div class="text-2xs font-mono text-slate-500 pt-1">Session-ID: {{ account_status.tiktok.session_id_preview }}</div>
@@ -1017,16 +1017,16 @@ HTML_DASHBOARD = """
                         </div>
                         {% else %}
                         <!-- ⭐ AUTOMATISCHER BROWSER LOGIN (MÖGLICHKEIT 1) -->
-                        <div class="p-4 bg-gradient-to-r from-pink-950/70 via-purple-950/60 to-pink-950/70 border border-pink-500/50 rounded-2xl text-center shadow-lg">
+                        <div class="p-4 bg-gradient-to-r from-pink-950/70 via-purple-950/60 to-pink-950/70 border border-pink-500/50 rounded-lg text-center shadow-lg">
                             <span class="text-2xs font-black text-pink-300 uppercase tracking-wider block mb-1">⭐ Automatische 1-Klick Methode (Empfohlen):</span>
                             <p class="text-xs text-slate-300 mb-3">Öffnet automatisch ein Login-Fenster. Logge dich einfach ein (z. B. <strong>QR-Code mit deiner Handy-TikTok-App scannen</strong>). Das Tool verbindet sich dann automatisch!</p>
                             
                             <button type="button" onclick="startTikTokBrowserLogin()" id="btn-tt-browser-login"
-                                class="w-full py-3 bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-pink-500/30 transition transform active:scale-95 flex items-center justify-center gap-2">
-                                <span>🌐</span> TikTok im Browserfenster verbinden (QR-Code / Login)
+                                class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold text-xs rounded border border-zinc-700 transition flex items-center justify-center gap-2">
+                                 TikTok im Browserfenster verbinden (QR-Code / Login)
                             </button>
 
-                            <div id="tt-browser-status-box" class="hidden mt-3 p-3 bg-slate-900/95 border border-pink-500/60 rounded-xl text-xs font-semibold text-pink-200 flex items-center justify-center gap-2">
+                            <div id="tt-browser-status-box" class="hidden mt-3 p-3 bg-slate-900/95 border border-pink-500/60 rounded text-xs font-semibold text-pink-200 flex items-center justify-center gap-2">
                                 <span class="animate-spin text-base">⏳</span>
                                 <span id="tt-browser-status-text">Warte auf Browser-Login...</span>
                             </div>
@@ -1037,11 +1037,11 @@ HTML_DASHBOARD = """
                         <details class="text-2xs text-slate-400">
                             <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">⚙️ Alternative: Manuelle sessionid Eingabe (Entwicklertools F12)...</summary>
                             
-                            <div class="space-y-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                            <div class="space-y-3 bg-slate-950/70 p-3 rounded border border-slate-800">
                                 <div class="text-2xs text-slate-400 space-y-1">
                                     <p class="text-slate-300 font-bold">So findest du das Cookie:</p>
                                     <ol class="list-decimal list-inside space-y-0.5">
-                                        <li>Öffne <a href="https://www.tiktok.com" target="_blank" class="text-pink-400 underline">tiktok.com</a> und logge dich ein.</li>
+                                        <li>Öffne <a href="https://www.tiktok.com" target="_blank" class="text-zinc-300 underline">tiktok.com</a> und logge dich ein.</li>
                                         <li>Drücke <strong>F12</strong> &rarr; Tab <strong>Anwendung / Cookies</strong>.</li>
                                         <li>Kopiere den Wert von <code>sessionid</code> und füge ihn unten ein:</li>
                                     </ol>
@@ -1049,7 +1049,7 @@ HTML_DASHBOARD = """
 
                                 <form action="/api/accounts/tiktok/save-session" method="POST" class="space-y-2">
                                     <input type="password" name="session_id" placeholder="z. B. 7a8f9c0e1b2d3..." value="{{ account_status.tiktok.session_id_preview }}"
-                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-pink-500 font-mono">
+                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono">
                                     <div class="flex items-center gap-2">
                                         <select name="upload_mode" class="flex-1 bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5">
                                             <option value="draft" {% if account_status.tiktok.upload_mode == 'draft' %}selected{% endif %}>Entwurf (Draft)</option>
@@ -1086,10 +1086,10 @@ HTML_DASHBOARD = """
 
     <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
     <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-lg max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
                 <div>
-                    <span id="modal-streamer" class="text-xs font-bold text-purple-400 uppercase tracking-wider block">STREAMER</span>
+                    <span id="modal-streamer" class="text-xs font-bold text-amber-400 uppercase tracking-wider block">STREAMER</span>
                     <h3 id="modal-title" class="text-base font-bold text-white truncate max-w-xl">Clip Titel</h3>
                 </div>
                 <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
@@ -1105,20 +1105,20 @@ HTML_DASHBOARD = """
             <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
                 <div class="flex items-center gap-2">
-                    <a id="modal-download-raw" href="" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded-xl transition flex items-center gap-1.5" title="Rohdatei direkt herunterladen">
+                    <a id="modal-download-raw" href="" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5" title="Rohdatei direkt herunterladen">
                         <span>💾</span> Rohdatei laden
                     </a>
-                    <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-600 font-bold text-xs text-indigo-200 hover:text-white rounded-xl transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
-                        <span>🎯</span> Zuschnitt festlegen
+                    <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-zinc-200 hover:text-white rounded transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
+                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Zuschnitt festlegen
                     </button>
                     <form id="modal-delete-form" action="" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
-                        <button type="submit" class="px-4 py-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-xl transition">
-                            🗑️ Clip löschen
+                        <button type="submit" class="px-4 py-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded transition">
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Clip löschen
                         </button>
                     </form>
                     <form id="modal-process-form" action="" method="POST" class="inline">
-                        <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-xs rounded-xl shadow-lg shadow-purple-500/20 text-white flex items-center gap-2 transition active:scale-95">
-                            ✂️ Jetzt in Studio übernehmen & schneiden
+                        <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> Jetzt in Studio übernehmen
                         </button>
                     </form>
                 </div>
@@ -1128,7 +1128,7 @@ HTML_DASHBOARD = """
 
     <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
     <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
                 <div class="flex items-center gap-2.5">
                     <span class="text-xl">👥</span>
@@ -1139,26 +1139,26 @@ HTML_DASHBOARD = """
             
             <div class="p-5 overflow-y-auto space-y-6">
                 <!-- Neuer Streamer Formular -->
-                <form action="/api/streamers/add" method="POST" class="bg-slate-950/80 border border-purple-500/40 p-4 rounded-xl space-y-3 shadow-inner">
-                    <span class="text-xs font-bold text-purple-400 uppercase tracking-wider block">➕ Neuen Streamer hinzufügen</span>
+                <form action="/api/streamers/add" method="POST" class="bg-slate-950/80 border border-zinc-700 p-4 rounded space-y-3 shadow-inner">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Neuen Streamer hinzufügen</span>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="sm:col-span-1">
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Twitch Kanalname:</label>
                             <input type="text" name="name" required placeholder="z. B. rewinside, xqc..." 
-                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-semibold">
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Min. Views:</label>
                             <input type="number" name="min_views" value="30" min="5" 
-                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
                             <input type="number" name="max_clips" value="2" min="1" max="10" 
-                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
                         </div>
                     </div>
-                    <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs rounded-lg transition shadow active:scale-95">
+                    <button type="submit" class="w-full py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition shadow-sm">
                         ➕ Streamer hinzufügen & dauerhaft speichern
                     </button>
                 </form>
@@ -1171,14 +1171,14 @@ HTML_DASHBOARD = """
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
                         {% for s in streamers %}
-                        <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded-xl hover:border-slate-600 transition">
+                        <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded hover:border-slate-600 transition">
                             <div>
                                 <span class="text-xs font-bold text-white block">{{ s.name }}</span>
                                 <span class="text-2xs text-slate-400 font-mono">Min. {{ s.min_clip_views }} Views • Max {{ s.max_clips_per_run }} Clips</span>
                             </div>
                             <form action="/api/streamers/remove/{{ s.name }}" method="POST" onsubmit="return confirm('Streamer {{ s.name }} wirklich entfernen?');">
                                 <button type="submit" class="p-1 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Streamer aus Überwachung entfernen">
-                                    🗑️
+                                    <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 </button>
                             </form>
                         </div>
@@ -1191,7 +1191,7 @@ HTML_DASHBOARD = """
 
     <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
     <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden flex items-center justify-center p-2 sm:p-4">
-        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
             <!-- Header -->
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
                 <div class="flex items-center gap-3">
@@ -1199,7 +1199,7 @@ HTML_DASHBOARD = """
                     <div>
                         <h3 class="text-base font-bold text-white flex items-center gap-2">
                             <span>Visueller Zuschnitt: Cam & Gameplay Rahmen</span>
-                            <span id="crop-modal-clip-badge" class="text-xs bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded font-mono truncate max-w-[200px]">Clip</span>
+                            <span id="crop-modal-clip-badge" class="text-xs bg-zinc-800 text-amber-400 border border-zinc-700 px-2 py-0.5 rounded font-mono truncate max-w-[200px]">Clip</span>
                         </h3>
                         <p class="text-xs text-slate-400 mt-0.5">Ziehe den <span class="text-emerald-400 font-bold">grünen Rahmen über die Facecam</span> und den <span class="text-sky-400 font-bold">blauen Rahmen über das Gameplay</span>. Die 9:16 Smartphone-Vorschau aktualisiert sich live!</p>
                     </div>
@@ -1214,9 +1214,9 @@ HTML_DASHBOARD = """
                 <div class="lg:col-span-8 flex flex-col gap-3">
                     
                     <!-- Mode Switcher: Split vs. Reines 9:16 IRL Vollbild -->
-                    <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 shadow-inner">
+                    <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded border border-slate-800 shadow-inner">
                         <button type="button" onclick="switchCropMode('split')" id="btn-mode-split" 
-                            class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-purple-700 text-white shadow">
+                            class="flex-1 py-2 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600">
                             <span>✂️</span> Split-Screen (Cam oben + Gameplay unten)
                         </button>
                         <button type="button" onclick="switchCropMode('single_916')" id="btn-mode-single" 
@@ -1226,14 +1226,14 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- Stage Container (Aspect 16:9) -->
-                    <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
+                    <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
                         <!-- Video element -->
                         <video id="crop-stage-video" crossorigin="anonymous" playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
 
                         <!-- Draggable Overlay Boxes Container (Feste Größen ohne Verzerrung) -->
                         <div id="crop-overlay-layer" class="absolute inset-0 select-none">
                             <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_20px_rgba(52,211,153,0.5)] rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:shadow-[0_0_25px_rgba(52,211,153,0.8)]" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>📷 Facecam</span>
                                     <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
@@ -1242,14 +1242,14 @@ HTML_DASHBOARD = """
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
                                 <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 3:2 Seitenverhältnis -->
-                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tr" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="bl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="br" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="tl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="tr" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="bl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="br" title="Größe anpassen (3:2)"></div>
                             </div>
 
                             <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-[0_0_20px_rgba(56,189,248,0.5)] rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:shadow-[0_0_25px_rgba(56,189,248,0.8)]" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-sky-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>🎮 Gameplay</span>
                                     <span id="crop-game-format-badge" class="text-sky-200 text-2xs font-normal">(Festes 9:10 Format)</span>
@@ -1258,19 +1258,19 @@ HTML_DASHBOARD = """
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
                                 <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 9:10 Seitenverhältnis -->
-                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 hover:scale-125 transition-transform" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
                             </div>
 
                             <!-- 🟪 Reiner 9:16 IRL Vollbild-Rahmen (Festes 9:16 Format, horizontal verschiebbar) -->
-                            <div id="crop-box-single" class="absolute select-none border-2 border-fuchsia-400 bg-fuchsia-500/20 shadow-[0_0_25px_rgba(217,70,239,0.6)] rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:shadow-[0_0_30px_rgba(217,70,239,0.9)] hidden">
-                                <div class="absolute -top-6 left-0 bg-fuchsia-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                            <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 hidden">
+                                <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-bold text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>📱 9:16 IRL Bildausschnitt</span>
                                     <span class="text-fuchsia-200 text-2xs font-normal">(Festes 9:16 Vollbild)</span>
                                 </div>
-                                <div class="w-6 h-6 rounded-full border border-white/70 bg-fuchsia-500/60 pointer-events-none flex items-center justify-center shadow">
+                                <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center">
                                     <span class="text-xs text-white font-black">↔</span>
                                 </div>
                             </div>
@@ -1278,18 +1278,18 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- Video Scrubber / Timeline Bar -->
-                    <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-3">
+                    <div class="bg-slate-950/90 border border-slate-800 rounded p-3 flex flex-col sm:flex-row items-center gap-3">
                         <div class="flex items-center gap-2">
                             <button onclick="seekCropVideo(-2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden zurück">⏪ -2s</button>
-                            <button onclick="toggleCropVideoPlay()" id="crop-play-btn" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-xs font-bold text-white rounded-lg transition">⏯️ Pause</button>
+                            <button onclick="toggleCropVideoPlay()" id="crop-play-btn" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg transition">⏯️ Pause</button>
                             <button onclick="seekCropVideo(2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden vor">⏩ +2s</button>
                         </div>
-                        <input type="range" id="crop-time-slider" min="0" max="30" step="0.1" value="0" class="flex-1 accent-purple-500 cursor-pointer" oninput="onCropSliderInput(this.value)">
+                        <input type="range" id="crop-time-slider" min="0" max="30" step="0.1" value="0" class="flex-1 accent-amber-500 cursor-pointer" oninput="onCropSliderInput(this.value)">
                         <span id="crop-time-display" class="text-xs font-mono font-bold text-slate-300 min-w-[90px] text-right">00:00 / 00:00</span>
                     </div>
 
                     <!-- Presets & Quick Action Toolbar (Split vs Single 9:16) -->
-                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2.5">
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded p-3 space-y-2.5">
                         <!-- Toolbar für Split-Screen Modus -->
                         <div id="toolbar-split" class="space-y-2.5">
                             <div class="space-y-1.5">
@@ -1299,18 +1299,18 @@ HTML_DASHBOARD = """
                                     <button onclick="applyPreset('cam_tl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Oben Links</button>
                                     <button onclick="applyPreset('cam_tr')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Oben Rechts</button>
                                     <button onclick="applyPreset('cam_bl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Unten Links</button>
-                                    <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-purple-900/80 hover:bg-purple-800 border border-purple-500/80 text-purple-200 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
-                                        <span>🤖</span> KI Auto-Erkennen
+                                    <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
+                                         KI Auto-Erkennen
                                     </button>
                                     <button onclick="toggleCamEnabled()" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition">
                                         🚫 Keine Cam (Vollbild)
                                     </button>
                                 </div>
                                 <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
-                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded-xl border border-slate-800/80">
+                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded border border-slate-800/80">
                                     <div class="flex items-center gap-2">
                                         <span class="text-xs font-bold text-emerald-400 min-w-[90px] flex items-center gap-1">
-                                            <span>📏</span> Cam-Größe:
+                                             Cam-Größe:
                                         </span>
                                         <input type="range" id="crop-cam-size-slider" min="200" max="1100" step="5" value="540" 
                                             class="w-36 sm:w-48 accent-emerald-500 cursor-pointer" 
@@ -1325,12 +1325,12 @@ HTML_DASHBOARD = """
                                         <button type="button" onclick="setCamPixelWidth(420)" id="btn-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Kompakt (420px)</button>
                                         <button type="button" onclick="setCamPixelWidth(540)" id="btn-size-normal" class="px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition">Standard (540px)</button>
                                         <button type="button" onclick="setCamPixelWidth(680)" id="btn-size-large" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Groß (680px)</button>
-                                        <span class="text-2xs text-slate-500 hidden md:inline ml-1">🔒 3:2 fest • Mausrad / Ecken ziehen</span>
+                                        <span class="text-2xs text-slate-500 hidden md:inline ml-1">3:2 fest • Mausrad / Ecken ziehen</span>
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-800/60">
                                     <span class="text-xs font-semibold text-emerald-400 min-w-[100px] flex items-center gap-1">
-                                        <span>🎭</span> Snapchat-Filter:
+                                         Snapchat-Filter:
                                     </span>
                                     <select id="crop-cam-filter-select" onchange="draw916Preview()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1 focus:border-emerald-500 flex-1 max-w-sm">
                                         {% for f_key, f_label in cam_filters.items() %}
@@ -1344,16 +1344,16 @@ HTML_DASHBOARD = """
                             <div class="space-y-2 pt-2 border-t border-slate-800/80">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-xs font-bold text-sky-400 min-w-[100px] flex items-center gap-1">
-                                        <span>🎮</span> Game-Position:
+                                         Game-Position:
                                     </span>
-                                    <button onclick="applyPreset('game_center')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">🎯 Mitte (Zentriert)</button>
+                                    <button onclick="applyPreset('game_center')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
                                     <button onclick="applyPreset('game_left')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">⬅️ Links</button>
                                     <button onclick="applyPreset('game_right')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">➡️ Rechts</button>
                                 </div>
-                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded-xl border border-slate-800/80">
+                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded border border-slate-800/80">
                                     <div class="flex items-center gap-2">
                                         <span class="text-xs font-bold text-sky-400 min-w-[90px] flex items-center gap-1">
-                                            <span>📏</span> Game-Größe:
+                                             Game-Größe:
                                         </span>
                                         <input type="range" id="crop-game-size-slider" min="360" max="1200" step="5" value="972" 
                                             class="w-36 sm:w-48 accent-sky-500 cursor-pointer" 
@@ -1368,7 +1368,7 @@ HTML_DASHBOARD = """
                                         <button type="button" onclick="setGamePixelWidth(648)" id="btn-game-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition">Zoom (648px)</button>
                                         <button type="button" onclick="setGamePixelWidth(810)" id="btn-game-size-medium" class="px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition">Mittel (810px)</button>
                                         <button type="button" onclick="setGamePixelWidth(972)" id="btn-game-size-max" class="px-2 py-0.5 bg-sky-900/80 border border-sky-500 text-2xs font-bold rounded text-sky-200 shadow transition">Voll (972px)</button>
-                                        <span id="crop-game-hint-text" class="text-2xs text-slate-500 hidden md:inline ml-1">🔒 9:10 fest (Split) • Mausrad / Ecken ziehen</span>
+                                        <span id="crop-game-hint-text" class="text-2xs text-slate-500 hidden md:inline ml-1">9:10 fest (Split) • Mausrad / Ecken ziehen</span>
                                     </div>
                                 </div>
                             </div>
@@ -1376,19 +1376,19 @@ HTML_DASHBOARD = """
 
                         <!-- Toolbar für Reines 9:16 IRL Vollbild -->
                         <div id="toolbar-single" class="hidden flex flex-wrap items-center gap-2.5">
-                            <span class="text-xs font-bold text-fuchsia-400 min-w-[110px]">📱 IRL-Ausschnitt:</span>
-                            <button onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-fuchsia-900/60 border border-slate-700 hover:border-fuchsia-500 text-xs font-bold rounded-lg text-slate-200 transition">🎯 Mitte (Zentriert)</button>
-                            <button onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-fuchsia-900/60 border border-slate-700 hover:border-fuchsia-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
-                            <button onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-fuchsia-900/60 border border-slate-700 hover:border-fuchsia-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
-                            <span class="text-2xs text-fuchsia-300/80 ml-auto bg-fuchsia-950/80 px-2 py-1 rounded border border-fuchsia-800/60">🔒 Fester 9:16 Vollbild-Ausschnitt (608x1080 px)</span>
+                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">IRL-Ausschnitt:</span>
+                            <button onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
+                            <button onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
+                            <button onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                            <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">Fester 9:16 Vollbild-Ausschnitt (608x1080 px)</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Right Column: 9:16 Live Smartphone Mockup Preview (4 cols) -->
-                <div class="lg:col-span-4 flex flex-col items-center justify-between bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+                <div class="lg:col-span-4 flex flex-col items-center justify-between bg-slate-950/70 border border-slate-800 rounded-lg p-4">
                     <div class="text-center mb-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-purple-400 block">📱 Live 9:16 Vorschau</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Live 9:16 Vorschau</span>
                         <span class="text-2xs text-slate-400">Aktualisiert in Echtzeit beim Verschieben</span>
                     </div>
 
@@ -1414,1682 +1414,33 @@ HTML_DASHBOARD = """
 
             <!-- Footer Action Buttons -->
             <div class="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-800 bg-slate-950/80 gap-3">
-                <button onclick="closeCropModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition">
+                <button onclick="closeCropModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded transition">
                     Abbrechen
                 </button>
                 <div class="flex items-center gap-2">
-                    <button onclick="saveCropCoordinates(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded-xl transition">
-                        💾 Nur Speichern
+                    <button onclick="saveCropCoordinates(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded transition">
+                        Nur Speichern
                     </button>
-                    <button onclick="saveCropCoordinates(true)" class="px-6 py-2.5 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/25 transition active:scale-95 flex items-center gap-2">
-                        <span>🚀</span> Zuschnitt speichern & Jetzt Rendern (NVENC)
+                    <button onclick="saveCropCoordinates(true)" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                        <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> Zuschnitt speichern & Jetzt Rendern
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Live Auto-Update Script -->
-    <script>
-        function openStreamerModal() {
-            const m = document.getElementById('streamer-modal');
-            if (m) {
-                m.classList.remove('hidden');
-                m.classList.add('flex');
-                m.style.display = 'flex';
-            }
-        }
-
-        function closeStreamerModal() {
-            const m = document.getElementById('streamer-modal');
-            if (m) {
-                m.classList.add('hidden');
-                m.classList.remove('flex');
-                m.style.display = 'none';
-            }
-        }
-
-        function filterStudioByStreamer(streamerName) {
-            document.querySelectorAll('.streamer-pill').forEach(btn => {
-                btn.classList.remove('active', 'bg-purple-600', 'text-white');
-                btn.classList.add('bg-slate-800', 'text-slate-300');
-            });
-            
-            const activePill = document.getElementById('pill-' + streamerName);
-            if (activePill) {
-                activePill.classList.remove('bg-slate-800', 'text-slate-300');
-                activePill.classList.add('active', 'bg-purple-600', 'text-white');
-            }
-
-            document.querySelectorAll('.studio-clip-card').forEach(card => {
-                if (streamerName === 'all' || card.getAttribute('data-streamer') === streamerName) {
-                    card.classList.remove('hidden');
-                } else {
-                    card.classList.add('hidden');
-                }
-            });
-        }
-
-        async function toggleManualPublished(clipId, isChecked) {
-            const card = document.getElementById('card-' + clipId);
-            const label = document.getElementById('pub-label-' + clipId);
-            
-            if (isChecked) {
-                card.classList.add('opacity-40', 'grayscale', 'hover:grayscale-0', 'hover:opacity-95', 'border-emerald-900/80', 'bg-slate-950/90');
-                if (label) {
-                    label.innerText = '✓ Veröffentlicht';
-                    label.className = 'text-xs font-bold text-emerald-400';
-                }
-            } else {
-                card.classList.remove('opacity-40', 'grayscale', 'hover:grayscale-0', 'hover:opacity-95', 'border-emerald-900/80', 'bg-slate-950/90');
-                if (label) {
-                    label.innerText = 'Veröffentlicht?';
-                    label.className = 'text-xs font-bold text-slate-400';
-                }
-            }
-
-            try {
-                await fetch('/api/clip/' + clipId + '/toggle-published', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_published: isChecked })
-                });
-            } catch (e) {
-                console.error('Fehler beim Aktualisieren des Veröffentlichungs-Status:', e);
-            }
-        }
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.add('hidden');
-                el.style.display = 'none';
-            });
-            document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('active', 'text-purple-400');
-                el.classList.add('text-slate-400');
-            });
-            
-            const target = document.getElementById('tab-' + tabId);
-            if (target) {
-                target.classList.remove('hidden');
-                target.style.display = 'block';
-            }
-            const btn = document.getElementById('tab-' + tabId + '-btn');
-            if (btn) {
-                btn.classList.add('active', 'text-purple-400');
-                btn.classList.remove('text-slate-400');
-            }
-        }
-
-        let currentPreviewClipId = '';
-        let currentPreviewStreamer = '';
-        let currentPreviewTitle = '';
-
-        function openRawPreview(clipId, streamer, title, views, duration, createdAgo = '', createdFull = '') {
-            currentPreviewClipId = clipId;
-            currentPreviewStreamer = streamer;
-            currentPreviewTitle = title;
-            const sEl = document.getElementById('modal-streamer');
-            if (sEl) sEl.innerText = (streamer || '').toUpperCase();
-            const tEl = document.getElementById('modal-title');
-            if (tEl) tEl.innerText = title || '';
-            let statsText = '👁️ ' + (views || 0) + ' Views • ⏱️ ' + (duration || 0) + 's (Rohdatei auf Festplatte)';
-            if (createdAgo) {
-                statsText += ' • 📅 Erstellt: ' + createdAgo;
-            }
-            const statsElem = document.getElementById('modal-stats');
-            if (statsElem) {
-                statsElem.innerText = statsText;
-                if (createdFull) {
-                    statsElem.title = createdFull;
-                }
-            }
-            
-            const player = document.getElementById('modal-video-player');
-            if (player) {
-                player.src = '/raw-video/' + clipId;
-                player.load();
-                player.play().catch(() => {});
-            }
-
-            const procForm = document.getElementById('modal-process-form');
-            if (procForm) procForm.action = '/process-one/' + clipId;
-            const delForm = document.getElementById('modal-delete-form');
-            if (delForm) delForm.action = '/queue/delete/' + clipId;
-            const dlRaw = document.getElementById('modal-download-raw');
-            if (dlRaw) dlRaw.href = '/download/raw/' + clipId;
-            
-            const modal = document.getElementById('preview-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                modal.style.display = 'flex';
-            }
-        }
-
-        function closePreviewModal() {
-            const player = document.getElementById('modal-video-player');
-            if (player) {
-                player.pause();
-                player.src = '';
-            }
-            const modal = document.getElementById('preview-modal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                modal.style.display = 'none';
-            }
-        }
-
-        let logsOpen = false;
-        function toggleLogs() {
-            logsOpen = !logsOpen;
-            const box = document.getElementById('log-box');
-            const icon = document.getElementById('log-toggle-icon');
-            if (logsOpen) {
-                box.classList.remove('hidden');
-                icon.innerText = '▲ Verbergen';
-            } else {
-                box.classList.add('hidden');
-                icon.innerText = '▼ Anzeigen';
-            }
-        }
-
-        async function triggerRun() {
-            const btn = document.getElementById('btn-trigger');
-            btn.disabled = true;
-            btn.innerHTML = '<span>⏳</span> Scanne Twitch...';
-            try {
-                await fetch('/api/run', { method: 'POST' });
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function processAll() {
-            const btn = document.getElementById('btn-process-all');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<span>⏳</span> Schneide alle Clips...';
-            }
-            try {
-                await fetch('/api/process-all', { method: 'POST' });
-                switchTab('studio');
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function updateStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-                
-                const dot = document.getElementById('live-dot');
-                const text = document.getElementById('live-status-text');
-                const desc = document.getElementById('live-task-desc');
-                const btn = document.getElementById('btn-trigger');
-
-                // Render Progress Card
-                const progressCard = document.getElementById('render-progress-card');
-                const progressBar = document.getElementById('render-progress-bar');
-                const progressPercent = document.getElementById('render-percent-text');
-                const progressEta = document.getElementById('render-eta-text');
-                const progressSpeed = document.getElementById('render-speed-badge');
-                const progressTitle = document.getElementById('render-progress-title');
-
-                if (data.is_running) {
-                    dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
-                    text.innerText = 'Aktiv: ' + data.status.toUpperCase();
-                    desc.innerText = data.current_task + (data.streamer ? ' (' + data.streamer + ')' : '');
-                    if (btn) {
-                        btn.disabled = true;
-                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-slate-400 font-bold text-sm rounded-xl cursor-not-allowed';
-                    }
-
-                    // Render Fortschritt einblenden
-                    if (data.status === 'rendering' || data.progress_percent > 0) {
-                        progressCard.classList.remove('hidden');
-                        progressBar.style.width = data.progress_percent + '%';
-                        progressPercent.innerText = data.progress_percent + '%';
-                        
-                        if (data.eta_seconds !== null && data.eta_seconds !== undefined) {
-                            progressEta.innerText = 'Noch ca. ' + data.eta_seconds + 's';
-                        } else {
-                            progressEta.innerText = 'Berechne...';
-                        }
-
-                        if (data.speed) {
-                            progressSpeed.innerText = data.speed + ' NVENC';
-                        }
-                        progressTitle.innerText = data.current_task || 'Rendere Video...';
-                    } else {
-                        progressCard.classList.add('hidden');
-                    }
-                } else {
-                    dot.className = 'w-2 h-2 rounded-full bg-slate-400';
-                    text.innerText = 'Standby';
-                    desc.innerText = data.current_task;
-                    progressCard.classList.add('hidden');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-sm rounded-xl shadow-lg shadow-purple-500/20 transition transform active:scale-95 text-white';
-                        btn.innerHTML = '<span>⚡</span> Neue Clips auf Twitch suchen';
-                    }
-                }
-
-                if (data.logs && data.logs.length > 0) {
-                    document.getElementById('log-count').innerText = data.logs.length + ' Einträge';
-                    const logBox = document.getElementById('log-box');
-                    logBox.innerHTML = data.logs.slice(-30).map(l => '<div>' + l + '</div>').join('');
-                    if (logsOpen) {
-                        logBox.scrollTop = logBox.scrollHeight;
-                    }
-                }
-            } catch (err) {
-                console.error('Polling error:', err);
-            }
-        }
-
-        // --- VISUELLER ZUSCHNITT & CROPPER ---
-        let currentCropClipId = null;
-        let currentCropTitle = '';
-        let currentCropStreamer = '';
-        let currentCropMode = 'split'; // 'split' oder 'single_916'
-        let videoNativeWidth = 1920;
-        let videoNativeHeight = 1080;
-        let cropState = {
-            cam: { x: 0.73, y: 0.64, w: 0.26, h: 0.34, enabled: true },
-            game: { x: 0.245, y: 0.0, w: 0.51, h: 1.0, enabled: true },
-            single: { x: (1 - (608 / 1920)) / 2, y: 0.0, w: 608 / 1920, h: 1.0, enabled: true }
-        };
-        let activeCropDrag = null;
-        let cropVideoInitialized = false;
-
-        function switchCropMode(mode) {
-            currentCropMode = mode;
-            const btnSplit = document.getElementById('btn-mode-split');
-            const btnSingle = document.getElementById('btn-mode-single');
-            const tbSplit = document.getElementById('toolbar-split');
-            const tbSingle = document.getElementById('toolbar-single');
-            const boxCam = document.getElementById('crop-box-cam');
-            const boxGame = document.getElementById('crop-box-game');
-            const boxSingle = document.getElementById('crop-box-single');
-
-            if (mode === 'single_916') {
-                if (btnSplit) {
-                    btnSplit.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300';
-                }
-                if (btnSingle) {
-                    btnSingle.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-500/20';
-                }
-                if (tbSplit) tbSplit.classList.add('hidden');
-                if (tbSingle) tbSingle.classList.remove('hidden');
-                if (boxCam) boxCam.classList.add('hidden');
-                if (boxGame) boxGame.classList.add('hidden');
-                if (boxSingle) boxSingle.classList.remove('hidden');
-                updateBoxDom('single');
-            } else {
-                if (btnSplit) {
-                    btnSplit.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20';
-                }
-                if (btnSingle) {
-                    btnSingle.className = 'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300';
-                }
-                if (tbSplit) tbSplit.classList.remove('hidden');
-                if (tbSingle) tbSingle.classList.add('hidden');
-                if (boxCam && cropState.cam.enabled) boxCam.classList.remove('hidden');
-                if (boxGame) boxGame.classList.remove('hidden');
-                if (boxSingle) boxSingle.classList.add('hidden');
-                updateBoxDom('cam');
-                updateBoxDom('game');
-            }
-            draw916Preview();
-        }
-
-        async function openCropModal(clipId, streamer, title) {
-            currentCropClipId = clipId;
-            currentCropStreamer = streamer || '';
-            currentCropTitle = title || '';
-
-            const badge = document.getElementById('crop-modal-clip-badge');
-            if (badge) badge.innerText = (streamer ? streamer + ': ' : '') + (title ? title.slice(0, 28) : clipId);
-
-            const cardFilterSelect = document.querySelector(`form[action="/save/${clipId}"] select[name="cam_filter"]`);
-            const filterVal = cardFilterSelect ? cardFilterSelect.value : 'none';
-            const modalFilterSelect = document.getElementById('crop-cam-filter-select');
-            if (modalFilterSelect) modalFilterSelect.value = filterVal;
-
-            const modal = document.getElementById('crop-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                modal.style.display = 'flex';
-            }
-
-            const vid = document.getElementById('crop-stage-video');
-            vid.src = '/raw-video/' + clipId;
-            vid.load();
-
-            // Default Box States: Feste Seitenverhältnisse (3:2 für Cam, 9:10 für Gameplay, 9:16 für Single)
-            cropState.cam = {
-                x: 1 - (540 / 1920) - 0.02,
-                y: 1 - (360 / 1080) - 0.03,
-                w: 540 / 1920,
-                h: 360 / 1080,
-                enabled: true
-            };
-            cropState.game = {
-                x: (1 - (972 / 1920)) / 2,
-                y: 0.0,
-                w: 972 / 1920,
-                h: 1.0,
-                enabled: true
-            };
-            cropState.single = {
-                x: (1 - (608 / 1920)) / 2,
-                y: 0.0,
-                w: 608 / 1920,
-                h: 1.0,
-                enabled: true
-            };
-            currentCropMode = 'split';
-
-            // Saved metadata abrufen falls vorhanden
-            try {
-                const resp = await fetch(`/api/clip/${clipId}/meta`);
-                const meta = await resp.json();
-                if (meta) {
-                    if (meta.layout_mode === 'single_916' || (meta.custom_crops && meta.custom_crops.mode === 'single_916')) {
-                        currentCropMode = 'single_916';
-                        if (meta.custom_crops) {
-                            const s = meta.custom_crops.single || meta.custom_crops.single_916;
-                            if (s) {
-                                if (s.x_pct !== undefined) cropState.single.x = s.x_pct;
-                                else if (s.x !== undefined) cropState.single.x = s.x / (meta.video_w || 1920);
-                            }
-                        }
-                    } else if (meta.custom_crops && meta.custom_crops.cam) {
-                        currentCropMode = 'split';
-                        const c = meta.custom_crops.cam;
-                        const g = meta.custom_crops.game;
-                        if (c.w_pct) {
-                            cropState.cam.w = c.w_pct;
-                            cropState.cam.h = c.h_pct;
-                        }
-                        cropState.cam.x = c.x_pct !== undefined ? c.x_pct : (c.x / (meta.video_w || 1920));
-                        cropState.cam.y = c.y_pct !== undefined ? c.y_pct : (c.y / (meta.video_h || 1080));
-                        cropState.cam.enabled = c.enabled !== false;
-
-                        if (g) {
-                            if (g.w_pct) {
-                                cropState.game.w = g.w_pct;
-                                cropState.game.h = g.h_pct || (g.w_pct * ((meta.video_w || 1920) / (meta.video_h || 1080)) * (10 / 9));
-                            }
-                            cropState.game.x = g.x_pct !== undefined ? g.x_pct : (g.x / (meta.video_w || 1920));
-                            cropState.game.y = g.y_pct !== undefined ? g.y_pct : 0.0;
-                        }
-                    }
-                    if (meta.title) currentCropTitle = meta.title;
-                    if (meta.cam_filter && modalFilterSelect) {
-                        modalFilterSelect.value = meta.cam_filter;
-                    }
-                }
-            } catch (e) {
-                console.warn('Keine vorherigen Zuschnitt-Metadaten geladen:', e);
-            }
-
-            // Sync Cam & Game Größen-Regler
-            const curWpx = Math.round(cropState.cam.w * (videoNativeWidth || 1920));
-            const curHpx = Math.round(curWpx * (2 / 3));
-            syncCamSizeUi(curWpx, curHpx);
-
-            const isVollbild = isGameplayVollbild();
-            const curGW = Math.round(cropState.game.w * (videoNativeWidth || 1920));
-            const curGH = Math.round(curGW * (isVollbild ? (16 / 9) : (10 / 9)));
-            syncGameSizeUi(curGW, curGH);
-
-            switchCropMode(currentCropMode);
-            updateBoxDom('cam');
-            updateBoxDom('game');
-            updateBoxDom('single');
-
-            if (!cropVideoInitialized) {
-                initCropInteractions();
-                initCropVideoListeners();
-                cropVideoInitialized = true;
-            }
-        }
-
-        function closeCropModal() {
-            const vid = document.getElementById('crop-stage-video');
-            if (vid) {
-                vid.pause();
-                vid.src = '';
-            }
-            const modal = document.getElementById('crop-modal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                modal.style.display = 'none';
-            }
-        }
-
-        function initCropVideoListeners() {
-            const vid = document.getElementById('crop-stage-video');
-            const slider = document.getElementById('crop-time-slider');
-            const timeDisp = document.getElementById('crop-time-display');
-
-            vid.addEventListener('loadedmetadata', () => {
-                videoNativeWidth = vid.videoWidth || 1920;
-                videoNativeHeight = vid.videoHeight || 1080;
-                slider.max = vid.duration || 30;
-                vid.currentTime = Math.min(2.0, (vid.duration || 10) * 0.1);
-
-                // Sync Cam & Game Größen-Regler
-                const curWpx = Math.round(cropState.cam.w * videoNativeWidth);
-                const curHpx = Math.round(curWpx * (2 / 3));
-                syncCamSizeUi(curWpx, curHpx);
-
-                const isVollbild = isGameplayVollbild();
-                const curGW = Math.round(cropState.game.w * videoNativeWidth);
-                const curGH = Math.round(curGW * (isVollbild ? (16 / 9) : (10 / 9)));
-                syncGameSizeUi(curGW, curGH);
-
-                updateBoxDom('cam');
-                updateBoxDom('game');
-                updateBoxDom('single');
-                draw916Preview();
-            });
-
-            vid.addEventListener('timeupdate', () => {
-                slider.value = vid.currentTime;
-                const cur = formatTime(vid.currentTime);
-                const tot = formatTime(vid.duration || 0);
-                timeDisp.innerText = `${cur} / ${tot}`;
-                draw916Preview();
-            });
-
-            vid.addEventListener('seeked', draw916Preview);
-            vid.addEventListener('play', () => {
-                document.getElementById('crop-play-btn').innerHTML = '⏸️ Pause';
-            });
-            vid.addEventListener('pause', () => {
-                document.getElementById('crop-play-btn').innerHTML = '▶️ Abspielen';
-            });
-        }
-
-        function formatTime(sec) {
-            const m = Math.floor(sec / 60);
-            const s = Math.floor(sec % 60);
-            return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-        }
-
-        function toggleCropVideoPlay() {
-            const vid = document.getElementById('crop-stage-video');
-            if (vid.paused) vid.play(); else vid.pause();
-        }
-
-        function seekCropVideo(delta) {
-            const vid = document.getElementById('crop-stage-video');
-            vid.currentTime = Math.max(0, Math.min(vid.duration || 60, vid.currentTime + delta));
-        }
-
-        function onCropSliderInput(val) {
-            const vid = document.getElementById('crop-stage-video');
-            vid.currentTime = parseFloat(val);
-        }
-
-        function setCamPixelWidth(widthPx) {
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-            const maxAllowedW = Math.min(vw, Math.floor(vh * 1.5));
-            const clampedW = Math.max(160, Math.min(maxAllowedW, Math.round(parseFloat(widthPx))));
-            const clampedH = Math.round(clampedW * (2 / 3));
-
-            const newW = clampedW / vw;
-            const newH = clampedH / vh;
-
-            // Mittelpunkt stabil halten
-            const centerX = cropState.cam.x + (cropState.cam.w / 2);
-            const centerY = cropState.cam.y + (cropState.cam.h / 2);
-
-            cropState.cam.w = newW;
-            cropState.cam.h = newH;
-            cropState.cam.x = Math.max(0, Math.min(1 - newW, centerX - (newW / 2)));
-            cropState.cam.y = Math.max(0, Math.min(1 - newH, centerY - (newH / 2)));
-
-            syncCamSizeUi(clampedW, clampedH);
-            updateBoxDom('cam');
-            draw916Preview();
-        }
-
-        function syncCamSizeUi(w_px, h_px) {
-            const slider = document.getElementById('crop-cam-size-slider');
-            const disp = document.getElementById('crop-cam-size-display');
-            if (slider && document.activeElement !== slider) slider.value = w_px;
-            if (disp) disp.innerText = `${w_px} x ${h_px} px`;
-
-            const bNormal = document.getElementById('btn-size-normal');
-            const bSmall = document.getElementById('btn-size-small');
-            const bLarge = document.getElementById('btn-size-large');
-            const actCls = 'px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition';
-            const inactCls = 'px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition';
-            if (bNormal) bNormal.className = (w_px === 540) ? actCls : inactCls;
-            if (bSmall) bSmall.className = (w_px === 420) ? actCls : inactCls;
-            if (bLarge) bLarge.className = (w_px === 680) ? actCls : inactCls;
-        }
-
-        function setCamSize(size) {
-            if (size === 'small') setCamPixelWidth(420);
-            else if (size === 'large') setCamPixelWidth(680);
-            else setCamPixelWidth(540);
-        }
-
-        function isGameplayVollbild() {
-            return currentCropMode === 'single_916' || !cropState.cam.enabled;
-        }
-
-        function setGamePixelWidth(widthPx) {
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-            const isVollbild = isGameplayVollbild();
-
-            // Format-Wahl: 
-            // Mit Cam -> 9:10 (Höhe = Breite * 10 / 9)
-            // Keine Cam / Vollbild -> 9:16 (Höhe = Breite * 16 / 9)
-            const ratioW = 9;
-            const ratioH = isVollbild ? 16 : 10;
-
-            const maxAllowedW = Math.min(vw, Math.floor(vh * (ratioW / ratioH)));
-            const minAllowedW = isVollbild ? 200 : 320;
-            const clampedW = Math.max(minAllowedW, Math.min(maxAllowedW, Math.round(parseFloat(widthPx))));
-            const clampedH = Math.round(clampedW * (ratioH / ratioW));
-
-            const newW = clampedW / vw;
-            const newH = clampedH / vh;
-
-            // Mittelpunkt beibehalten beim Zoomen/Skalieren
-            const centerX = cropState.game.x + (cropState.game.w / 2);
-            const centerY = cropState.game.y + (cropState.game.h / 2);
-
-            cropState.game.w = newW;
-            cropState.game.h = newH;
-            cropState.game.x = Math.max(0, Math.min(1 - newW, centerX - (newW / 2)));
-            cropState.game.y = Math.max(0, Math.min(1 - newH, centerY - (newH / 2)));
-
-            syncGameSizeUi(clampedW, clampedH);
-            updateBoxDom('game');
-            draw916Preview();
-        }
-
-        function syncGameSizeUi(w_px, h_px) {
-            const isVollbild = isGameplayVollbild();
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-
-            const slider = document.getElementById('crop-game-size-slider');
-            const disp = document.getElementById('crop-game-size-display');
-            const badge = document.getElementById('crop-game-format-badge');
-            const hint = document.getElementById('crop-game-hint-text');
-
-            const bMax = document.getElementById('btn-game-size-max');
-            const bMed = document.getElementById('btn-game-size-medium');
-            const bSmall = document.getElementById('btn-game-size-small');
-
-            const actCls = 'px-2 py-0.5 bg-sky-900/80 border border-sky-500 text-2xs font-bold rounded text-sky-200 shadow transition';
-            const inactCls = 'px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition';
-
-            if (isVollbild) {
-                const maxW = Math.min(vw, Math.floor(vh * (9 / 16))); // 608 auf 1080p
-                const medW = Math.round(maxW * 0.833); // 506px
-                const zoomW = Math.round(maxW * 0.667); // 405px
-
-                if (slider) {
-                    slider.min = 200;
-                    slider.max = maxW;
-                    if (document.activeElement !== slider) slider.value = w_px;
-                }
-                if (badge) badge.innerText = '(Festes 9:16 Vollbild)';
-                if (hint) hint.innerText = '🔒 9:16 fest (Vollbild) • Mausrad / Ecken ziehen';
-
-                if (bSmall) {
-                    bSmall.innerText = `Zoom (${zoomW}px)`;
-                    bSmall.onclick = () => setGamePixelWidth(zoomW);
-                    bSmall.className = (Math.abs(w_px - zoomW) <= 5) ? actCls : inactCls;
-                }
-                if (bMed) {
-                    bMed.innerText = `Mittel (${medW}px)`;
-                    bMed.onclick = () => setGamePixelWidth(medW);
-                    bMed.className = (Math.abs(w_px - medW) <= 5) ? actCls : inactCls;
-                }
-                if (bMax) {
-                    bMax.innerText = `Voll (${maxW}px)`;
-                    bMax.onclick = () => setGamePixelWidth(maxW);
-                    bMax.className = (Math.abs(w_px - maxW) <= 5) ? actCls : inactCls;
-                }
-            } else {
-                const maxW = Math.min(vw, Math.floor(vh * 0.9)); // 972 auf 1080p
-                const medW = 810;
-                const zoomW = 648;
-
-                if (slider) {
-                    slider.min = 320;
-                    slider.max = maxW;
-                    if (document.activeElement !== slider) slider.value = w_px;
-                }
-                if (badge) badge.innerText = '(Festes 9:10 Format)';
-                if (hint) hint.innerText = '🔒 9:10 fest (Split) • Mausrad / Ecken ziehen';
-
-                if (bSmall) {
-                    bSmall.innerText = 'Zoom (648px)';
-                    bSmall.onclick = () => setGamePixelWidth(648);
-                    bSmall.className = (Math.abs(w_px - 648) <= 5) ? actCls : inactCls;
-                }
-                if (bMed) {
-                    bMed.innerText = 'Mittel (810px)';
-                    bMed.onclick = () => setGamePixelWidth(810);
-                    bMed.className = (Math.abs(w_px - 810) <= 5) ? actCls : inactCls;
-                }
-                if (bMax) {
-                    bMax.innerText = `Voll (${maxW}px)`;
-                    bMax.onclick = () => setGamePixelWidth(maxW);
-                    bMax.className = (Math.abs(w_px - maxW) <= 5) ? actCls : inactCls;
-                }
-            }
-
-            if (disp) disp.innerText = `${w_px} x ${h_px} px`;
-        }
-
-        function updateBoxDom(type) {
-            const box = document.getElementById('crop-box-' + type);
-            if (!box) return;
-            const s = cropState[type];
-            if (!s) return;
-            box.style.left = (s.x * 100) + '%';
-            box.style.top = (s.y * 100) + '%';
-            box.style.width = (s.w * 100) + '%';
-            box.style.height = (s.h * 100) + '%';
-
-            if (currentCropMode === 'single_916') {
-                if (type === 'single') box.classList.remove('hidden');
-                else box.classList.add('hidden');
-            } else {
-                if (type === 'single') box.classList.add('hidden');
-                else if (type === 'cam') {
-                    if (s.enabled) box.classList.remove('hidden');
-                    else box.classList.add('hidden');
-                } else if (type === 'game') {
-                    box.classList.remove('hidden');
-                }
-            }
-
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-            const readout = document.getElementById('crop-coords-readout');
-            if (readout) {
-                if (currentCropMode === 'single_916') {
-                    const singlePx = { w: Math.round(cropState.single.w * vw), h: Math.round(cropState.single.h * vh), x: Math.round(cropState.single.x * vw), y: 0 };
-                    readout.innerText = `📱 Reines 9:16 IRL: ${singlePx.w}x${singlePx.h} @ (${singlePx.x}, 0) • Feste 9:16 Proportion (100% Video-Höhe)`;
-                } else {
-                    const camPx = { w: Math.round(cropState.cam.w * vw), h: Math.round(cropState.cam.h * vh), x: Math.round(cropState.cam.x * vw), y: Math.round(cropState.cam.y * vh) };
-                    const gamePx = { w: Math.round(cropState.game.w * vw), h: Math.round(cropState.game.h * vh), x: Math.round(cropState.game.x * vw), y: Math.round(cropState.game.y * vh) };
-                    readout.innerText = `Cam: ${cropState.cam.enabled ? camPx.w + 'x' + camPx.h + ' @ (' + camPx.x + ',' + camPx.y + ')' : 'Deaktiviert'} • Game: ${gamePx.w}x${gamePx.h} @ (${gamePx.x},${gamePx.y})`;
-                }
-            }
-        }
-
-        function initCropInteractions() {
-            const stage = document.getElementById('crop-stage-container');
-            if (!stage) return;
-
-            const camBox = document.getElementById('crop-box-cam');
-            if (camBox) {
-                // Verschieben der Cam-Box
-                camBox.addEventListener('pointerdown', (e) => {
-                    // Falls auf einen Ecken-Resize-Handle geklickt wurde, kein Move-Drag starten
-                    if (e.target.classList.contains('crop-cam-handle')) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const rect = stage.getBoundingClientRect();
-                    activeCropDrag = {
-                        target: 'cam',
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        stageW: rect.width,
-                        stageH: rect.height,
-                        initX: cropState.cam.x,
-                        initY: cropState.cam.y
-                    };
-                });
-
-                // Mausrad zum stufenlosen Vergrößern/Verkleinern (3:2 bleibt fest)
-                camBox.addEventListener('wheel', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const vw = videoNativeWidth || 1920;
-                    const curWpx = cropState.cam.w * vw;
-                    const delta = e.deltaY < 0 ? 15 : -15;
-                    setCamPixelWidth(curWpx + delta);
-                }, { passive: false });
-            }
-
-            // Ecken-Resize Handles für stufenlose Cam-Größenänderung mit festem 3:2 Seitenverhältnis
-            document.querySelectorAll('.crop-cam-handle').forEach(handleEl => {
-                handleEl.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const rect = stage.getBoundingClientRect();
-                    const handle = handleEl.getAttribute('data-handle');
-                    const vw = videoNativeWidth || 1920;
-                    const vh = videoNativeHeight || 1080;
-
-                    activeCropDrag = {
-                        target: 'cam_resize',
-                        handle: handle,
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        stageW: rect.width,
-                        stageH: rect.height,
-                        initX: cropState.cam.x,
-                        initY: cropState.cam.y,
-                        initW: cropState.cam.w,
-                        initH: cropState.cam.h,
-                        initWpx: cropState.cam.w * vw,
-                        anchorX: handle.includes('r') ? cropState.cam.x : cropState.cam.x + cropState.cam.w,
-                        anchorY: handle.includes('b') ? cropState.cam.y : cropState.cam.y + cropState.cam.h
-                    };
-                });
-            });
-
-            // Ecken-Resize Handles für stufenlose Gameplay-Größenänderung mit festem 9:10 Seitenverhältnis
-            document.querySelectorAll('.crop-game-handle').forEach(handleEl => {
-                handleEl.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const rect = stage.getBoundingClientRect();
-                    const handle = handleEl.getAttribute('data-handle');
-                    const vw = videoNativeWidth || 1920;
-                    const vh = videoNativeHeight || 1080;
-
-                    activeCropDrag = {
-                        target: 'game_resize',
-                        handle: handle,
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        stageW: rect.width,
-                        stageH: rect.height,
-                        initX: cropState.game.x,
-                        initY: cropState.game.y,
-                        initW: cropState.game.w,
-                        initH: cropState.game.h,
-                        initWpx: cropState.game.w * vw,
-                        anchorX: handle.includes('r') ? cropState.game.x : cropState.game.x + cropState.game.w,
-                        anchorY: handle.includes('b') ? cropState.game.y : cropState.game.y + cropState.game.h
-                    };
-                });
-            });
-
-            const gameBox = document.getElementById('crop-box-game');
-            if (gameBox) {
-                gameBox.addEventListener('pointerdown', (e) => {
-                    if (e.target.classList.contains('crop-game-handle')) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const rect = stage.getBoundingClientRect();
-                    activeCropDrag = {
-                        target: 'game',
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        stageW: rect.width,
-                        stageH: rect.height,
-                        initX: cropState.game.x,
-                        initY: cropState.game.y
-                    };
-                });
-
-                // Mausrad zum stufenlosen Gameplay-Vergrößern/Verkleinern (9:10 bleibt fest)
-                gameBox.addEventListener('wheel', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const vw = videoNativeWidth || 1920;
-                    const curWpx = cropState.game.w * vw;
-                    const delta = e.deltaY < 0 ? 20 : -20;
-                    setGamePixelWidth(curWpx + delta);
-                }, { passive: false });
-            }
-
-            const singleBox = document.getElementById('crop-box-single');
-            if (singleBox) {
-                singleBox.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const rect = stage.getBoundingClientRect();
-                    activeCropDrag = {
-                        target: 'single',
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        stageW: rect.width,
-                        stageH: rect.height,
-                        initX: cropState.single.x,
-                        initY: 0.0
-                    };
-                });
-            }
-
-            window.addEventListener('pointermove', (e) => {
-                if (!activeCropDrag) return;
-                const dx = (e.clientX - activeCropDrag.startX) / activeCropDrag.stageW;
-                const dy = (e.clientY - activeCropDrag.startY) / activeCropDrag.stageH;
-
-                if (activeCropDrag.target === 'cam') {
-                    // Cam bewegt sich frei in X und Y, GRÖSSE BLEIBT FEST (3:2 Format)!
-                    cropState.cam.x = Math.max(0, Math.min(1 - cropState.cam.w, activeCropDrag.initX + dx));
-                    cropState.cam.y = Math.max(0, Math.min(1 - cropState.cam.h, activeCropDrag.initY + dy));
-                    updateBoxDom('cam');
-                    draw916Preview();
-                } else if (activeCropDrag.target === 'cam_resize') {
-                    // Stufenlose Größenänderung über Eckengriffe (3:2 strikt gesperrt)
-                    const vw = videoNativeWidth || 1920;
-                    const vh = videoNativeHeight || 1080;
-                    const handle = activeCropDrag.handle;
-                    const dxPx = dx * vw;
-
-                    let targetWpx;
-                    if (handle.includes('r')) {
-                        targetWpx = activeCropDrag.initWpx + dxPx;
-                    } else {
-                        targetWpx = activeCropDrag.initWpx - dxPx;
-                    }
-
-                    const maxAllowedW = Math.min(vw, Math.floor(vh * 1.5));
-                    let clampedWpx = Math.max(160, Math.min(maxAllowedW, Math.round(targetWpx)));
-                    let clampedHpx = Math.round(clampedWpx * (2 / 3));
-
-                    let wNorm = clampedWpx / vw;
-                    let hNorm = clampedHpx / vh;
-
-                    // Randbegrenzung mit festem Seitenverhältnis
-                    if (handle.includes('r')) {
-                        if (activeCropDrag.anchorX + wNorm > 1.0) {
-                            wNorm = 1.0 - activeCropDrag.anchorX;
-                            clampedWpx = Math.round(wNorm * vw);
-                            clampedHpx = Math.round(clampedWpx * (2 / 3));
-                            hNorm = clampedHpx / vh;
-                        }
-                    } else {
-                        if (activeCropDrag.anchorX - wNorm < 0.0) {
-                            wNorm = activeCropDrag.anchorX;
-                            clampedWpx = Math.round(wNorm * vw);
-                            clampedHpx = Math.round(clampedWpx * (2 / 3));
-                            hNorm = clampedHpx / vh;
-                        }
-                    }
-
-                    if (handle.includes('b')) {
-                        if (activeCropDrag.anchorY + hNorm > 1.0) {
-                            hNorm = 1.0 - activeCropDrag.anchorY;
-                            clampedHpx = Math.round(hNorm * vh);
-                            clampedWpx = Math.round(clampedHpx * (3 / 2));
-                            wNorm = clampedWpx / vw;
-                        }
-                    } else {
-                        if (activeCropDrag.anchorY - hNorm < 0.0) {
-                            hNorm = activeCropDrag.anchorY;
-                            clampedHpx = Math.round(hNorm * vh);
-                            clampedWpx = Math.round(clampedHpx * (3 / 2));
-                            wNorm = clampedWpx / vw;
-                        }
-                    }
-
-                    clampedWpx = Math.max(160, Math.round(wNorm * vw));
-                    clampedHpx = Math.round(clampedWpx * (2 / 3));
-                    wNorm = clampedWpx / vw;
-                    hNorm = clampedHpx / vh;
-
-                    const newX = handle.includes('l') ? (activeCropDrag.anchorX - wNorm) : activeCropDrag.anchorX;
-                    const newY = handle.includes('t') ? (activeCropDrag.anchorY - hNorm) : activeCropDrag.anchorY;
-
-                    cropState.cam.w = wNorm;
-                    cropState.cam.h = hNorm;
-                    cropState.cam.x = Math.max(0, Math.min(1 - wNorm, newX));
-                    cropState.cam.y = Math.max(0, Math.min(1 - hNorm, newY));
-
-                    syncCamSizeUi(clampedWpx, clampedHpx);
-                    updateBoxDom('cam');
-                    draw916Preview();
-                } else if (activeCropDrag.target === 'game_resize') {
-                    // Stufenlose Gameplay-Größenänderung über Eckengriffe mit dynamischem Format (9:10 mit Cam vs. 9:16 ohne Cam)
-                    const vw = videoNativeWidth || 1920;
-                    const vh = videoNativeHeight || 1080;
-                    const isVollbild = isGameplayVollbild();
-                    const ratioW = 9;
-                    const ratioH = isVollbild ? 16 : 10;
-
-                    const handle = activeCropDrag.handle;
-                    const dxPx = dx * vw;
-
-                    let targetWpx;
-                    if (handle.includes('r')) {
-                        targetWpx = activeCropDrag.initWpx + dxPx;
-                    } else {
-                        targetWpx = activeCropDrag.initWpx - dxPx;
-                    }
-
-                    const maxAllowedW = Math.min(vw, Math.floor(vh * (ratioW / ratioH)));
-                    const minAllowedW = isVollbild ? 200 : 320;
-                    let clampedWpx = Math.max(minAllowedW, Math.min(maxAllowedW, Math.round(targetWpx)));
-                    let clampedHpx = Math.round(clampedWpx * (ratioH / ratioW));
-
-                    let wNorm = clampedWpx / vw;
-                    let hNorm = clampedHpx / vh;
-
-                    // Randbegrenzung mit festem Seitenverhältnis
-                    if (handle.includes('r')) {
-                        if (activeCropDrag.anchorX + wNorm > 1.0) {
-                            wNorm = 1.0 - activeCropDrag.anchorX;
-                            clampedWpx = Math.round(wNorm * vw);
-                            clampedHpx = Math.round(clampedWpx * (ratioH / ratioW));
-                            hNorm = clampedHpx / vh;
-                        }
-                    } else {
-                        if (activeCropDrag.anchorX - wNorm < 0.0) {
-                            wNorm = activeCropDrag.anchorX;
-                            clampedWpx = Math.round(wNorm * vw);
-                            clampedHpx = Math.round(clampedWpx * (ratioH / ratioW));
-                            hNorm = clampedHpx / vh;
-                        }
-                    }
-
-                    if (handle.includes('b')) {
-                        if (activeCropDrag.anchorY + hNorm > 1.0) {
-                            hNorm = 1.0 - activeCropDrag.anchorY;
-                            clampedHpx = Math.round(hNorm * vh);
-                            clampedWpx = Math.round(clampedHpx * (ratioW / ratioH));
-                            wNorm = clampedWpx / vw;
-                        }
-                    } else {
-                        if (activeCropDrag.anchorY - hNorm < 0.0) {
-                            hNorm = activeCropDrag.anchorY;
-                            clampedHpx = Math.round(hNorm * vh);
-                            clampedWpx = Math.round(clampedHpx * (ratioW / ratioH));
-                            wNorm = clampedWpx / vw;
-                        }
-                    }
-
-                    clampedWpx = Math.max(minAllowedW, Math.round(wNorm * vw));
-                    clampedHpx = Math.round(clampedWpx * (ratioH / ratioW));
-                    wNorm = clampedWpx / vw;
-                    hNorm = clampedHpx / vh;
-
-                    const newX = handle.includes('l') ? (activeCropDrag.anchorX - wNorm) : activeCropDrag.anchorX;
-                    const newY = handle.includes('t') ? (activeCropDrag.anchorY - hNorm) : activeCropDrag.anchorY;
-
-                    cropState.game.w = wNorm;
-                    cropState.game.h = hNorm;
-                    cropState.game.x = Math.max(0, Math.min(1 - wNorm, newX));
-                    cropState.game.y = Math.max(0, Math.min(1 - hNorm, newY));
-
-                    syncGameSizeUi(clampedWpx, clampedHpx);
-                    updateBoxDom('game');
-                    draw916Preview();
-                } else if (activeCropDrag.target === 'game') {
-                    // Gameplay bewegt sich frei in X und Y (falls H < 1.0), GRÖSSE BLEIBT FEST (9:10 Format)!
-                    cropState.game.x = Math.max(0, Math.min(1 - cropState.game.w, activeCropDrag.initX + dx));
-                    cropState.game.y = Math.max(0, Math.min(1 - cropState.game.h, activeCropDrag.initY + dy));
-                    updateBoxDom('game');
-                    draw916Preview();
-                } else if (activeCropDrag.target === 'single') {
-                    // 9:16 IRL Rahmen: nur horizontal bewegbar, feste 9:16 Proportion (608x1080 px / 100% Höhe)!
-                    cropState.single.x = Math.max(0, Math.min(1 - cropState.single.w, activeCropDrag.initX + dx));
-                    cropState.single.y = 0.0;
-                    updateBoxDom('single');
-                    draw916Preview();
-                }
-            });
-
-            window.addEventListener('pointerup', () => {
-                activeCropDrag = null;
-            });
-        }
-
-        function applyPreset(presetName) {
-            if (presetName === 'cam_br') {
-                cropState.cam.x = Math.max(0, 1 - cropState.cam.w - 0.015);
-                cropState.cam.y = Math.max(0, 1 - cropState.cam.h - 0.02);
-                cropState.cam.enabled = true;
-            } else if (presetName === 'cam_tl') {
-                cropState.cam.x = 0.015;
-                cropState.cam.y = 0.02;
-                cropState.cam.enabled = true;
-            } else if (presetName === 'cam_tr') {
-                cropState.cam.x = Math.max(0, 1 - cropState.cam.w - 0.015);
-                cropState.cam.y = 0.02;
-                cropState.cam.enabled = true;
-            } else if (presetName === 'cam_bl') {
-                cropState.cam.x = 0.015;
-                cropState.cam.y = Math.max(0, 1 - cropState.cam.h - 0.02);
-                cropState.cam.enabled = true;
-            } else if (presetName === 'game_center') {
-                cropState.game.x = (1 - cropState.game.w) / 2;
-                cropState.game.y = Math.max(0, (1 - cropState.game.h) / 2);
-            } else if (presetName === 'game_left') {
-                cropState.game.x = 0.01;
-                cropState.game.y = Math.max(0, (1 - cropState.game.h) / 2);
-            } else if (presetName === 'game_right') {
-                cropState.game.x = Math.max(0, 1 - cropState.game.w - 0.01);
-                cropState.game.y = Math.max(0, (1 - cropState.game.h) / 2);
-            } else if (presetName === 'single_center') {
-                cropState.single.x = (1 - cropState.single.w) / 2;
-                cropState.single.y = 0.0;
-            } else if (presetName === 'single_left') {
-                cropState.single.x = 0.0;
-                cropState.single.y = 0.0;
-            } else if (presetName === 'single_right') {
-                cropState.single.x = Math.max(0, 1 - cropState.single.w);
-                cropState.single.y = 0.0;
-            }
-            updateBoxDom('cam');
-            updateBoxDom('game');
-            updateBoxDom('single');
-            draw916Preview();
-        }
-
-        async function detectFacecamInCropModal() {
-            if (!currentCropClipId) return;
-            const btn = document.getElementById('btn-crop-detect');
-            btn.innerHTML = '<span>⏳</span> Erkenne...';
-            btn.disabled = true;
-            try {
-                const resp = await fetch(`/api/clip/${currentCropClipId}/detect-cam`);
-                const data = await resp.json();
-                if (data && data.cam) {
-                    const faceCenterX = data.cam.x_pct + (data.cam.w_pct / 2);
-                    const faceCenterY = data.cam.y_pct + (data.cam.h_pct / 2);
-                    cropState.cam.x = Math.max(0, Math.min(1 - cropState.cam.w, faceCenterX - (cropState.cam.w / 2)));
-                    cropState.cam.y = Math.max(0, Math.min(1 - cropState.cam.h, faceCenterY - (cropState.cam.h / 2)));
-                    cropState.cam.enabled = true;
-                    updateBoxDom('cam');
-                    draw916Preview();
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                btn.innerHTML = '<span>🤖</span> KI Auto-Erkennen';
-                btn.disabled = false;
-            }
-        }
-
-        function toggleCamEnabled() {
-            cropState.cam.enabled = !cropState.cam.enabled;
-            const btn = document.getElementById('btn-crop-toggle-cam');
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-
-            if (cropState.cam.enabled) {
-                btn.innerText = '🚫 Keine Cam (Vollbild)';
-                btn.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition';
-                
-                // Zu 9:10 Split-Format wechseln (Höhe beibehalten, Breite anpassen)
-                const curHpx = Math.round(cropState.game.h * vh);
-                const targetWpx = Math.round(curHpx * (9 / 10));
-                setGamePixelWidth(targetWpx);
-            } else {
-                btn.innerText = '✅ Facecam wieder aktivieren';
-                btn.className = 'px-2.5 py-1 bg-emerald-900/80 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
-                
-                // Zu 9:16 Vollbild-Format wechseln (Höhe beibehalten, Breite anpassen)
-                const curHpx = Math.round(cropState.game.h * vh);
-                const targetWpx = Math.round(curHpx * (9 / 16));
-                setGamePixelWidth(targetWpx);
-            }
-            updateBoxDom('cam');
-            updateBoxDom('game');
-            draw916Preview();
-        }
-
-        function draw916Preview() {
-            const canvas = document.getElementById('crop-preview-canvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            const vid = document.getElementById('crop-stage-video');
-            if (!vid || vid.readyState < 2) return;
-
-            const vw = vid.videoWidth || 1920;
-            const vh = vid.videoHeight || 1080;
-
-            ctx.fillStyle = '#05070e';
-            ctx.fillRect(0, 0, 270, 480);
-
-            if (currentCropMode === 'single_916') {
-                // 📱 Reines 9:16 Vollbild (IRL) - 1:1 unverzerrt in 9:16 Canvas
-                const sx = cropState.single.x * vw;
-                const sy = 0;
-                const sw = Math.max(16, cropState.single.w * vw);
-                const sh = vh;
-
-                try {
-                    ctx.drawImage(vid, sx, sy, sw, sh, 0, 0, 270, 480);
-                } catch(e) {}
-
-                // Hook Sticker Simulation (oben bei y=120, um Hauptmotiv/Gesicht im Zentrum freizuhalten)
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 6;
-                const stickerW = 200;
-                const stickerH = 24;
-                const stickerY = 120;
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH, 6);
-                } else {
-                    ctx.rect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH);
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : '💬 TikTok / Shorts Hook';
-                ctx.fillText(titleText, 135, stickerY);
-
-            } else if (cropState.cam.enabled) {
-                // 1. Top Section: Facecam (1080x720 in 1080x1920 -> 270x180 px)
-                const cx = cropState.cam.x * vw;
-                const cy = cropState.cam.y * vh;
-                const cw = Math.max(16, cropState.cam.w * vw);
-                const ch = Math.max(16, cropState.cam.h * vh);
-
-                const filterVal = document.getElementById('crop-cam-filter-select')?.value || 'none';
-                if (filterVal === 'triangle') {
-                    // 🔺 3D Dreimacs Pyramide
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(135, 4);
-                    ctx.lineTo(265, 178);
-                    ctx.lineTo(5, 178);
-                    ctx.closePath();
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'inv_triangle') {
-                    // 🔻 3D Trichter-Kopf
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(5, 4);
-                    ctx.lineTo(265, 4);
-                    ctx.lineTo(135, 178);
-                    ctx.closePath();
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'diamond') {
-                    // 💎 3D Diamant-Kopf
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(135, 4);
-                    ctx.lineTo(265, 90);
-                    ctx.lineTo(135, 176);
-                    ctx.lineTo(5, 90);
-                    ctx.closePath();
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'cube') {
-                    // 📦 3D Block-Kopf (Steve)
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.rect(35, 15, 200, 150);
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'alien') {
-                    // 👽 3D Megamind / Alien (Riesen-Stirn)
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(135, 6);
-                    ctx.bezierCurveTo(260, 6, 260, 95, 170, 178);
-                    ctx.lineTo(100, 178);
-                    ctx.bezierCurveTo(10, 95, 10, 6, 135, 6);
-                    ctx.closePath();
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'gigachad') {
-                    // 🗿 3D Gigachad (Breiter Kiefer)
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(90, 6);
-                    ctx.lineTo(180, 6);
-                    ctx.bezierCurveTo(220, 60, 265, 120, 265, 176);
-                    ctx.lineTo(5, 176);
-                    ctx.bezierCurveTo(5, 120, 50, 60, 90, 6);
-                    ctx.closePath();
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'hamster') {
-                    // 🎈 3D Hamsterbacken
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
-                        ctx.drawImage(vid, cx, cy + ch * 0.4, cw, ch * 0.6, -15, 75, 300, 105);
-                    } catch(e) {}
-                } else if (filterVal === 'pinocchio') {
-                    // 🤥 3D Pinocchio Langnase
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
-                        ctx.drawImage(vid, cx + cw * 0.35, cy + ch * 0.35, cw * 0.3, ch * 0.3, 100, 75, 70, 95);
-                    } catch(e) {}
-                } else if (filterVal === 'big_eyes') {
-                    // 👀 3D Glubschaugen (Anime)
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
-                        ctx.drawImage(vid, cx + cw * 0.2, cy + ch * 0.2, cw * 0.6, ch * 0.35, 35, 30, 200, 80);
-                    } catch(e) {}
-                } else if (filterVal === 'tiny_face') {
-                    // 🤏 3D Schrumpf-Gesicht (Meme)
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
-                        ctx.drawImage(vid, cx + cw * 0.2, cy + ch * 0.2, cw * 0.6, ch * 0.6, 95, 65, 80, 80);
-                    } catch(e) {}
-                } else if (filterVal === 'big_mouth') {
-                    // 👄 3D Riesenmund
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
-                        ctx.drawImage(vid, cx + cw * 0.2, cy + ch * 0.55, cw * 0.6, ch * 0.4, 50, 100, 170, 75);
-                    } catch(e) {}
-                } else if (filterVal === 'hourglass') {
-                    // ⏳ 3D Sanduhr / Wespentaille (Pinch)
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(5, 4);
-                    ctx.lineTo(265, 4);
-                    ctx.bezierCurveTo(195, 90, 195, 90, 265, 178);
-                    ctx.lineTo(5, 178);
-                    ctx.bezierCurveTo(75, 90, 75, 90, 5, 4);
-                    ctx.closePath();
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'fisheye') {
-                    // 🐟 3D Fischauge / Glaskugel
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.ellipse(135, 90, 130, 86, 0, 0, Math.PI * 2);
-                    ctx.clip();
-                    try { ctx.drawImage(vid, cx + cw * 0.1, cy + ch * 0.1, cw * 0.8, ch * 0.8, 0, 0, 270, 180); } catch(e) {}
-                    ctx.restore();
-                } else if (filterVal === 'mirror_left') {
-                    // 🪞 Doppel-Links: Linke Hälfte auf rechts gespiegelt
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw / 2, ch, 0, 0, 135, 180);
-                        ctx.save();
-                        ctx.translate(270, 0);
-                        ctx.scale(-1, 1);
-                        ctx.drawImage(vid, cx, cy, cw / 2, ch, 0, 0, 135, 180);
-                        ctx.restore();
-                    } catch(e) {}
-                } else if (filterVal === 'mirror_right') {
-                    // 🪞 Doppel-Rechts: Rechte Hälfte auf links gespiegelt
-                    try {
-                        ctx.drawImage(vid, cx + cw / 2, cy, cw / 2, ch, 135, 0, 135, 180);
-                        ctx.save();
-                        ctx.translate(135, 0);
-                        ctx.scale(-1, 1);
-                        ctx.drawImage(vid, cx + cw / 2, cy, cw / 2, ch, 0, 0, 135, 180);
-                        ctx.restore();
-                    } catch(e) {}
-                } else if (filterVal === 'stretch_vert') {
-                    // 📏 Bleistift-Kopf
-                    try {
-                        ctx.drawImage(vid, cx + cw * 0.22, cy, cw * 0.56, ch, 0, 0, 270, 180);
-                    } catch(e) {}
-                } else if (filterVal === 'squish_wide') {
-                    // 🗜️ Wide Meme
-                    try {
-                        ctx.drawImage(vid, cx, cy + ch * 0.2, cw, ch * 0.6, 0, 0, 270, 180);
-                    } catch(e) {}
-                } else {
-                    try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
-                    } catch(e) {}
-                }
-
-                // Filter Badge Tag anzeigen
-                if (filterVal && filterVal !== 'none') {
-                    const filterLabels = {
-                        triangle: '🔺 3D Dreimacs Pyramide',
-                        inv_triangle: '🔻 3D Trichter-Kopf',
-                        diamond: '💎 3D Diamant-Kopf',
-                        cube: '📦 3D Block-Kopf',
-                        gigachad: '🗿 3D Gigachad Kiefer',
-                        alien: '👽 3D Megamind Alien',
-                        hamster: '🎈 3D Hamsterbacken',
-                        pinocchio: '🤥 3D Pinocchio Langnase',
-                        big_eyes: '👀 3D Glubschaugen',
-                        tiny_face: '🤏 3D Schrumpf-Gesicht',
-                        big_mouth: '👄 3D Riesenmund',
-                        hourglass: '⏳ 3D Sanduhr Pinch',
-                        fisheye: '🐟 3D Glaskugel Fischauge',
-                        swirl: '🌀 3D Strudel Twist',
-                        wave: '🌊 3D Wackelpudding',
-                        mirror_left: '🪞 Doppel-Links',
-                        mirror_right: '🪞 Doppel-Rechts',
-                        stretch_vert: '📏 Bleistift-Kopf',
-                        squish_wide: '🗜️ Wide Meme'
-                    };
-                    const tag = filterLabels[filterVal] || filterVal;
-                    ctx.save();
-                    ctx.font = 'bold 9px sans-serif';
-                    const tw = ctx.measureText(tag).width;
-                    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-                    ctx.strokeStyle = '#34d399';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    if (ctx.roundRect) ctx.roundRect(8, 8, tw + 14, 18, 4);
-                    else ctx.rect(8, 8, tw + 14, 18);
-                    ctx.fill();
-                    ctx.stroke();
-                    ctx.fillStyle = '#34d399';
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(tag, 15, 17);
-                    ctx.restore();
-                }
-
-                // Divider Seam
-                ctx.fillStyle = '#1e1b4b';
-                ctx.fillRect(0, 178, 270, 4);
-                ctx.fillStyle = '#c084fc';
-                ctx.fillRect(0, 179, 270, 2);
-
-                // 2. Bottom Section: Gameplay (1080x1200 in 1080x1920 -> 270x300 px)
-                const gx = cropState.game.x * vw;
-                const gy = cropState.game.y * vh;
-                const gw = Math.max(16, cropState.game.w * vw);
-                const gh = Math.max(16, cropState.game.h * vh);
-
-                try {
-                    ctx.drawImage(vid, gx, gy, gw, gh, 0, 180, 270, 300);
-                } catch(e) {}
-
-                // Hook Sticker Badge Simulation
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 6;
-                const stickerW = 200;
-                const stickerH = 24;
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect((270 - stickerW) / 2, 180 - (stickerH / 2), stickerW, stickerH, 6);
-                } else {
-                    ctx.rect((270 - stickerW) / 2, 180 - (stickerH / 2), stickerW, stickerH);
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : '💬 TikTok / Shorts Hook';
-                ctx.fillText(titleText, 135, 180);
-
-            } else {
-                // 📱 Reines Vollbild-Gameplay (Festes 9:16 Short)
-                const gx = cropState.game.x * vw;
-                const gy = cropState.game.y * vh;
-                const gw = Math.max(16, cropState.game.w * vw);
-                const gh = Math.max(16, cropState.game.h * vh);
-
-                try {
-                    ctx.drawImage(vid, gx, gy, gw, gh, 0, 0, 270, 480);
-                } catch(e) {}
-
-                // Hook Sticker Simulation (oben bei y=120)
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 6;
-                const stickerW = 200;
-                const stickerH = 24;
-                const stickerY = 120;
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH, 6);
-                } else {
-                    ctx.rect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH);
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : '💬 TikTok / Shorts Hook';
-                ctx.fillText(titleText, 135, stickerY);
-            }
-
-            // Subtitle Preview Simulation
-            ctx.font = 'bold 11px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#fde047';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2.5;
-            ctx.strokeText("💬 [Untertitel Bereich]", 135, 435);
-            ctx.fillText("💬 [Untertitel Bereich]", 135, 435);
-        }
-
-        async function saveCropCoordinates(renderNow) {
-            if (!currentCropClipId) return;
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-
-            let editedTranscript = null;
-            const formEl = document.getElementById('form-' + currentCropClipId);
-            if (formEl) {
-                const txEl = formEl.querySelector('textarea[name="transcript"]');
-                if (txEl) editedTranscript = txEl.value;
-            }
-
-            let payload;
-            if (currentCropMode === 'single_916') {
-                payload = {
-                    layout_mode: 'single_916',
-                    render_now: renderNow,
-                    transcript: editedTranscript,
-                    custom_crops: {
-                        mode: 'single_916',
-                        enabled: true,
-                        single: {
-                            x_pct: cropState.single.x,
-                            y_pct: 0.0,
-                            w_pct: cropState.single.w,
-                            h_pct: 1.0,
-                            x: Math.round(cropState.single.x * vw),
-                            y: 0,
-                            w: Math.round(cropState.single.w * vw),
-                            h: vh
-                        }
-                    }
-                };
-            } else {
-                payload = {
-                    layout_mode: 'custom',
-                    render_now: renderNow,
-                    transcript: editedTranscript,
-                    custom_crops: {
-                        mode: 'split',
-                        enabled: true,
-                        cam: {
-                            x_pct: cropState.cam.x,
-                            y_pct: cropState.cam.y,
-                            w_pct: cropState.cam.w,
-                            h_pct: cropState.cam.h,
-                            x: Math.round(cropState.cam.x * vw),
-                            y: Math.round(cropState.cam.y * vh),
-                            w: Math.round(cropState.cam.w * vw),
-                            h: Math.round(cropState.cam.h * vh),
-                            enabled: cropState.cam.enabled
-                        },
-                        game: {
-                            x_pct: cropState.game.x,
-                            y_pct: cropState.game.y,
-                            w_pct: cropState.game.w,
-                            h_pct: cropState.game.h,
-                            x: Math.round(cropState.game.x * vw),
-                            y: Math.round(cropState.game.y * vh),
-                            w: Math.round(cropState.game.w * vw),
-                            h: Math.round(cropState.game.h * vh),
-                            enabled: true
-                        }
-                    }
-                };
-            }
-
-            const modalFilterSelect = document.getElementById('crop-cam-filter-select');
-            if (modalFilterSelect) {
-                payload.cam_filter = modalFilterSelect.value;
-                const cardFilterSelect = document.querySelector(`form[action="/save/${currentCropClipId}"] select[name="cam_filter"]`);
-                if (cardFilterSelect) cardFilterSelect.value = modalFilterSelect.value;
-            }
-
-            try {
-                const resp = await fetch(`/api/clip/${currentCropClipId}/save-crop`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const res = await resp.json();
-                if (res.success) {
-                    closeCropModal();
-                    if (renderNow) {
-                        const renderCard = document.getElementById('render-progress-card');
-                        if (renderCard) renderCard.classList.remove('hidden');
-                    }
-                }
-            } catch (e) {
-                alert('Fehler beim Speichern: ' + e);
-            }
-        }
-
-        async function startTikTokBrowserLogin() {
-            const btn = document.getElementById('btn-tt-browser-login');
-            const box = document.getElementById('tt-browser-status-box');
-            const text = document.getElementById('tt-browser-status-text');
-
-            if (btn) {
-                btn.disabled = true;
-                btn.classList.add('opacity-70', 'cursor-not-allowed');
-            }
-            if (box) box.classList.remove('hidden');
-            if (text) text.innerText = 'Chrome wird gestartet... Bitte im geöffneten Fenster einloggen (z. B. QR-Code scannen)!';
-
-            try {
-                const resp = await fetch('/api/accounts/tiktok/browser-login', { method: 'POST' });
-                const data = await resp.json();
-                if (!data.success) {
-                    alert(data.message);
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-70', 'cursor-not-allowed');
-                    }
-                    if (box) box.classList.add('hidden');
-                    return;
-                }
-
-                const pollTimer = setInterval(async () => {
-                    try {
-                        const sResp = await fetch('/api/accounts/tiktok/browser-login/status');
-                        const sData = await sResp.json();
-                        if (text && sData.message) text.innerText = sData.message;
-
-                        if (!sData.running) {
-                            clearInterval(pollTimer);
-                            if (sData.message && sData.message.includes('Erfolgreich')) {
-                                if (text) text.innerText = '✅ Erfolgreich verbunden! Aktualisiere Dashboard...';
-                                setTimeout(() => window.location.reload(), 1200);
-                            } else {
-                                if (btn) {
-                                    btn.disabled = false;
-                                    btn.classList.remove('opacity-70', 'cursor-not-allowed');
-                                }
-                                setTimeout(() => { if (box) box.classList.add('hidden'); }, 4000);
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Polling status error:', err);
-                    }
-                }, 1500);
-
-            } catch (err) {
-                alert('Fehler beim Starten des Browser-Logins: ' + err);
-                if (btn) {
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-70', 'cursor-not-allowed');
-                }
-                if (box) box.classList.add('hidden');
-            }
-        }
-
-        async function startYouTubeOAuthLogin() {
-            const btn = document.getElementById('btn-yt-login');
-            const box = document.getElementById('yt-login-status-box');
-            const text = document.getElementById('yt-login-status-text');
-
-            if (btn) {
-                btn.disabled = true;
-                btn.classList.add('opacity-70', 'cursor-not-allowed');
-            }
-            if (box) box.classList.remove('hidden');
-            if (text) text.innerText = 'Google-Anmeldung wird vorbereitet...';
-
-            try {
-                const resp = await fetch('/api/accounts/youtube/authorize', { method: 'POST' });
-                const data = await resp.json();
-                if (!data.success || !data.auth_url) {
-                    alert(data.message || 'Fehler beim Starten der Google-Anmeldung.');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-70', 'cursor-not-allowed');
-                    }
-                    if (box) box.classList.add('hidden');
-                    return;
-                }
-
-                // Im neuen Tab öffnen!
-                window.open(data.auth_url, '_blank');
-                if (text) text.innerText = '👉 Google-Login im neuen Tab geöffnet! Wähle deinen YouTube-Kanal und klicke auf "Zulassen"...';
-
-                // Status überwachen bis YouTube auf verbunden springt
-                const pollTimer = setInterval(async () => {
-                    try {
-                        const aResp = await fetch('/api/accounts/status');
-                        const aData = await aResp.json();
-                        if (aData && aData.youtube && aData.youtube.is_connected) {
-                            clearInterval(pollTimer);
-                            if (text) text.innerText = '✅ YouTube erfolgreich verbunden! Seite wird aktualisiert...';
-                            setTimeout(() => window.location.reload(), 1500);
-                        }
-                    } catch (err) {
-                        console.error('Polling YT status error:', err);
-                    }
-                }, 1500);
-
-            } catch (err) {
-                alert('Fehler: ' + err);
-                if (btn) {
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-70', 'cursor-not-allowed');
-                }
-                if (box) box.classList.add('hidden');
-            }
-        }
-
-        setInterval(updateStatus, 1500);
-        updateStatus();
-    </script>
+    <script src="/app.js"></script>
 </body>
 </html>
 """
+
+
+@app.route("/app.js")
+def serve_app_js():
+    import os
+    from flask import send_file
+    ui_app_js = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "app.js")
+    return send_file(ui_app_js, mimetype="application/javascript")
 
 def get_dashboard_dict():
     with get_db_connection() as conn:
@@ -3894,7 +2245,7 @@ def save_crop_api(clip_id):
 
 def start_studio(port: int = 5000):
     print("\n" + "="*70)
-    print(f"  🎬 CLIP-FARMING MISSION CONTROL GESTARTET!")
+    print(f"  CLIP-FARMING STUDIO GESTARTET!")
     print(f"  👉 Öffne im Browser: http://localhost:{port}")
     print("="*70 + "\n")
     app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
