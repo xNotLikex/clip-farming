@@ -54,6 +54,13 @@ fn ensure_backend_running() {
 }
 
 fn main() {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if exe_dir.join("src").exists() || exe_dir.join("data").exists() {
+                let _ = std::env::set_current_dir(exe_dir);
+            }
+        }
+    }
     ensure_backend_running();
     clip_farming_lib::run();
 }

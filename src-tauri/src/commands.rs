@@ -6,6 +6,18 @@ use serde_json::Value;
 use crate::models::DashboardData;
 
 fn get_base_dir() -> PathBuf {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if exe_dir.join("data").exists() {
+                return exe_dir.to_path_buf();
+            }
+            if let Some(parent) = exe_dir.parent() {
+                if parent.join("data").exists() {
+                    return parent.to_path_buf();
+                }
+            }
+        }
+    }
     if Path::new("data").exists() {
         PathBuf::from(".")
     } else if Path::new("../data").exists() {
@@ -169,5 +181,36 @@ pub fn get_available_encoders() -> Vec<crate::gpu::EncoderProfile> {
 #[tauri::command]
 pub fn select_hardware_encoder(preferred: String) -> crate::gpu::EncoderProfile {
     crate::gpu::select_best_encoder(&preferred)
+}
+
+#[tauri::command]
+pub async fn api_proxy(
+    endpoint: String,
+    method: Option<String>,
+    body: Option<String>,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let url = if endpoint.starts_with("http") {
+        endpoint
+    } else {
+        let clean = endpoint.trim_start_matches('/');
+        format!("http://127.0.0.1:5000/{}", clean)
+    };
+
+    let req_method = match method.as_deref().unwrap_or("GET").to_uppercase().as_str() {
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "DELETE" => reqwest::Method::DELETE,
+        _ => reqwest::Method::GET,
+    };
+
+    let mut req = client.request(req_method, &url);
+    if let Some(b) = body {
+        req = req.header("Content-Type", "application/json").body(b);
+    }
+
+    let resp = req.send().await.map_err(|e| format!("Proxy error: {}", e))?;
+    let text = resp.text().await.map_err(|e| format!("Proxy text error: {}", e))?;
+    Ok(text)
 }
 

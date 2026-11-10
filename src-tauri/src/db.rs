@@ -10,21 +10,19 @@ use crate::models::{
     StreamerConfig,
 };
 
-fn get_db_path() -> PathBuf {
-    let mut path = PathBuf::from("data");
-    path.push("pipeline.db");
-    if path.exists() {
-        return path;
-    }
-    // If running from src-tauri during dev:
-    let alt_path = PathBuf::from("../data/pipeline.db");
-    if alt_path.exists() {
-        return alt_path;
-    }
-    path
-}
-
 fn get_base_dir() -> PathBuf {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if exe_dir.join("data").exists() {
+                return exe_dir.to_path_buf();
+            }
+            if let Some(parent) = exe_dir.parent() {
+                if parent.join("data").exists() {
+                    return parent.to_path_buf();
+                }
+            }
+        }
+    }
     if Path::new("data").exists() {
         PathBuf::from(".")
     } else if Path::new("../data").exists() {
@@ -32,6 +30,19 @@ fn get_base_dir() -> PathBuf {
     } else {
         PathBuf::from(".")
     }
+}
+
+fn get_db_path() -> PathBuf {
+    let base = get_base_dir();
+    let p = base.join("data").join("pipeline.db");
+    if p.exists() {
+        return p;
+    }
+    let alt = PathBuf::from("../data/pipeline.db");
+    if alt.exists() {
+        return alt;
+    }
+    p
 }
 
 pub fn format_relative_time(iso_ts: Option<&str>) -> (String, String) {

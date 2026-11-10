@@ -3,19 +3,13 @@
 // CLIENT-SIDE REACTIVE SPA ENGINE FOR TAURI & WEB
 // ==========================================
 
-const isTauriApp = (typeof window !== 'undefined' && window.location.hostname === 'tauri.localhost') || 
-                   (typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.__TAURI_INTERNALS__ !== undefined));
-const BACKEND_BASE = isTauriApp ? 'http://127.0.0.1:5000' : '';
+const BACKEND_BASE = 'http://127.0.0.1:5000';
 
 function getBackendUrl(path) {
     if (!path) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     const cleanPath = path.startsWith('/') ? path : '/' + path;
     return BACKEND_BASE + cleanPath;
-}
-
-function apiFetch(url, options = {}) {
-    return fetch(getBackendUrl(url), options);
 }
 
 function getTauriInvoke() {
@@ -27,7 +21,30 @@ function getTauriInvoke() {
     return null;
 }
 
-const isTauri = isTauriApp;
+async function apiFetch(url, options = {}) {
+    const invoke = getTauriInvoke();
+    if (invoke) {
+        try {
+            const bodyStr = options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : null;
+            const resText = await invoke('api_proxy', {
+                endpoint: url,
+                method: options.method || 'GET',
+                body: bodyStr
+            });
+            return {
+                ok: true,
+                status: 200,
+                json: async () => JSON.parse(resText),
+                text: async () => resText
+            };
+        } catch (e) {
+            console.warn('Tauri api_proxy failed, falling back to direct fetch:', e);
+        }
+    }
+    return fetch(getBackendUrl(url), options);
+}
+
+const isTauri = typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.__TAURI_INTERNALS__ !== undefined);
 
 // Cam filters catalogue
 const CAM_FILTERS = {'none': '🚫 Kein Filter (Original Facecam)', 'triangle': '🔺 3D Dreimacs Pyramide (Prismen-Kopf)', 'inv_triangle': '🔻 3D Trichter-Kopf (Megastirn, spitzes Kinn)', 'diamond': '💎 3D Diamant-Kopf (Kristall-Facette)', 'cube': '📦 3D Block-Kopf (Minecraft Steve)', 'gigachad': '🗿 3D Gigachad (Breiter Meme-Kiefer)', 'alien': '👽 3D Megamind / Alien (Riesen-Kuppelkopf)', 'hamster': '🎈 3D Hamsterbacken (Prall aufgeblasen)', 'pinocchio': '🤥 3D Pinocchio (Lange Nase)', 'big_eyes': '👀 3D Glubschaugen (Anime / Manga)', 'tiny_face': '🤏 3D Schrumpf-Gesicht (Charlie Kirk Meme)', 'big_mouth': '👄 3D Riesenmund (Scream / Opernsänger)', 'hourglass': '⏳ 3D Sanduhr (Wespentaille im Gesicht)', 'fisheye': '🐟 3D Glaskugel-Bulge (Linsen-Zoom)', 'swirl': '🌀 3D Strudel / Wirbel (Vortex-Twist)', 'wave': '🌊 3D Wackelpudding (Wobble-Welle)', 'mirror_left': '🪞 Doppel-Links (Alien-Symmetrie)', 'mirror_right': '🪞 Doppel-Rechts (Alien-Symmetrie)', 'stretch_vert': '📏 Bleistift-Kopf (Langgezogen)', 'squish_wide': '🗜️ Wide Meme (Pfannkuchen-Kopf)'};
@@ -2180,6 +2197,46 @@ if (document.readyState === 'loading') {
                 }
             }
         });
+
+        // Explicitly attach all interactive functions to window
+        window.switchTab = switchTab;
+        window.openStreamerModal = openStreamerModal;
+        window.closeStreamerModal = closeStreamerModal;
+        window.filterStudioByStreamer = filterStudioByStreamer;
+        window.triggerRun = triggerRun;
+        window.processAll = processAll;
+        window.openCropModal = openCropModal;
+        window.closeCropModal = closeCropModal;
+        window.openRawPreview = openRawPreview;
+        window.closePreviewModal = closePreviewModal;
+        window.deleteSingleQueueClip = deleteSingleQueueClip;
+        window.deleteOlderQueue = deleteOlderQueue;
+        window.processOneClip = processOneClip;
+        window.scheduleSingleClip = scheduleSingleClip;
+        window.publishNow = publishNow;
+        window.cancelSchedule = cancelSchedule;
+        window.toggleManualPublished = toggleManualPublished;
+        window.removeStreamer = removeStreamer;
+        window.applyPreset = applyPreset;
+        window.seekCropVideo = seekCropVideo;
+        window.toggleCropVideoPlay = toggleCropVideoPlay;
+        window.setCamPixelWidth = setCamPixelWidth;
+        window.setGamePixelWidth = setGamePixelWidth;
+        window.startTikTokBrowserLogin = startTikTokBrowserLogin;
+        window.startYouTubeOAuthLogin = startYouTubeOAuthLogin;
+        window.switchCropMode = switchCropMode;
+        window.toggleCamEnabled = toggleCamEnabled;
+        window.toggleLogs = toggleLogs;
+        window.saveCropCoordinates = saveCropCoordinates;
+        window.detectFacecamInCropModal = detectFacecamInCropModal;
+        window.refreshDashboard = refreshDashboard;
+        window.updateStatus = updateStatus;
+
+        window.addEventListener('error', (e) => {
+            console.error('GLOBAL JS ERROR:', e.message, e.filename, e.lineno);
+        });
+
+        console.log('Clip Farming UI Engine initialized. All actions attached.');
 
         setInterval(updateStatus, 1500);
         updateStatus();
