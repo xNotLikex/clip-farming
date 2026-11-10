@@ -4120,8 +4120,8 @@
                                     <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
                                          KI Auto-Erkennen
                                     </button>
-                                    <button onclick="toggleCamEnabled()" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition">
-                                        🚫 Keine Cam (Vollbild)
+                                    <button type="button" onclick="switchCropMode('single_916')" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition" title="Facecam entfernen und zu reinem 9:16 Vollbild (1 Rahmen) wechseln">
+                                        🚫 Keine Cam (Vollbild / 1 Rahmen)
                                     </button>
                                 </div>
                                 <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
@@ -4232,11 +4232,14 @@
 
                         <!-- Toolbar für Reines 9:16 IRL Vollbild -->
                         <div id="toolbar-single" class="hidden flex flex-wrap items-center gap-2.5">
-                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">IRL-Ausschnitt:</span>
-                            <button onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
-                            <button onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
-                            <button onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
-                            <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">Fester 9:16 Vollbild-Ausschnitt (608x1080 px)</span>
+                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">📱 9:16 Vollbild:</span>
+                            <button type="button" onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
+                            <button type="button" onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
+                            <button type="button" onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                            <button type="button" onclick="switchCropMode('split')" class="px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-600/80 text-xs font-bold rounded-lg text-emerald-300 hover:text-white transition flex items-center gap-1.5 shadow" title="Zurück zu 2 Rahmen (Facecam oben + Gameplay unten)">
+                                <span>✂️</span> Facecam hinzufügen (Split-Screen)
+                            </button>
+                            <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">1 Rahmen (608x1080 px Vollbild)</span>
                         </div>
                     </div>
                 </div>

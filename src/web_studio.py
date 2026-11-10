@@ -465,29 +465,59 @@ HTML_DASHBOARD = """
             var boxCam = document.getElementById('crop-box-cam');
             var boxGame = document.getElementById('crop-box-game');
             var boxSingle = document.getElementById('crop-box-single');
+            var btnToggleCam = document.getElementById('btn-crop-toggle-cam');
 
             if (mode === 'single_916') {
                 if (btnSplit) btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
-                if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
-                if (tbSplit) tbSplit.classList.add('hidden');
-                if (tbSingle) tbSingle.classList.remove('hidden');
+                if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-emerald-900/90 text-emerald-100 border border-emerald-500 shadow';
+                if (tbSplit) {
+                    tbSplit.classList.add('hidden');
+                    tbSplit.style.display = 'none';
+                }
+                if (tbSingle) {
+                    tbSingle.classList.remove('hidden');
+                    tbSingle.style.display = 'flex';
+                }
                 if (boxCam) boxCam.style.display = 'none';
                 if (boxGame) boxGame.style.display = 'none';
                 if (boxSingle) boxSingle.style.display = 'flex';
+                if (btnToggleCam) {
+                    btnToggleCam.innerText = '📷 Facecam wieder aktivieren';
+                    btnToggleCam.className = 'px-2.5 py-1 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
+                }
                 updateBoxDom('single');
             } else {
                 if (btnSplit) btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
                 if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
-                if (tbSplit) tbSplit.classList.remove('hidden');
-                if (tbSingle) tbSingle.classList.add('hidden');
-                if (boxCam) boxCam.style.display = cropState.cam.enabled ? 'flex' : 'none';
+                if (tbSplit) {
+                    tbSplit.classList.remove('hidden');
+                    tbSplit.style.display = 'block';
+                }
+                if (tbSingle) {
+                    tbSingle.classList.add('hidden');
+                    tbSingle.style.display = 'none';
+                }
+                if (boxCam) boxCam.style.display = 'flex';
                 if (boxGame) boxGame.style.display = 'flex';
                 if (boxSingle) boxSingle.style.display = 'none';
+                if (btnToggleCam) {
+                    btnToggleCam.innerText = '🚫 Keine Cam (Vollbild / 1 Rahmen)';
+                    btnToggleCam.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition';
+                }
                 updateBoxDom('cam');
                 updateBoxDom('game');
             }
             draw916Preview();
         }
+
+        function toggleCamEnabled() {
+            if (currentCropMode === 'single_916') {
+                switchCropMode('split');
+            } else {
+                switchCropMode('single_916');
+            }
+        }
+        window.toggleCamEnabled = toggleCamEnabled;
 
         function updateBoxDom(type) {
             var box = document.getElementById('crop-box-' + type);
@@ -501,11 +531,15 @@ HTML_DASHBOARD = """
 
             var readout = document.getElementById('crop-coords-readout');
             if (readout) {
-                var camW = Math.round(cropState.cam.w * 1920);
-                var camH = Math.round(cropState.cam.h * 1080);
-                var gameW = Math.round(cropState.game.w * 1920);
-                var gameH = Math.round(cropState.game.h * 1080);
-                readout.innerText = 'Cam: ' + camW + 'x' + camH + ' • Game: ' + gameW + 'x' + gameH;
+                if (currentCropMode === 'single_916') {
+                    readout.innerText = '📱 Vollbild 9:16: ' + Math.round(cropState.single.w * 1920) + 'x1080 px (1 Rahmen • Keine Cam)';
+                } else {
+                    var camW = Math.round(cropState.cam.w * 1920);
+                    var camH = Math.round(cropState.cam.h * 1080);
+                    var gameW = Math.round(cropState.game.w * 1920);
+                    var gameH = Math.round(cropState.game.h * 1080);
+                    readout.innerText = '📷 Cam: ' + camW + 'x' + camH + ' • 🎮 Game: ' + gameW + 'x' + gameH + ' (2 Rahmen)';
+                }
             }
         }
 
@@ -2164,8 +2198,8 @@ HTML_DASHBOARD = """
                                     <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
                                          KI Auto-Erkennen
                                     </button>
-                                    <button onclick="toggleCamEnabled()" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition">
-                                        🚫 Keine Cam (Vollbild)
+                                    <button type="button" onclick="switchCropMode('single_916')" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition" title="Facecam entfernen und zu reinem 9:16 Vollbild (1 Rahmen) wechseln">
+                                        🚫 Keine Cam (Vollbild / 1 Rahmen)
                                     </button>
                                 </div>
                                 <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
@@ -2238,11 +2272,14 @@ HTML_DASHBOARD = """
 
                         <!-- Toolbar für Reines 9:16 IRL Vollbild -->
                         <div id="toolbar-single" class="hidden flex flex-wrap items-center gap-2.5">
-                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">IRL-Ausschnitt:</span>
-                            <button onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
-                            <button onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
-                            <button onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
-                            <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">Fester 9:16 Vollbild-Ausschnitt (608x1080 px)</span>
+                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">📱 9:16 Vollbild:</span>
+                            <button type="button" onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
+                            <button type="button" onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
+                            <button type="button" onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                            <button type="button" onclick="switchCropMode('split')" class="px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-600/80 text-xs font-bold rounded-lg text-emerald-300 hover:text-white transition flex items-center gap-1.5 shadow" title="Zurück zu 2 Rahmen (Facecam oben + Gameplay unten)">
+                                <span>✂️</span> Facecam hinzufügen (Split-Screen)
+                            </button>
+                            <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">1 Rahmen (608x1080 px Vollbild)</span>
                         </div>
                     </div>
                 </div>

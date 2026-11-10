@@ -1027,19 +1027,30 @@ async function downloadRawVideo(clipId, btn, evt) {
             const boxCam = document.getElementById('crop-box-cam');
             const boxGame = document.getElementById('crop-box-game');
             const boxSingle = document.getElementById('crop-box-single');
+            const btnToggleCam = document.getElementById('btn-crop-toggle-cam');
 
             if (mode === 'single_916') {
                 if (btnSplit) {
                     btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
                 }
                 if (btnSingle) {
-                    btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
+                    btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-emerald-900/90 text-emerald-100 border border-emerald-500 shadow';
                 }
-                if (tbSplit) tbSplit.classList.add('hidden');
-                if (tbSingle) tbSingle.classList.remove('hidden');
-                if (boxCam) boxCam.classList.add('hidden');
-                if (boxGame) boxGame.classList.add('hidden');
-                if (boxSingle) boxSingle.classList.remove('hidden');
+                if (tbSplit) {
+                    tbSplit.classList.add('hidden');
+                    tbSplit.style.display = 'none';
+                }
+                if (tbSingle) {
+                    tbSingle.classList.remove('hidden');
+                    tbSingle.style.display = 'flex';
+                }
+                if (boxCam) boxCam.style.display = 'none';
+                if (boxGame) boxGame.style.display = 'none';
+                if (boxSingle) boxSingle.style.display = 'flex';
+                if (btnToggleCam) {
+                    btnToggleCam.innerText = '📷 Facecam wieder aktivieren';
+                    btnToggleCam.className = 'px-2.5 py-1 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
+                }
                 updateBoxDom('single');
             } else {
                 if (btnSplit) {
@@ -1048,16 +1059,35 @@ async function downloadRawVideo(clipId, btn, evt) {
                 if (btnSingle) {
                     btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
                 }
-                if (tbSplit) tbSplit.classList.remove('hidden');
-                if (tbSingle) tbSingle.classList.add('hidden');
-                if (boxCam && cropState.cam.enabled) boxCam.classList.remove('hidden');
-                if (boxGame) boxGame.classList.remove('hidden');
-                if (boxSingle) boxSingle.classList.add('hidden');
+                if (tbSplit) {
+                    tbSplit.classList.remove('hidden');
+                    tbSplit.style.display = 'block';
+                }
+                if (tbSingle) {
+                    tbSingle.classList.add('hidden');
+                    tbSingle.style.display = 'none';
+                }
+                if (boxCam) boxCam.style.display = 'flex';
+                if (boxGame) boxGame.style.display = 'flex';
+                if (boxSingle) boxSingle.style.display = 'none';
+                if (btnToggleCam) {
+                    btnToggleCam.innerText = '🚫 Keine Cam (Vollbild / 1 Rahmen)';
+                    btnToggleCam.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition';
+                }
                 updateBoxDom('cam');
                 updateBoxDom('game');
             }
             draw916Preview();
         }
+
+        function toggleCamEnabled() {
+            if (currentCropMode === 'single_916') {
+                switchCropMode('split');
+            } else {
+                switchCropMode('single_916');
+            }
+        }
+        window.toggleCamEnabled = toggleCamEnabled;
 
         let cropFallbackImg = new Image();
 
@@ -1855,34 +1885,6 @@ async function downloadRawVideo(clipId, btn, evt) {
                 btn.innerHTML = '<span>🤖</span> KI Auto-Erkennen';
                 btn.disabled = false;
             }
-        }
-
-        function toggleCamEnabled() {
-            cropState.cam.enabled = !cropState.cam.enabled;
-            const btn = document.getElementById('btn-crop-toggle-cam');
-            const vw = videoNativeWidth || 1920;
-            const vh = videoNativeHeight || 1080;
-
-            if (cropState.cam.enabled) {
-                btn.innerText = '🚫 Keine Cam (Vollbild)';
-                btn.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition';
-                
-                // Zu 9:10 Split-Format wechseln (Höhe beibehalten, Breite anpassen)
-                const curHpx = Math.round(cropState.game.h * vh);
-                const targetWpx = Math.round(curHpx * (9 / 10));
-                setGamePixelWidth(targetWpx);
-            } else {
-                btn.innerText = 'Facecam wieder aktivieren';
-                btn.className = 'px-2.5 py-1 bg-emerald-900/80 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
-                
-                // Zu 9:16 Vollbild-Format wechseln (Höhe beibehalten, Breite anpassen)
-                const curHpx = Math.round(cropState.game.h * vh);
-                const targetWpx = Math.round(curHpx * (9 / 16));
-                setGamePixelWidth(targetWpx);
-            }
-            updateBoxDom('cam');
-            updateBoxDom('game');
-            draw916Preview();
         }
 
         function draw916Preview() {
