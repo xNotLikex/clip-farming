@@ -95,6 +95,7 @@ twitch:
   time_filter: LAST_DAY
   hours_back: 12
 video:
+  hardware_encoder: auto # Optionen: auto, nvenc (NVIDIA), amf (AMD), qsv (Intel), mf (Windows MediaFoundation / Onboard), cpu
   use_nvenc: true
   whisper_model: small
   device: cuda

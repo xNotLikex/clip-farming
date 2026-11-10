@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, Callable
 from src.config import SHORTS_OUTPUT_DIR, load_config
 from src.video.sticker import create_tiktok_sticker
+from src.video.gpu import get_best_video_encoder
 
 # Globaler Registry-Lock fuer aktive Render-Jobs
 active_renders: Dict[str, Dict[str, Any]] = {}
@@ -47,6 +48,10 @@ class VideoComposer:
         self.config = load_config()
         self.video_cfg = self.config.get("video", {})
         self.use_nvenc = self.video_cfg.get("use_nvenc", True)
+        self.hardware_encoder = self.video_cfg.get("hardware_encoder", "auto")
+        if not self.use_nvenc and self.hardware_encoder == "auto":
+            self.hardware_encoder = "cpu"
+        self.encoder_profile = get_best_video_encoder(self.hardware_encoder)
         self.audio_normalize = self.video_cfg.get("audio_normalize", True)
 
     def detect_facecam_overlay(self, video_path: Path, max_samples: int = 18) -> Optional[Tuple[int, int, int, int]]:
@@ -401,7 +406,9 @@ class VideoComposer:
             filter_complex = f"{base_graph}{sticker_filter};{curr_target}copy[v]"
 
         audio_filter = "loudnorm=I=-14:TP=-1.5:LRA=11" if self.audio_normalize else "anull"
-        encoder_args = ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23"] if self.use_nvenc else ["-c:v", "libx264", "-preset", "fast", "-crf", "22"]
+        encoder_args = self.encoder_profile["args"]
+        codec = self.encoder_profile["codec"]
+        speed_factor = 2.5 if "nvenc" in codec else (2.0 if ("amf" in codec or "mf" in codec or "qsv" in codec) else 0.9)
 
         cmd = [
             "ffmpeg", "-y",
@@ -421,9 +428,9 @@ class VideoComposer:
 
         try:
             layout_desc = "Reines 9:16 Vollbild (IRL)" if is_single_916 else ("Benutzerdefinierte Rahmen" if custom_crops else ("Split-Cam" if face_box else "Blur-Stack IRL"))
-            print(f"[*] Rendere Short fuer Clip {clip_id} ({layout_desc})...")
+            print(f"[*] Rendere Short fuer Clip {clip_id} ({layout_desc}) mit {self.encoder_profile['name']}...")
             if on_progress:
-                on_progress(5, int(total_duration / 2.5), "1.0x")
+                on_progress(5, int(total_duration / speed_factor), self.encoder_profile["name"])
 
             proc = subprocess.Popen(
                 cmd,

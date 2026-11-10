@@ -156,3 +156,18 @@ pub async fn trigger_twitch_run() -> Result<usize, String> {
     Ok(total_harvested)
 }
 
+#[tauri::command]
+pub fn detect_hardware_gpus() -> Vec<crate::gpu::GpuInfo> {
+    crate::gpu::detect_gpus()
+}
+
+#[tauri::command]
+pub fn get_available_encoders() -> Vec<crate::gpu::EncoderProfile> {
+    crate::gpu::get_encoder_catalog()
+}
+
+#[tauri::command]
+pub fn select_hardware_encoder(preferred: String) -> crate::gpu::EncoderProfile {
+    crate::gpu::select_best_encoder(&preferred)
+}
+
