@@ -329,7 +329,7 @@ function renderStudio(clips, streamerCounts) {
             <!-- Video Player -->
             <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                 ${clip.has_video ? `
-                <video controls preload="metadata" class="w-full h-full object-contain">
+                <video controls preload="metadata" poster="${getBackendUrl('/thumbnail/' + clip.clip_id)}" class="w-full h-full object-contain">
                     <source src="${getBackendUrl('/video/' + clip.clip_id)}" type="video/mp4">
                 </video>
                 ` : `
@@ -342,9 +342,9 @@ function renderStudio(clips, streamerCounts) {
                     ${SVG_ICONS.eye} ${clip.view_count}
                 </span>
                 ${clip.has_video ? `
-                <a href="${getBackendUrl('/download/short/' + clip.clip_id)}" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5" title="Fertiges 9:16 Short in HQ herunterladen">
-                    ${SVG_ICONS.save} HQ Download
-                </a>
+                <button type="button" onclick="downloadShortVideo('${clip.clip_id}', this)" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10" title="Fertiges 9:16 Short in HQ herunterladen">
+                    ${SVG_ICONS.save} <span>HQ Download</span>
+                </button>
                 ` : ''}
             </div>
 
@@ -698,6 +698,7 @@ if (document.readyState === 'loading') {
             
             const player = document.getElementById('modal-video-player');
             if (player) {
+                player.poster = getBackendUrl('/thumbnail/' + clipId);
                 player.src = getBackendUrl('/raw-video/' + clipId);
                 player.load();
                 player.play().catch(() => {});
@@ -708,7 +709,9 @@ if (document.readyState === 'loading') {
             const delForm = document.getElementById('modal-delete-form');
             if (delForm) delForm.action = '/queue/delete/' + clipId;
             const dlRaw = document.getElementById('modal-download-raw');
-            if (dlRaw) dlRaw.href = getBackendUrl('/download/raw/' + clipId);
+            if (dlRaw) {
+                dlRaw.onclick = () => downloadRawVideo(clipId, dlRaw);
+            }
             
             const modal = document.getElementById('preview-modal');
             if (modal) {
@@ -777,6 +780,66 @@ function showToast(message, type = 'info') {
         toast.style.opacity = '0';
         setTimeout(() => { toast.style.display = 'none'; }, 200);
     }, 4000);
+}
+
+async function downloadShortVideo(clipId, btn) {
+    if (!clipId) return;
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+    }
+    showToast('Exportiere HQ Video in deinen Downloads-Ordner...', 'info');
+    try {
+        const res = await fetch(getBackendUrl('/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads'), {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            showToast('✓ Video in Downloads gespeichert: ' + data.filename, 'success');
+        } else {
+            window.location.href = getBackendUrl('/download/short/' + encodeURIComponent(clipId));
+        }
+    } catch (err) {
+        console.warn('Export endpoint error:', err);
+        window.location.href = getBackendUrl('/download/short/' + encodeURIComponent(clipId));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+}
+
+async function downloadRawVideo(clipId, btn) {
+    if (!clipId) return;
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+    }
+    showToast('Exportiere Rohdatei in deinen Downloads-Ordner...', 'info');
+    try {
+        const res = await fetch(getBackendUrl('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads'), {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            showToast('✓ Rohdatei in Downloads gespeichert: ' + data.filename, 'success');
+        } else {
+            window.location.href = getBackendUrl('/download/raw/' + encodeURIComponent(clipId));
+        }
+    } catch (err) {
+        console.warn('Export raw endpoint error:', err);
+        window.location.href = getBackendUrl('/download/raw/' + encodeURIComponent(clipId));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
 }
 
         async function triggerRun() {
@@ -1011,13 +1074,14 @@ function showToast(message, type = 'info') {
 
             const vid = document.getElementById('crop-stage-video');
             if (vid) {
+                vid.poster = getBackendUrl('/thumbnail/' + clipId);
                 vid.muted = true;
                 vid.src = getBackendUrl('/raw-video/' + clipId);
-                vid.currentTime = 1.0;
+                vid.currentTime = 0.5;
                 vid.load();
                 vid.play().then(() => {
                     vid.pause();
-                    vid.currentTime = 1.0;
+                    vid.currentTime = 0.5;
                     draw916Preview();
                 }).catch(() => {
                     draw916Preview();

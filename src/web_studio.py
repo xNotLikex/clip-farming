@@ -411,13 +411,14 @@ HTML_DASHBOARD = """
             // Setup Video
             var vid = document.getElementById('crop-stage-video');
             if (vid) {
+                vid.poster = '/thumbnail/' + clipId;
                 vid.muted = true;
                 vid.src = '/raw-video/' + clipId;
-                vid.currentTime = 1.0;
+                vid.currentTime = 0.5;
                 vid.load();
                 vid.play().then(function() {
                     vid.pause();
-                    vid.currentTime = 1.0;
+                    vid.currentTime = 0.5;
                     draw916Preview();
                 }).catch(function() {
                     draw916Preview();
@@ -896,6 +897,95 @@ HTML_DASHBOARD = """
             }
         }
 
+        function showToast(message, type) {
+            type = type || 'info';
+            var toast = document.getElementById('ui-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'ui-toast';
+                document.body.appendChild(toast);
+            }
+            var borderCls = 'border-slate-700 bg-slate-900/95 text-slate-200';
+            var iconSvg = '<svg class="w-4 h-4 text-amber-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            if (type === 'success') {
+                borderCls = 'border-emerald-700 bg-emerald-950/95 text-emerald-100';
+                iconSvg = '<svg class="w-4 h-4 text-emerald-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+            } else if (type === 'error') {
+                borderCls = 'border-rose-700 bg-rose-950/95 text-rose-100';
+                iconSvg = '<svg class="w-4 h-4 text-rose-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            }
+            toast.className = 'fixed bottom-5 right-5 z-[9999] max-w-sm px-4 py-3 rounded-lg border ' + borderCls + ' shadow-2xl text-xs font-semibold flex items-center gap-2.5 transition-all duration-200 pointer-events-none';
+            toast.innerHTML = iconSvg + ' <span>' + message + '</span>';
+            toast.style.display = 'flex';
+            toast.style.opacity = '1';
+            clearTimeout(window._toastTimeout);
+            window._toastTimeout = setTimeout(function() {
+                toast.style.opacity = '0';
+                setTimeout(function() { toast.style.display = 'none'; }, 250);
+            }, 3500);
+        }
+        window.showToast = showToast;
+
+        async function downloadShortVideo(clipId, btn) {
+            if (!clipId) return;
+            var origContent = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+            }
+            showToast('Exportiere HQ Video in deinen Downloads-Ordner...', 'info');
+            try {
+                var res = await fetch('/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                var data = await res.json();
+                if (data && data.success) {
+                    showToast('✓ Video in Downloads gespeichert: ' + data.filename, 'success');
+                } else {
+                    window.location.href = '/download/short/' + encodeURIComponent(clipId);
+                }
+            } catch (err) {
+                console.warn('Export endpoint failed, falling back:', err);
+                window.location.href = '/download/short/' + encodeURIComponent(clipId);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origContent;
+                }
+            }
+        }
+
+        async function downloadRawVideo(clipId, btn) {
+            if (!clipId) return;
+            var origContent = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+            }
+            showToast('Exportiere Rohdatei in deinen Downloads-Ordner...', 'info');
+            try {
+                var res = await fetch('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                var data = await res.json();
+                if (data && data.success) {
+                    showToast('✓ Rohdatei in Downloads gespeichert: ' + data.filename, 'success');
+                } else {
+                    window.location.href = '/download/raw/' + encodeURIComponent(clipId);
+                }
+            } catch (err) {
+                console.warn('Export raw endpoint failed, falling back:', err);
+                window.location.href = '/download/raw/' + encodeURIComponent(clipId);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origContent;
+                }
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', function() {
             initCropInteractions();
         });
@@ -922,6 +1012,7 @@ HTML_DASHBOARD = """
             }
             var player = document.getElementById('modal-video-player');
             if (player) {
+                player.poster = '/thumbnail/' + clipId;
                 player.src = '/raw-video/' + clipId;
                 player.load();
                 player.play().catch(function() {});
@@ -931,7 +1022,9 @@ HTML_DASHBOARD = """
             var delForm = document.getElementById('modal-delete-form');
             if (delForm) delForm.action = '/queue/delete/' + clipId;
             var dlRaw = document.getElementById('modal-download-raw');
-            if (dlRaw) dlRaw.href = '/download/raw/' + clipId;
+            if (dlRaw) {
+                dlRaw.onclick = function() { downloadRawVideo(clipId, dlRaw); };
+            }
             var m = document.getElementById('preview-modal');
             if (m) {
                 m.classList.remove('hidden');
@@ -1339,11 +1432,11 @@ HTML_DASHBOARD = """
                         </span>
 
                         {% if clip.has_video %}
-                        <a href="/download/short/{{ clip.clip_id }}" 
-                            class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5"
+                        <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this)" 
+                            class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10"
                             title="Fertiges 9:16 Short in HQ auf deinen PC herunterladen">
-                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> HQ Download
-                        </a>
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> <span>HQ Download</span>
+                        </button>
                         {% endif %}
                     </div>
 
@@ -1433,10 +1526,10 @@ HTML_DASHBOARD = """
                             </button>
 
                             {% if clip.has_video %}
-                            <a href="/download/short/{{ clip.clip_id }}" 
-                                class="w-full py-2.5 px-4 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-emerald-300 hover:text-white shadow">
-                                <span>💾</span> HQ Video herunterladen (.mp4)
-                            </a>
+                            <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this)" 
+                                class="w-full py-2.5 px-4 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-emerald-300 hover:text-white shadow cursor-pointer">
+                                <span>💾</span> <span>HQ Video herunterladen (.mp4)</span>
+                            </button>
                             {% endif %}
 
                             <div class="grid grid-cols-2 gap-2">
@@ -1853,9 +1946,9 @@ HTML_DASHBOARD = """
             <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
                 <div class="flex items-center gap-2">
-                    <a id="modal-download-raw" href="" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5" title="Rohdatei direkt herunterladen">
-                        <span>💾</span> Rohdatei laden
-                    </a>
+                    <button id="modal-download-raw" type="button" onclick="downloadRawVideo(currentPreviewClipId, this)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5 cursor-pointer" title="Rohdatei direkt in Downloads-Ordner exportieren">
+                        <span>💾</span> <span>Rohdatei laden</span>
+                    </button>
                     <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-zinc-200 hover:text-white rounded transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
                         <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Zuschnitt festlegen
                     </button>
@@ -2536,6 +2629,93 @@ def download_raw_route(clip_id):
     if raw_path.exists():
         return send_file(raw_path, as_attachment=True, download_name=f"raw_{clip_id}.mp4", mimetype="video/mp4")
     return "Rohdatei nicht gefunden", 404
+
+@app.route("/api/clip/<clip_id>/export-to-downloads", methods=["POST", "GET"])
+def export_clip_to_downloads(clip_id):
+    """Kopiert das gerenderte 9:16 Video direkt in den Windows Downloads-Ordner und öffnet Explorer."""
+    import shutil
+    import subprocess
+
+    video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+    if not video_path.exists():
+        video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+
+    if not video_path.exists():
+        return jsonify({"success": False, "error": "Video nicht gefunden"}), 404
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT streamer, ai_title, original_title FROM clips WHERE clip_id = ?", (clip_id,))
+        clip = cursor.fetchone()
+
+    streamer = clip["streamer"] if clip else "Short"
+    raw_title = (clip["ai_title"] or clip["original_title"] or clip_id) if clip else clip_id
+    clean_title = "".join(c for c in raw_title if c.isalnum() or c in (" ", "-", "_")).strip()
+    clean_title = clean_title[:45]
+    filename = f"{streamer}_{clean_title}.mp4"
+
+    downloads_dir = Path.home() / "Downloads"
+    if not downloads_dir.exists():
+        downloads_dir = SHORTS_OUTPUT_DIR
+
+    dest_path = downloads_dir / filename
+    if dest_path.exists():
+        dest_path = downloads_dir / f"{streamer}_{clean_title}_{clip_id[:6]}.mp4"
+        filename = dest_path.name
+
+    shutil.copy2(video_path, dest_path)
+
+    # Windows Explorer mit markierter Datei öffnen
+    if sys.platform == "win32":
+        try:
+            subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
+        except Exception:
+            pass
+
+    return jsonify({
+        "success": True,
+        "filename": filename,
+        "path": str(dest_path),
+        "folder": str(dest_path.parent)
+    })
+
+@app.route("/api/clip/<clip_id>/export-raw-to-downloads", methods=["POST", "GET"])
+def export_raw_to_downloads(clip_id):
+    """Kopiert das rohe 16:9 Video in Downloads und öffnet Explorer."""
+    import shutil
+    import subprocess
+
+    video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+    if not video_path.exists():
+        return jsonify({"success": False, "error": "Rohdatei nicht gefunden"}), 404
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT streamer, original_title FROM clips WHERE clip_id = ?", (clip_id,))
+        clip = cursor.fetchone()
+
+    streamer = clip["streamer"] if clip else "Clip"
+    raw_title = (clip["original_title"] or clip_id) if clip else clip_id
+    clean_title = "".join(c for c in raw_title if c.isalnum() or c in (" ", "-", "_")).strip()[:40]
+    filename = f"{streamer}_raw_{clean_title}.mp4" if clean_title else f"raw_{clip_id}.mp4"
+
+    downloads_dir = Path.home() / "Downloads"
+    if not downloads_dir.exists():
+        downloads_dir = RAW_CLIPS_DIR
+    dest_path = downloads_dir / filename
+    if dest_path.exists():
+        dest_path = downloads_dir / f"{streamer}_raw_{clean_title}_{clip_id[:6]}.mp4"
+        filename = dest_path.name
+
+    shutil.copy2(video_path, dest_path)
+
+    if sys.platform == "win32":
+        try:
+            subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
+        except Exception:
+            pass
+
+    return jsonify({"success": True, "filename": filename, "path": str(dest_path), "folder": str(dest_path.parent)})
 
 @app.route("/save/<clip_id>", methods=["POST"])
 def save_clip(clip_id):

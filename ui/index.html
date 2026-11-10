@@ -129,6 +129,7 @@
             }
             var player = document.getElementById('modal-video-player');
             if (player) {
+                player.poster = 'http://127.0.0.1:5000/thumbnail/' + clipId;
                 player.src = 'http://127.0.0.1:5000/raw-video/' + clipId;
                 player.load();
                 player.play().catch(function() {});
@@ -138,7 +139,9 @@
             var delForm = document.getElementById('modal-delete-form');
             if (delForm) delForm.action = 'http://127.0.0.1:5000/queue/delete/' + clipId;
             var dlRaw = document.getElementById('modal-download-raw');
-            if (dlRaw) dlRaw.href = 'http://127.0.0.1:5000/download/raw/' + clipId;
+            if (dlRaw) {
+                dlRaw.onclick = function() { downloadRawVideo(clipId, dlRaw); };
+            }
             var m = document.getElementById('preview-modal');
             if (m) {
                 m.classList.remove('hidden');
@@ -3752,9 +3755,9 @@
             <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
                 <div class="flex items-center gap-2">
-                    <a id="modal-download-raw" href="" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5" title="Rohdatei direkt herunterladen">
-                        <span>💾</span> Rohdatei laden
-                    </a>
+                    <button id="modal-download-raw" type="button" onclick="downloadRawVideo(currentPreviewClipId, this)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5 cursor-pointer" title="Rohdatei direkt in Downloads-Ordner exportieren">
+                        <span>💾</span> <span>Rohdatei laden</span>
+                    </button>
                     <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-zinc-200 hover:text-white rounded transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
                         <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Zuschnitt festlegen
                     </button>
