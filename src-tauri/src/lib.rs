@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 pub mod commands;
 pub mod db;
 pub mod gpu;
@@ -7,7 +9,11 @@ pub mod twitch;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let url = tauri::Url::parse("http://127.0.0.1:5000").unwrap();
+                let _ = window.navigate(url);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
