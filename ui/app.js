@@ -976,6 +976,8 @@ function showToast(message, type = 'info') {
             draw916Preview();
         }
 
+        let cropFallbackImg = new Image();
+
         async function openCropModal(clipId, streamer, title) {
             currentCropClipId = clipId;
             currentCropStreamer = streamer || '';
@@ -996,9 +998,31 @@ function showToast(message, type = 'info') {
                 modal.style.display = 'flex';
             }
 
+            // Sync visual boxes immediately so they are never at (0, 0)
+            updateBoxDom('cam');
+            updateBoxDom('game');
+            updateBoxDom('single');
+
+            // Preload thumbnail into fallback image for instant canvas rendering
+            cropFallbackImg.src = getBackendUrl('/thumbnail/' + clipId);
+            cropFallbackImg.onload = () => {
+                draw916Preview();
+            };
+
             const vid = document.getElementById('crop-stage-video');
-            vid.src = getBackendUrl('/raw-video/' + clipId);
-            vid.load();
+            if (vid) {
+                vid.muted = true;
+                vid.src = getBackendUrl('/raw-video/' + clipId);
+                vid.currentTime = 1.0;
+                vid.load();
+                vid.play().then(() => {
+                    vid.pause();
+                    vid.currentTime = 1.0;
+                    draw916Preview();
+                }).catch(() => {
+                    draw916Preview();
+                });
+            }
 
             // Default Box States: Feste Seitenverhältnisse (3:2 für Cam, 9:10 für Gameplay, 9:16 für Single)
             cropState.cam = {
@@ -1781,14 +1805,25 @@ function showToast(message, type = 'info') {
             const canvas = document.getElementById('crop-preview-canvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            const vid = document.getElementById('crop-stage-video');
-            if (!vid || vid.readyState < 2) return;
-
-            const vw = vid.videoWidth || 1920;
-            const vh = vid.videoHeight || 1080;
+            const vidElem = document.getElementById('crop-stage-video');
+            const source = (vidElem && vidElem.readyState >= 2) ? vidElem : ((cropFallbackImg && cropFallbackImg.complete && cropFallbackImg.naturalWidth > 0) ? cropFallbackImg : null);
 
             ctx.fillStyle = '#05070e';
             ctx.fillRect(0, 0, 270, 480);
+
+            if (!source) {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(10, 10, 250, 460);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Lade Frame...', 135, 240);
+                return;
+            }
+
+            const vid = source;
+            const vw = source.videoWidth || source.naturalWidth || 1920;
+            const vh = source.videoHeight || source.naturalHeight || 1080;
 
             if (currentCropMode === 'single_916') {
                 // Reines 9:16 Vollbild (IRL / Fullscreen) - 1:1 unverzerrt in 9:16 Canvas

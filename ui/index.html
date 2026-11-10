@@ -4043,12 +4043,12 @@
                     <!-- Stage Container (Aspect 16:9) -->
                     <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
                         <!-- Video element -->
-                        <video id="crop-stage-video" crossorigin="anonymous" playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
+                        <video id="crop-stage-video" muted playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
 
                         <!-- Draggable Overlay Boxes Container (Feste Größen ohne Verzerrung) -->
-                        <div id="crop-overlay-layer" class="absolute inset-0 select-none">
+                        <div id="crop-overlay-layer" class="absolute inset-0 select-none pointer-events-none">
                             <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>📷 Facecam</span>
                                     <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
@@ -4057,14 +4057,14 @@
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
                                 <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 3:2 Seitenverhältnis -->
-                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="tl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="tr" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="bl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="br" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Größe anpassen (3:2)"></div>
                             </div>
 
                             <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 24%; top: 0%; width: 52%; height: 100%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-sky-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>🎮 Gameplay</span>
                                     <span id="crop-game-format-badge" class="text-sky-200 text-2xs font-normal">(Festes 9:10 Format)</span>
@@ -4073,14 +4073,14 @@
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
                                 <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 9:10 Seitenverhältnis -->
-                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
                             </div>
 
                             <!-- 🟪 Reiner 9:16 IRL Vollbild-Rahmen (Festes 9:16 Format, horizontal verschiebbar) -->
-                            <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 hidden">
+                            <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 34%; top: 0%; width: 32%; height: 100%; display: none;">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-bold text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>📱 9:16 IRL Bildausschnitt</span>
                                     <span class="text-fuchsia-200 text-2xs font-normal">(Festes 9:16 Vollbild)</span>

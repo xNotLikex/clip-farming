@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for
 
 from src.config import (
-    SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, load_config,
+    SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, DATA_DIR, load_config,
     get_streamers, add_streamer, remove_streamer
 )
 from src.database import get_db_connection, update_clip_status
@@ -369,16 +369,84 @@ HTML_DASHBOARD = """
                 btn.classList.remove('text-slate-400');
             }
         }
+        var currentCropClipId = '';
+        var currentCropStreamer = '';
+        var currentCropTitle = '';
+        var currentCropMode = 'split'; // 'split' oder 'single_916'
+        var cropState = {
+            cam: { x: 0.68, y: 0.58, w: 0.28, h: 0.35, enabled: true },
+            game: { x: 0.24, y: 0.0, w: 0.52, h: 1.0, enabled: true },
+            single: { x: 0.34, y: 0.0, w: 0.32, h: 1.0, enabled: true }
+        };
+        var activeCropDrag = null;
+        var cropFallbackImg = new Image();
+
         function openCropModal(clipId, streamer, title) {
+            if (!clipId) return;
+            currentCropClipId = clipId;
+            currentCropStreamer = streamer || '';
+            currentCropTitle = title || '';
+
+            var badge = document.getElementById('crop-modal-clip-badge');
+            if (badge) badge.innerText = (streamer ? streamer + ': ' : '') + (title ? title.slice(0, 30) : clipId);
+
             var m = document.getElementById('crop-modal');
             if (m) {
                 m.classList.remove('hidden');
                 m.classList.add('flex');
                 m.style.setProperty('display', 'flex', 'important');
             }
-            if (window.__realOpenCropModal) window.__realOpenCropModal(clipId, streamer, title);
+
+            // Sync visual boxes immediately so they are never at (0, 0)
+            updateBoxDom('cam');
+            updateBoxDom('game');
+            updateBoxDom('single');
+
+            // Preload thumbnail into fallback image for instant canvas rendering
+            cropFallbackImg.src = '/thumbnail/' + clipId;
+            cropFallbackImg.onload = function() {
+                draw916Preview();
+            };
+
+            // Setup Video
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.muted = true;
+                vid.src = '/raw-video/' + clipId;
+                vid.currentTime = 1.0;
+                vid.load();
+                vid.play().then(function() {
+                    vid.pause();
+                    vid.currentTime = 1.0;
+                    draw916Preview();
+                }).catch(function() {
+                    draw916Preview();
+                });
+            }
+
+            // Fetch saved metadata if available
+            fetch('/api/clip/' + clipId + '/meta')
+                .then(function(r) { return r.json(); })
+                .then(function(meta) {
+                    if (meta && meta.custom_crops) {
+                        applyLoadedCropMeta(meta);
+                    }
+                    updateBoxDom('cam');
+                    updateBoxDom('game');
+                    updateBoxDom('single');
+                    draw916Preview();
+                })
+                .catch(function() {
+                    draw916Preview();
+                });
         }
+
         function closeCropModal() {
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.pause();
+                vid.src = '';
+            }
             var m = document.getElementById('crop-modal');
             if (m) {
                 m.classList.add('hidden');
@@ -386,6 +454,452 @@ HTML_DASHBOARD = """
                 m.style.setProperty('display', 'none', 'important');
             }
         }
+
+        function switchCropMode(mode) {
+            currentCropMode = mode;
+            var btnSplit = document.getElementById('btn-mode-split');
+            var btnSingle = document.getElementById('btn-mode-single');
+            var tbSplit = document.getElementById('toolbar-split');
+            var tbSingle = document.getElementById('toolbar-single');
+            var boxCam = document.getElementById('crop-box-cam');
+            var boxGame = document.getElementById('crop-box-game');
+            var boxSingle = document.getElementById('crop-box-single');
+
+            if (mode === 'single_916') {
+                if (btnSplit) btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
+                if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
+                if (tbSplit) tbSplit.classList.add('hidden');
+                if (tbSingle) tbSingle.classList.remove('hidden');
+                if (boxCam) boxCam.style.display = 'none';
+                if (boxGame) boxGame.style.display = 'none';
+                if (boxSingle) boxSingle.style.display = 'flex';
+                updateBoxDom('single');
+            } else {
+                if (btnSplit) btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
+                if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
+                if (tbSplit) tbSplit.classList.remove('hidden');
+                if (tbSingle) tbSingle.classList.add('hidden');
+                if (boxCam) boxCam.style.display = cropState.cam.enabled ? 'flex' : 'none';
+                if (boxGame) boxGame.style.display = 'flex';
+                if (boxSingle) boxSingle.style.display = 'none';
+                updateBoxDom('cam');
+                updateBoxDom('game');
+            }
+            draw916Preview();
+        }
+
+        function updateBoxDom(type) {
+            var box = document.getElementById('crop-box-' + type);
+            if (!box) return;
+            var s = cropState[type];
+            if (!s) return;
+            box.style.left = (s.x * 100) + '%';
+            box.style.top = (s.y * 100) + '%';
+            box.style.width = (s.w * 100) + '%';
+            box.style.height = (s.h * 100) + '%';
+
+            var readout = document.getElementById('crop-coords-readout');
+            if (readout) {
+                var camW = Math.round(cropState.cam.w * 1920);
+                var camH = Math.round(cropState.cam.h * 1080);
+                var gameW = Math.round(cropState.game.w * 1920);
+                var gameH = Math.round(cropState.game.h * 1080);
+                readout.innerText = 'Cam: ' + camW + 'x' + camH + ' • Game: ' + gameW + 'x' + gameH;
+            }
+        }
+
+        function draw916Preview() {
+            var canvas = document.getElementById('crop-preview-canvas');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var vid = document.getElementById('crop-stage-video');
+            var source = (vid && vid.readyState >= 2) ? vid : ((cropFallbackImg && cropFallbackImg.complete && cropFallbackImg.naturalWidth > 0) ? cropFallbackImg : null);
+
+            ctx.fillStyle = '#05070e';
+            ctx.fillRect(0, 0, 270, 480);
+
+            if (!source) {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(10, 10, 250, 460);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Lade Frame...', 135, 240);
+                return;
+            }
+
+            var vw = source.videoWidth || source.naturalWidth || 1920;
+            var vh = source.videoHeight || source.naturalHeight || 1080;
+
+            if (currentCropMode === 'single_916') {
+                var sx = cropState.single.x * vw;
+                var sy = 0;
+                var sw = Math.max(16, cropState.single.w * vw);
+                var sh = vh;
+                try {
+                    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 270, 480);
+                } catch(e) {}
+            } else {
+                // Split Screen:
+                // 1. Gameplay in lower portion (or background)
+                var gx = cropState.game.x * vw;
+                var gy = cropState.game.y * vh;
+                var gw = Math.max(16, cropState.game.w * vw);
+                var gh = Math.max(16, cropState.game.h * vh);
+
+                var gameDestY = cropState.cam.enabled ? 160 : 0;
+                var gameDestH = cropState.cam.enabled ? 320 : 480;
+
+                try {
+                    ctx.drawImage(source, gx, gy, gw, gh, 0, gameDestY, 270, gameDestH);
+                } catch(e) {}
+
+                // 2. Facecam in top portion
+                if (cropState.cam.enabled) {
+                    var cx = cropState.cam.x * vw;
+                    var cy = cropState.cam.y * vh;
+                    var cw = Math.max(16, cropState.cam.w * vw);
+                    var ch = Math.max(16, cropState.cam.h * vh);
+
+                    ctx.save();
+                    ctx.drawImage(source, cx, cy, cw, ch, 0, 0, 270, 160);
+
+                    // Thin separator line
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 160);
+                    ctx.lineTo(270, 160);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // Hook Sticker simulation (title badge)
+            if (currentCropTitle) {
+                ctx.save();
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                ctx.shadowBlur = 6;
+                var stickerW = 220;
+                var stickerH = 24;
+                var stickerY = (currentCropMode === 'split' && cropState.cam.enabled) ? 172 : 110;
+                var stickerX = (270 - stickerW) / 2;
+                ctx.fillRect(stickerX, stickerY, stickerW, stickerH);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                var dispText = currentCropTitle.length > 32 ? currentCropTitle.slice(0, 30) + '...' : currentCropTitle;
+                ctx.fillText(dispText, 135, stickerY + (stickerH / 2));
+                ctx.restore();
+            }
+        }
+
+        function applyPreset(preset) {
+            if (preset === 'cam_br') {
+                cropState.cam.x = 0.69; cropState.cam.y = 0.60; cropState.cam.enabled = true;
+            } else if (preset === 'cam_tl') {
+                cropState.cam.x = 0.03; cropState.cam.y = 0.05; cropState.cam.enabled = true;
+            } else if (preset === 'cam_tr') {
+                cropState.cam.x = 0.69; cropState.cam.y = 0.05; cropState.cam.enabled = true;
+            } else if (preset === 'cam_bl') {
+                cropState.cam.x = 0.03; cropState.cam.y = 0.60; cropState.cam.enabled = true;
+            } else if (preset === 'cam_off') {
+                cropState.cam.enabled = !cropState.cam.enabled;
+            } else if (preset === 'game_center') {
+                cropState.game.x = (1 - cropState.game.w) / 2;
+            } else if (preset === 'game_left') {
+                cropState.game.x = 0.02;
+            } else if (preset === 'game_right') {
+                cropState.game.x = 1 - cropState.game.w - 0.02;
+            } else if (preset === 'single_center') {
+                cropState.single.x = (1 - cropState.single.w) / 2;
+            } else if (preset === 'single_left') {
+                cropState.single.x = 0.02;
+            } else if (preset === 'single_right') {
+                cropState.single.x = 1 - cropState.single.w - 0.02;
+            }
+            updateBoxDom('cam');
+            updateBoxDom('game');
+            updateBoxDom('single');
+            draw916Preview();
+        }
+
+        function setCamPixelWidth(wPx) {
+            var w = Math.max(280, Math.min(800, parseInt(wPx, 10) || 540));
+            cropState.cam.w = w / 1920;
+            cropState.cam.h = (w * (2 / 3)) / 1080;
+            if (cropState.cam.x + cropState.cam.w > 1) cropState.cam.x = 1 - cropState.cam.w;
+            if (cropState.cam.y + cropState.cam.h > 1) cropState.cam.y = 1 - cropState.cam.h;
+            var disp = document.getElementById('crop-cam-size-display');
+            if (disp) disp.innerText = w + ' x ' + Math.round(w * (2 / 3)) + ' px';
+            var slider = document.getElementById('crop-cam-size-slider');
+            if (slider) slider.value = w;
+            updateBoxDom('cam');
+            draw916Preview();
+        }
+
+        function setGamePixelWidth(wPx) {
+            var w = Math.max(480, Math.min(1200, parseInt(wPx, 10) || 972));
+            cropState.game.w = w / 1920;
+            cropState.game.h = 1.0;
+            if (cropState.game.x + cropState.game.w > 1) cropState.game.x = 1 - cropState.game.w;
+            var disp = document.getElementById('crop-game-size-display');
+            if (disp) disp.innerText = w + ' x 1080 px';
+            var slider = document.getElementById('crop-game-size-slider');
+            if (slider) slider.value = w;
+            updateBoxDom('game');
+            draw916Preview();
+        }
+
+        function seekCropVideo(delta) {
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.currentTime = Math.max(0, Math.min(vid.duration || 60, vid.currentTime + delta));
+            }
+        }
+
+        function toggleCropVideoPlay() {
+            var vid = document.getElementById('crop-stage-video');
+            var btn = document.getElementById('crop-play-btn');
+            if (!vid) return;
+            if (vid.paused) {
+                vid.play();
+                if (btn) btn.innerText = '⏸️ Pause';
+            } else {
+                vid.pause();
+                if (btn) btn.innerText = '▶️ Play';
+            }
+        }
+
+        function onCropSliderInput(val) {
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.currentTime = parseFloat(val) || 0;
+            }
+        }
+
+        function saveCropCoordinates(renderNow) {
+            if (!currentCropClipId) return;
+            var payload = {
+                layout_mode: currentCropMode === 'single_916' ? 'single_916' : 'custom',
+                custom_crops: {
+                    mode: currentCropMode,
+                    cam: {
+                        enabled: cropState.cam.enabled,
+                        x: Math.round(cropState.cam.x * 1920),
+                        y: Math.round(cropState.cam.y * 1080),
+                        w: Math.round(cropState.cam.w * 1920),
+                        h: Math.round(cropState.cam.h * 1080),
+                        x_pct: cropState.cam.x,
+                        y_pct: cropState.cam.y,
+                        w_pct: cropState.cam.w,
+                        h_pct: cropState.cam.h
+                    },
+                    game: {
+                        enabled: true,
+                        x: Math.round(cropState.game.x * 1920),
+                        y: 0,
+                        w: Math.round(cropState.game.w * 1920),
+                        h: 1080,
+                        x_pct: cropState.game.x,
+                        y_pct: 0,
+                        w_pct: cropState.game.w,
+                        h_pct: 1.0
+                    },
+                    single: {
+                        x: Math.round(cropState.single.x * 1920),
+                        y: 0,
+                        w: 608,
+                        h: 1080,
+                        x_pct: cropState.single.x,
+                        y_pct: 0,
+                        w_pct: 608 / 1920,
+                        h_pct: 1.0
+                    }
+                },
+                render_now: !!renderNow
+            };
+
+            fetch('/api/clip/' + currentCropClipId + '/save-crop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function() {
+                closeCropModal();
+                if (renderNow) {
+                    if (window.showToast) window.showToast('Zuschnitt gespeichert & Rendering gestartet!', 'success');
+                    setTimeout(updateLiveStatus, 300);
+                } else {
+                    if (window.showToast) window.showToast('Zuschnitt erfolgreich gespeichert!', 'success');
+                }
+            }).catch(function(err) {
+                alert('Fehler beim Speichern: ' + err);
+            });
+        }
+
+        function detectFacecamInCropModal() {
+            if (!currentCropClipId) return;
+            var badge = document.getElementById('crop-modal-clip-badge');
+            if (badge) badge.innerText = '🔍 KI scannt Facecam...';
+            fetch('/api/clip/' + currentCropClipId + '/detect-cam')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.cam) {
+                        cropState.cam.x = data.cam.x_pct;
+                        cropState.cam.y = data.cam.y_pct;
+                        cropState.cam.w = data.cam.w_pct;
+                        cropState.cam.h = data.cam.h_pct;
+                        cropState.cam.enabled = true;
+                        updateBoxDom('cam');
+                        draw916Preview();
+                    }
+                    if (badge) badge.innerText = (currentCropStreamer ? currentCropStreamer + ': ' : '') + currentCropTitle;
+                })
+                .catch(function() {
+                    if (badge) badge.innerText = (currentCropStreamer ? currentCropStreamer + ': ' : '') + currentCropTitle;
+                });
+        }
+
+        function applyLoadedCropMeta(meta) {
+            if (!meta) return;
+            var c = meta.custom_crops;
+            if (c) {
+                if (c.mode === 'single_916' || meta.layout_mode === 'single_916') {
+                    currentCropMode = 'single_916';
+                    if (c.single && c.single.x_pct !== undefined) cropState.single.x = c.single.x_pct;
+                } else {
+                    currentCropMode = 'split';
+                    if (c.cam) {
+                        if (c.cam.x_pct !== undefined) cropState.cam.x = c.cam.x_pct;
+                        if (c.cam.y_pct !== undefined) cropState.cam.y = c.cam.y_pct;
+                        if (c.cam.w_pct !== undefined) cropState.cam.w = c.cam.w_pct;
+                        if (c.cam.h_pct !== undefined) cropState.cam.h = c.cam.h_pct;
+                        if (c.cam.enabled !== undefined) cropState.cam.enabled = c.cam.enabled;
+                    }
+                    if (c.game) {
+                        if (c.game.x_pct !== undefined) cropState.game.x = c.game.x_pct;
+                        if (c.game.w_pct !== undefined) cropState.game.w = c.game.w_pct;
+                    }
+                }
+            }
+            switchCropMode(currentCropMode);
+        }
+
+        function initCropInteractions() {
+            var stage = document.getElementById('crop-stage-container');
+            if (!stage) return;
+
+            function onPointerDown(e, target, isResize, handle) {
+                e.preventDefault();
+                e.stopPropagation();
+                var rect = stage.getBoundingClientRect();
+                activeCropDrag = {
+                    target: target,
+                    isResize: isResize,
+                    handle: handle,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    stageW: rect.width,
+                    stageH: rect.height,
+                    initX: cropState[target].x,
+                    initY: cropState[target].y,
+                    initW: cropState[target].w,
+                    initH: cropState[target].h
+                };
+            }
+
+            var camBox = document.getElementById('crop-box-cam');
+            if (camBox) {
+                camBox.addEventListener('pointerdown', function(e) {
+                    if (e.target.classList.contains('crop-cam-handle')) return;
+                    onPointerDown(e, 'cam', false, null);
+                });
+            }
+
+            document.querySelectorAll('.crop-cam-handle').forEach(function(h) {
+                h.addEventListener('pointerdown', function(e) {
+                    onPointerDown(e, 'cam', true, h.getAttribute('data-handle'));
+                });
+            });
+
+            var gameBox = document.getElementById('crop-box-game');
+            if (gameBox) {
+                gameBox.addEventListener('pointerdown', function(e) {
+                    if (e.target.classList.contains('crop-game-handle')) return;
+                    onPointerDown(e, 'game', false, null);
+                });
+            }
+
+            var singleBox = document.getElementById('crop-box-single');
+            if (singleBox) {
+                singleBox.addEventListener('pointerdown', function(e) {
+                    onPointerDown(e, 'single', false, null);
+                });
+            }
+
+            window.addEventListener('pointermove', function(e) {
+                if (!activeCropDrag) return;
+                e.preventDefault();
+                var d = activeCropDrag;
+                var dx = (e.clientX - d.startX) / d.stageW;
+                var dy = (e.clientY - d.startY) / d.stageH;
+
+                if (!d.isResize) {
+                    var s = cropState[d.target];
+                    s.x = Math.max(0, Math.min(1 - s.w, d.initX + dx));
+                    if (d.target === 'cam') {
+                        s.y = Math.max(0, Math.min(1 - s.h, d.initY + dy));
+                    }
+                } else if (d.target === 'cam') {
+                    var scaleDelta = (d.handle.includes('r') ? dx : -dx);
+                    var newW = Math.max(280 / 1920, Math.min(800 / 1920, d.initW + scaleDelta));
+                    var newH = (newW * 1920 * (2 / 3)) / 1080;
+                    cropState.cam.w = newW;
+                    cropState.cam.h = newH;
+                    if (cropState.cam.x + cropState.cam.w > 1) cropState.cam.x = 1 - cropState.cam.w;
+                    if (cropState.cam.y + cropState.cam.h > 1) cropState.cam.y = 1 - cropState.cam.h;
+                }
+                updateBoxDom(d.target);
+                draw916Preview();
+            });
+
+            window.addEventListener('pointerup', function() { activeCropDrag = null; });
+            window.addEventListener('pointercancel', function() { activeCropDrag = null; });
+
+            // Setup video event listeners
+            var vid = document.getElementById('crop-stage-video');
+            var slider = document.getElementById('crop-time-slider');
+            var timeDisp = document.getElementById('crop-time-display');
+            if (vid) {
+                function onMeta() {
+                    if (slider) slider.max = vid.duration || 60;
+                    draw916Preview();
+                }
+                vid.addEventListener('loadedmetadata', onMeta);
+                vid.addEventListener('loadeddata', onMeta);
+                vid.addEventListener('canplay', onMeta);
+                vid.addEventListener('seeked', draw916Preview);
+                vid.addEventListener('timeupdate', function() {
+                    if (slider) slider.value = vid.currentTime;
+                    if (timeDisp) {
+                        var cur = Math.floor(vid.currentTime);
+                        var dur = Math.floor(vid.duration || 0);
+                        var curStr = (cur < 10 ? '0' : '') + Math.floor(cur / 60) + ':' + (cur % 60 < 10 ? '0' : '') + (cur % 60);
+                        var durStr = (dur < 10 ? '0' : '') + Math.floor(dur / 60) + ':' + (dur % 60 < 10 ? '0' : '') + (dur % 60);
+                        timeDisp.innerText = curStr + ' / ' + durStr;
+                    }
+                    draw916Preview();
+                });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            initCropInteractions();
+        });
+        setTimeout(initCropInteractions, 100);
         var currentPreviewClipId = '';
         var currentPreviewStreamer = '';
         var currentPreviewTitle = '';
@@ -810,7 +1324,7 @@ HTML_DASHBOARD = """
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         {% if clip.has_video %}
-                        <video controls preload="none" class="w-full h-full object-contain">
+                        <video controls preload="metadata" poster="/thumbnail/{{ clip.clip_id }}" class="w-full h-full object-contain">
                             <source src="/video/{{ clip.clip_id }}" type="video/mp4">
                         </video>
                         {% else %}
@@ -881,7 +1395,7 @@ HTML_DASHBOARD = """
                                     <option value="split_cam_top" {% if clip.layout_mode == 'split_cam_top' %}selected{% endif %}>✂️ Split-Screen (Cam oben, Gameplay unten)</option>
                                     <option value="blur_stack" {% if clip.layout_mode == 'blur_stack' %}selected{% endif %}>🌫️ Blur-Stack (IRL / Vollbild mit unscharfem Hintergrund)</option>
                                 </select>
-                                <button type="button" onclick="openCropModal('{{ clip.clip_id }}', '{{ clip.streamer }}', '{{ clip.title }}')" 
+                                <button type="button" onclick="openCropModal('{{ clip.clip_id }}', '{{ clip.streamer|replace("'", "\\'") }}', '{{ clip.title|replace("'", "\\'") }}')" 
                                     class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
                                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Bildausschnitt anpassen (Split-Cam oder 9:16)
                                 </button>
@@ -1461,13 +1975,13 @@ HTML_DASHBOARD = """
 
                     <!-- Stage Container (Aspect 16:9) -->
                     <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
-                        <!-- Video element -->
-                        <video id="crop-stage-video" crossorigin="anonymous" playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
+                        <!-- Video element (muted for instant autoplay/frame decoding) -->
+                        <video id="crop-stage-video" muted playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
 
                         <!-- Draggable Overlay Boxes Container (Feste Größen ohne Verzerrung) -->
-                        <div id="crop-overlay-layer" class="absolute inset-0 select-none">
+                        <div id="crop-overlay-layer" class="absolute inset-0 select-none pointer-events-none">
                             <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>📷 Facecam</span>
                                     <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
@@ -1476,14 +1990,14 @@ HTML_DASHBOARD = """
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
                                 <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 3:2 Seitenverhältnis -->
-                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="tl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="tr" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="bl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="br" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Größe anpassen (3:2)"></div>
                             </div>
 
                             <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 24%; top: 0%; width: 52%; height: 100%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-sky-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>🎮 Gameplay</span>
                                     <span id="crop-game-format-badge" class="text-sky-200 text-2xs font-normal">(Festes 9:10 Format)</span>
@@ -1492,14 +2006,14 @@ HTML_DASHBOARD = """
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
                                 <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 9:10 Seitenverhältnis -->
-                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20  transition-transform" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
-                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20  transition-transform" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
                             </div>
 
                             <!-- 🟪 Reiner 9:16 IRL Vollbild-Rahmen (Festes 9:16 Format, horizontal verschiebbar) -->
-                            <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 hidden">
+                            <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 34%; top: 0%; width: 32%; height: 100%; display: none;">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-bold text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>📱 9:16 IRL Bildausschnitt</span>
                                     <span class="text-fuchsia-200 text-2xs font-normal">(Festes 9:16 Vollbild)</span>
@@ -1951,6 +2465,38 @@ def serve_raw_video(clip_id):
     if raw_path.exists():
         return send_file(raw_path, mimetype="video/mp4")
     return "Rohdatei nicht gefunden", 404
+
+@app.route("/thumbnail/<clip_id>")
+def serve_thumbnail(clip_id):
+    """Liefert ein gecachtes JPEG-Vorschaubild (Poster) für das Video."""
+    thumb_dir = DATA_DIR / "thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / f"{clip_id}.jpg"
+
+    if not thumb_path.exists():
+        video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+        if not video_path.exists():
+            video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+        
+        if video_path.exists():
+            try:
+                cap = cv2.VideoCapture(str(video_path))
+                cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+                ret, frame = cap.read()
+                if not ret:
+                    cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                    ret, frame = cap.read()
+                if ret:
+                    cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                cap.release()
+            except Exception:
+                pass
+
+    if thumb_path.exists():
+        response = send_file(thumb_path, mimetype="image/jpeg")
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+    return "", 404
 
 @app.route("/video/<clip_id>")
 def serve_video(clip_id):
