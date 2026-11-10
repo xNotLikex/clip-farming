@@ -1,0 +1,36 @@
+# Virtual Environment & Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Rust & Tauri
+src-tauri/target/
+**/target/
+Cargo.lock
+
+# Data, Downloads & Output
+data/
+downloads/
+output/
+bin/
+*.mp4
+*.mkv
+*.wav
+*.mp3
+
+# Credentials & Secrets (Security!)
+config/youtube_secrets.json
+config/oauth_token.json
+*token*.json
+*secret*.json
+*.env
+
+# Logs & Temporary files
+*.log
+*.tmp
+*.ass
+scratch*
+scratch/
+.system_generated/
