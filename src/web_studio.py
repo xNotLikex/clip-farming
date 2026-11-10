@@ -386,16 +386,51 @@ HTML_DASHBOARD = """
                 m.style.setProperty('display', 'none', 'important');
             }
         }
+        var currentPreviewClipId = '';
+        var currentPreviewStreamer = '';
+        var currentPreviewTitle = '';
+
         function openRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull) {
+            if (!clipId) return;
+            currentPreviewClipId = clipId;
+            currentPreviewStreamer = streamer || '';
+            currentPreviewTitle = title || '';
+            var sEl = document.getElementById('modal-streamer');
+            if (sEl) sEl.innerText = (streamer || '').toUpperCase();
+            var tEl = document.getElementById('modal-title');
+            if (tEl) tEl.innerText = title || '';
+            var statsElem = document.getElementById('modal-stats');
+            if (statsElem) {
+                var txt = (views || 0) + ' Views • ' + (duration || 0) + 's (Rohdatei)';
+                if (createdAgo) txt += ' • ' + createdAgo;
+                statsElem.innerText = txt;
+                if (createdFull) statsElem.title = createdFull;
+            }
+            var player = document.getElementById('modal-video-player');
+            if (player) {
+                player.src = '/raw-video/' + clipId;
+                player.load();
+                player.play().catch(function() {});
+            }
+            var procForm = document.getElementById('modal-process-form');
+            if (procForm) procForm.action = '/process-one/' + clipId;
+            var delForm = document.getElementById('modal-delete-form');
+            if (delForm) delForm.action = '/queue/delete/' + clipId;
+            var dlRaw = document.getElementById('modal-download-raw');
+            if (dlRaw) dlRaw.href = '/download/raw/' + clipId;
             var m = document.getElementById('preview-modal');
             if (m) {
                 m.classList.remove('hidden');
                 m.classList.add('flex');
                 m.style.setProperty('display', 'flex', 'important');
             }
-            if (window.__realOpenRawPreview) window.__realOpenRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull);
         }
         function closePreviewModal() {
+            var player = document.getElementById('modal-video-player');
+            if (player) {
+                player.pause();
+                player.src = '';
+            }
             var m = document.getElementById('preview-modal');
             if (m) {
                 m.classList.add('hidden');
@@ -404,25 +439,24 @@ HTML_DASHBOARD = """
             }
         }
         function triggerRun() {
-            if (window.__realTriggerRun) {
-                window.__realTriggerRun();
-            } else {
-                var btn = document.getElementById('btn-trigger');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
-                    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
-                }
-                fetch('/api/run', { method: 'POST' }).then(function() {
-                    if (window.showToast) window.showToast('Twitch-Scan gestartet!', 'info');
-                });
+            var btn = document.getElementById('btn-trigger');
+            if (btn) {
+                btn.disabled = true;
+                btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
             }
+            fetch('/api/run', { method: 'POST' }).then(function() {
+                if (window.showToast) window.showToast('Twitch-Scan gestartet!', 'info');
+                setTimeout(updateLiveStatus, 200);
+            });
         }
         function processAll() {
             if (window.__realProcessAll) {
                 window.__realProcessAll();
             } else {
-                fetch('/api/process-all', { method: 'POST' });
+                fetch('/api/process-all', { method: 'POST' }).then(function() {
+                    setTimeout(updateLiveStatus, 200);
+                });
             }
         }
         function toggleLogs() {
@@ -441,6 +475,68 @@ HTML_DASHBOARD = """
                 window.logsOpen = false;
             }
         }
+        function updateLiveStatus() {
+            fetch('/api/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    var dot = document.getElementById('live-dot');
+                    var text = document.getElementById('live-status-text');
+                    var desc = document.getElementById('live-task-desc');
+                    var btn = document.getElementById('btn-trigger');
+                    var progressCard = document.getElementById('render-progress-card');
+                    var progressBar = document.getElementById('render-progress-bar');
+                    var progressPercent = document.getElementById('render-percent-text');
+                    var progressEta = document.getElementById('render-eta-text');
+                    var progressSpeed = document.getElementById('render-speed-badge');
+                    var progressTitle = document.getElementById('render-progress-title');
+
+                    if (data.is_running) {
+                        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+                        if (text) text.innerText = 'AKTIV: ' + (data.status || 'ARBEITET').toUpperCase();
+                        if (desc) desc.innerText = (data.current_task || '') + (data.streamer ? ' (' + data.streamer + ')' : '');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                            btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
+                        }
+                        if (data.status === 'rendering' || data.progress_percent > 0) {
+                            if (progressCard) progressCard.classList.remove('hidden');
+                            if (progressBar) progressBar.style.width = data.progress_percent + '%';
+                            if (progressPercent) progressPercent.innerText = data.progress_percent + '%';
+                            if (progressEta && data.eta_seconds) progressEta.innerText = 'Noch ca. ' + data.eta_seconds + 's';
+                            if (progressSpeed && data.speed) progressSpeed.innerText = data.speed + ' NVENC';
+                            if (progressTitle) progressTitle.innerText = data.current_task || 'Rendere Video...';
+                        } else {
+                            if (progressCard) progressCard.classList.add('hidden');
+                        }
+                    } else {
+                        if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+                        if (text) text.innerText = 'STANDBY';
+                        if (desc) desc.innerText = data.current_task || 'Bereit zur Ausführung';
+                        if (progressCard) progressCard.classList.add('hidden');
+                        if (btn && btn.disabled) {
+                            btn.disabled = false;
+                            btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm';
+                            btn.innerHTML = '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen';
+                        }
+                    }
+
+                    if (data.logs && data.logs.length > 0) {
+                        var countEl = document.getElementById('log-count');
+                        if (countEl) countEl.innerText = data.logs.length + ' Einträge';
+                        var box = document.getElementById('log-box');
+                        if (box) {
+                            box.innerHTML = data.logs.slice(-40).map(function(l) {
+                                return '<div class="text-slate-300 leading-relaxed font-mono">' + l + '</div>';
+                            }).join('');
+                            box.scrollTop = box.scrollHeight;
+                        }
+                    }
+                })
+                .catch(function(err) {});
+        }
+        setInterval(updateLiveStatus, 1500);
+        setTimeout(updateLiveStatus, 400);
     </script>
 </head>
 <body class="p-4 md:p-8">
@@ -454,11 +550,11 @@ HTML_DASHBOARD = """
                         <span>CLIP-FARMING</span><span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">STUDIO</span>
                     </h1>
                     <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
-                        <span class="w-2 h-2 rounded-full bg-slate-400" id="live-dot"></span>
-                        <span id="live-status-text">Standby</span>
+                        <span class="w-2 h-2 rounded-full {% if is_running %}bg-emerald-400 animate-ping{% else %}bg-slate-400{% endif %}" id="live-dot"></span>
+                        <span id="live-status-text">{% if is_running %}AKTIV: {{ current_status|upper }}{% else %}STANDBY{% endif %}</span>
                     </span>
                 </div>
-                <p id="live-task-desc" class="text-slate-400 text-sm mt-1">Bereit zur Ausführung</p>
+                <p id="live-task-desc" class="text-slate-400 text-sm mt-1">{{ current_task }}</p>
             </div>
 
             <!-- Quick Action Buttons -->
@@ -527,12 +623,18 @@ HTML_DASHBOARD = """
             <div class="flex justify-between items-center cursor-pointer" onclick="toggleLogs()">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-amber-400">📡 Live Activity Feed</span>
-                    <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">0 Einträge</span>
+                    <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">{{ initial_logs|length }} Einträge</span>
                 </div>
                 <span id="log-toggle-icon" class="text-slate-400 text-xs font-medium hover:text-amber-400 transition">▲ Verbergen</span>
             </div>
             <div id="log-box" class="mt-3 bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5 border border-slate-800/50">
-                <div class="text-slate-500">Warte auf Aktionen...</div>
+                {% if initial_logs %}
+                    {% for log in initial_logs[-40:] %}
+                        <div class="text-slate-300 leading-relaxed font-mono">{{ log }}</div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-slate-500">Warte auf Aktionen...</div>
+                {% endif %}
             </div>
         </div>
 
@@ -1217,7 +1319,7 @@ HTML_DASHBOARD = """
     </div>
 
     <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
-    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closePreviewModal();">
         <div class="bg-slate-900 border border-slate-700/80 rounded-lg max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
                 <div>
@@ -1259,7 +1361,7 @@ HTML_DASHBOARD = """
     </div>
 
     <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
-    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeStreamerModal();">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
                 <div class="flex items-center gap-2.5">
@@ -1322,7 +1424,7 @@ HTML_DASHBOARD = """
     </div>
 
     <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
-    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4">
+    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4" style="display: none !important;" onclick="if (event.target === this) closeCropModal();">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
             <!-- Header -->
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
@@ -1684,6 +1786,11 @@ def get_dashboard_dict():
 
     account_status = account_manager.get_status()
     all_streamers = get_streamers()
+    cur_state = status_manager.get_state()
+    initial_logs = cur_state.get("logs", [])
+    current_status = cur_state.get("status", "idle")
+    current_task = cur_state.get("current_task", "Bereit zur Ausführung")
+    is_running = cur_state.get("is_running", False)
 
     return {
         "counts": counts,
@@ -1695,7 +1802,11 @@ def get_dashboard_dict():
         "account_status": account_status,
         "streamers": all_streamers,
         "streamer_counts": streamer_counts,
-        "cam_filters": AVAILABLE_CAM_FILTERS
+        "cam_filters": AVAILABLE_CAM_FILTERS,
+        "initial_logs": initial_logs,
+        "current_status": current_status,
+        "current_task": current_task,
+        "is_running": is_running,
     }
 
 @app.route("/")

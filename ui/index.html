@@ -3,7 +3,7 @@
 <html lang="de" class="dark">
 <head>
     <script>
-        if (window.location.protocol === 'https:' && (window.location.hostname === 'tauri.localhost' || window.location.hostname === 'localhost')) {
+        if (window.location.hostname !== '127.0.0.1' || window.location.port !== '5000') {
             window.location.replace('http://127.0.0.1:5000');
         }
     </script>
@@ -107,16 +107,51 @@
                 m.style.setProperty('display', 'none', 'important');
             }
         }
+        var currentPreviewClipId = '';
+        var currentPreviewStreamer = '';
+        var currentPreviewTitle = '';
+
         function openRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull) {
+            if (!clipId) return;
+            currentPreviewClipId = clipId;
+            currentPreviewStreamer = streamer || '';
+            currentPreviewTitle = title || '';
+            var sEl = document.getElementById('modal-streamer');
+            if (sEl) sEl.innerText = (streamer || '').toUpperCase();
+            var tEl = document.getElementById('modal-title');
+            if (tEl) tEl.innerText = title || '';
+            var statsElem = document.getElementById('modal-stats');
+            if (statsElem) {
+                var txt = (views || 0) + ' Views • ' + (duration || 0) + 's (Rohdatei)';
+                if (createdAgo) txt += ' • ' + createdAgo;
+                statsElem.innerText = txt;
+                if (createdFull) statsElem.title = createdFull;
+            }
+            var player = document.getElementById('modal-video-player');
+            if (player) {
+                player.src = 'http://127.0.0.1:5000/raw-video/' + clipId;
+                player.load();
+                player.play().catch(function() {});
+            }
+            var procForm = document.getElementById('modal-process-form');
+            if (procForm) procForm.action = 'http://127.0.0.1:5000/process-one/' + clipId;
+            var delForm = document.getElementById('modal-delete-form');
+            if (delForm) delForm.action = 'http://127.0.0.1:5000/queue/delete/' + clipId;
+            var dlRaw = document.getElementById('modal-download-raw');
+            if (dlRaw) dlRaw.href = 'http://127.0.0.1:5000/download/raw/' + clipId;
             var m = document.getElementById('preview-modal');
             if (m) {
                 m.classList.remove('hidden');
                 m.classList.add('flex');
                 m.style.setProperty('display', 'flex', 'important');
             }
-            if (window.__realOpenRawPreview) window.__realOpenRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull);
         }
         function closePreviewModal() {
+            var player = document.getElementById('modal-video-player');
+            if (player) {
+                player.pause();
+                player.src = '';
+            }
             var m = document.getElementById('preview-modal');
             if (m) {
                 m.classList.add('hidden');
@@ -3697,7 +3732,7 @@
     </div>
 
     <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
-    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closePreviewModal();">
         <div class="bg-slate-900 border border-slate-700/80 rounded-lg max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
                 <div>
@@ -3739,7 +3774,7 @@
     </div>
 
     <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
-    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeStreamerModal();">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
                 <div class="flex items-center gap-2.5">
@@ -3970,7 +4005,7 @@
     </div>
 
     <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
-    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4">
+    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4" style="display: none !important;" onclick="if (event.target === this) closeCropModal();">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
             <!-- Header -->
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">

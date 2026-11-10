@@ -9,6 +9,18 @@ use std::time::Duration;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
+fn clear_webview_cache() {
+    #[cfg(windows)]
+    {
+        if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+            let cache_dir = PathBuf::from(local_appdata).join("com.notlike.clipfarming");
+            if cache_dir.exists() {
+                let _ = std::fs::remove_dir_all(&cache_dir);
+            }
+        }
+    }
+}
+
 fn ensure_backend_running() {
     // Check if worker port 5000 is already active
     if let Ok(addr) = "127.0.0.1:5000".parse::<SocketAddr>() {
@@ -52,10 +64,11 @@ fn ensure_backend_running() {
             .spawn();
     }
 
-    // Wait up to 5 seconds for backend to become ready
+    // Wait up to 10 seconds for backend to become ready
     if let Ok(addr) = "127.0.0.1:5000".parse::<SocketAddr>() {
-        for _ in 0..50 {
+        for _ in 0..100 {
             if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
+                std::thread::sleep(Duration::from_millis(200));
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -64,6 +77,7 @@ fn ensure_backend_running() {
 }
 
 fn main() {
+    clear_webview_cache();
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             if exe_dir.join("src").exists() || exe_dir.join("data").exists() {
