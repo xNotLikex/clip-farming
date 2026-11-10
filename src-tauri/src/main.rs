@@ -38,7 +38,9 @@ fn ensure_backend_running() {
         }
     }
 
-    let py_path = if working_dir.join(".venv\\Scripts\\python.exe").exists() {
+    let py_path = if working_dir.join("runtime\\python.exe").exists() {
+        working_dir.join("runtime\\python.exe")
+    } else if working_dir.join(".venv\\Scripts\\python.exe").exists() {
         working_dir.join(".venv\\Scripts\\python.exe")
     } else if working_dir.join("..\\.venv\\Scripts\\python.exe").exists() {
         working_dir.join("..\\.venv\\Scripts\\python.exe")

@@ -37,3 +37,5 @@ config/oauth_token.json
 scratch*
 scratch/
 .system_generated/
+dist/
+*.zip
