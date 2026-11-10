@@ -342,7 +342,7 @@ function renderStudio(clips, streamerCounts) {
                     ${SVG_ICONS.eye} ${clip.view_count}
                 </span>
                 ${clip.has_video ? `
-                <button type="button" onclick="downloadShortVideo('${clip.clip_id}', this)" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10" title="Fertiges 9:16 Short in HQ herunterladen">
+                <button type="button" onclick="downloadShortVideo('${clip.clip_id}', this, event)" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10" title="Speicherort wählen & HQ Video sichern (Shift-Klick für Downloads-Ordner)">
                     ${SVG_ICONS.save} <span>HQ Download</span>
                 </button>
                 ` : ''}
@@ -710,7 +710,7 @@ if (document.readyState === 'loading') {
             if (delForm) delForm.action = '/queue/delete/' + clipId;
             const dlRaw = document.getElementById('modal-download-raw');
             if (dlRaw) {
-                dlRaw.onclick = () => downloadRawVideo(clipId, dlRaw);
+                dlRaw.onclick = (e) => downloadRawVideo(clipId, dlRaw, e);
             }
             
             const modal = document.getElementById('preview-modal');
@@ -782,22 +782,32 @@ function showToast(message, type = 'info') {
     }, 4000);
 }
 
-async function downloadShortVideo(clipId, btn) {
+async function downloadShortVideo(clipId, btn, evt) {
     if (!clipId) return;
+    const isQuick = evt && evt.shiftKey;
     const origHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
     }
-    showToast('Exportiere HQ Video in deinen Downloads-Ordner...', 'info');
+    if (isQuick) {
+        showToast('Exportiere HQ Video direkt in Downloads...', 'info');
+    } else {
+        showToast('Speicherort wählen... (Windows-Dialog geöffnet)', 'info');
+    }
     try {
-        const res = await fetch(getBackendUrl('/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads'), {
+        const endpoint = isQuick
+            ? '/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads'
+            : '/api/clip/' + encodeURIComponent(clipId) + '/export-dialog';
+        const res = await fetch(getBackendUrl(endpoint), {
             method: 'POST',
             headers: { 'Accept': 'application/json' }
         });
         const data = await res.json();
         if (data && data.success) {
-            showToast('✓ Video in Downloads gespeichert: ' + data.filename, 'success');
+            showToast('✓ Video gespeichert: ' + data.filename, 'success');
+        } else if (data && data.cancelled) {
+            showToast('Speichern abgebrochen', 'info');
         } else {
             window.location.href = getBackendUrl('/download/short/' + encodeURIComponent(clipId));
         }
@@ -812,22 +822,32 @@ async function downloadShortVideo(clipId, btn) {
     }
 }
 
-async function downloadRawVideo(clipId, btn) {
+async function downloadRawVideo(clipId, btn, evt) {
     if (!clipId) return;
+    const isQuick = evt && evt.shiftKey;
     const origHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
     }
-    showToast('Exportiere Rohdatei in deinen Downloads-Ordner...', 'info');
+    if (isQuick) {
+        showToast('Exportiere Rohdatei direkt in Downloads...', 'info');
+    } else {
+        showToast('Speicherort wählen... (Windows-Dialog geöffnet)', 'info');
+    }
     try {
-        const res = await fetch(getBackendUrl('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads'), {
+        const endpoint = isQuick
+            ? '/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads'
+            : '/api/clip/' + encodeURIComponent(clipId) + '/export-raw-dialog';
+        const res = await fetch(getBackendUrl(endpoint), {
             method: 'POST',
             headers: { 'Accept': 'application/json' }
         });
         const data = await res.json();
         if (data && data.success) {
-            showToast('✓ Rohdatei in Downloads gespeichert: ' + data.filename, 'success');
+            showToast('✓ Rohdatei gespeichert: ' + data.filename, 'success');
+        } else if (data && data.cancelled) {
+            showToast('Speichern abgebrochen', 'info');
         } else {
             window.location.href = getBackendUrl('/download/raw/' + encodeURIComponent(clipId));
         }

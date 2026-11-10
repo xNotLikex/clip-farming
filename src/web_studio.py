@@ -926,22 +926,32 @@ HTML_DASHBOARD = """
         }
         window.showToast = showToast;
 
-        async function downloadShortVideo(clipId, btn) {
+        async function downloadShortVideo(clipId, btn, evt) {
             if (!clipId) return;
+            var isQuick = evt && evt.shiftKey;
             var origContent = btn ? btn.innerHTML : '';
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
             }
-            showToast('Exportiere HQ Video in deinen Downloads-Ordner...', 'info');
+            if (isQuick) {
+                showToast('Exportiere HQ Video direkt in Downloads...', 'info');
+            } else {
+                showToast('Speicherort wählen... (Windows-Dialog geöffnet)', 'info');
+            }
             try {
-                var res = await fetch('/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads', {
+                var url = isQuick 
+                    ? ('/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads')
+                    : ('/api/clip/' + encodeURIComponent(clipId) + '/export-dialog');
+                var res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Accept': 'application/json' }
                 });
                 var data = await res.json();
                 if (data && data.success) {
-                    showToast('✓ Video in Downloads gespeichert: ' + data.filename, 'success');
+                    showToast('✓ Video gespeichert: ' + data.filename, 'success');
+                } else if (data && data.cancelled) {
+                    showToast('Speichern abgebrochen', 'info');
                 } else {
                     window.location.href = '/download/short/' + encodeURIComponent(clipId);
                 }
@@ -956,22 +966,32 @@ HTML_DASHBOARD = """
             }
         }
 
-        async function downloadRawVideo(clipId, btn) {
+        async function downloadRawVideo(clipId, btn, evt) {
             if (!clipId) return;
+            var isQuick = evt && evt.shiftKey;
             var origContent = btn ? btn.innerHTML : '';
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Exportiere...</span>';
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
             }
-            showToast('Exportiere Rohdatei in deinen Downloads-Ordner...', 'info');
+            if (isQuick) {
+                showToast('Exportiere Rohdatei direkt in Downloads...', 'info');
+            } else {
+                showToast('Speicherort wählen... (Windows-Dialog geöffnet)', 'info');
+            }
             try {
-                var res = await fetch('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads', {
+                var url = isQuick
+                    ? ('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads')
+                    : ('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-dialog');
+                var res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Accept': 'application/json' }
                 });
                 var data = await res.json();
                 if (data && data.success) {
-                    showToast('✓ Rohdatei in Downloads gespeichert: ' + data.filename, 'success');
+                    showToast('✓ Rohdatei gespeichert: ' + data.filename, 'success');
+                } else if (data && data.cancelled) {
+                    showToast('Speichern abgebrochen', 'info');
                 } else {
                     window.location.href = '/download/raw/' + encodeURIComponent(clipId);
                 }
@@ -1023,7 +1043,7 @@ HTML_DASHBOARD = """
             if (delForm) delForm.action = '/queue/delete/' + clipId;
             var dlRaw = document.getElementById('modal-download-raw');
             if (dlRaw) {
-                dlRaw.onclick = function() { downloadRawVideo(clipId, dlRaw); };
+                dlRaw.onclick = function(e) { downloadRawVideo(clipId, dlRaw, e); };
             }
             var m = document.getElementById('preview-modal');
             if (m) {
@@ -1432,9 +1452,9 @@ HTML_DASHBOARD = """
                         </span>
 
                         {% if clip.has_video %}
-                        <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this)" 
+                        <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this, event)" 
                             class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10"
-                            title="Fertiges 9:16 Short in HQ auf deinen PC herunterladen">
+                            title="Speicherort wählen & HQ Video sichern (Shift-Klick für Direkt-Export in Downloads)">
                             <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> <span>HQ Download</span>
                         </button>
                         {% endif %}
@@ -1526,9 +1546,10 @@ HTML_DASHBOARD = """
                             </button>
 
                             {% if clip.has_video %}
-                            <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this)" 
-                                class="w-full py-2.5 px-4 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-emerald-300 hover:text-white shadow cursor-pointer">
-                                <span>💾</span> <span>HQ Video herunterladen (.mp4)</span>
+                            <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this, event)" 
+                                class="w-full py-2.5 px-4 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-emerald-300 hover:text-white shadow cursor-pointer"
+                                title="Speicherort wählen & HQ Video sichern (Shift-Klick für Downloads-Ordner)">
+                                <span>💾</span> <span>HQ Video speichern unter... (.mp4)</span>
                             </button>
                             {% endif %}
 
@@ -1946,8 +1967,8 @@ HTML_DASHBOARD = """
             <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
                 <div class="flex items-center gap-2">
-                    <button id="modal-download-raw" type="button" onclick="downloadRawVideo(currentPreviewClipId, this)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5 cursor-pointer" title="Rohdatei direkt in Downloads-Ordner exportieren">
-                        <span>💾</span> <span>Rohdatei laden</span>
+                    <button id="modal-download-raw" type="button" onclick="downloadRawVideo(currentPreviewClipId, this, event)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5 cursor-pointer" title="Speicherort wählen & Rohdatei sichern (Shift-Klick für Downloads-Ordner)">
+                        <span>💾</span> <span>Rohdatei speichern unter...</span>
                     </button>
                     <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-zinc-200 hover:text-white rounded transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
                         <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Zuschnitt festlegen
@@ -2629,6 +2650,150 @@ def download_raw_route(clip_id):
     if raw_path.exists():
         return send_file(raw_path, as_attachment=True, download_name=f"raw_{clip_id}.mp4", mimetype="video/mp4")
     return "Rohdatei nicht gefunden", 404
+
+def get_last_export_dir() -> Path:
+    last_file = DATA_DIR / "last_export_dir.txt"
+    if last_file.exists():
+        try:
+            p = Path(last_file.read_text(encoding="utf-8").strip())
+            if p.is_dir():
+                return p
+        except Exception:
+            pass
+    dl = Path.home() / "Downloads"
+    return dl if dl.exists() else SHORTS_OUTPUT_DIR
+
+def set_last_export_dir(path: Path):
+    try:
+        last_file = DATA_DIR / "last_export_dir.txt"
+        target_dir = path if path.is_dir() else path.parent
+        last_file.write_text(str(target_dir), encoding="utf-8")
+    except Exception:
+        pass
+
+@app.route("/api/clip/<clip_id>/export-dialog", methods=["POST", "GET"])
+def export_clip_dialog(clip_id):
+    """Öffnet den nativen Windows 'Speichern unter'-Dialog und speichert das 9:16 Short am Wunschort."""
+    import shutil
+    import subprocess
+
+    video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+    if not video_path.exists():
+        video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+
+    if not video_path.exists():
+        return jsonify({"success": False, "error": "Video nicht gefunden"}), 404
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT streamer, ai_title, original_title FROM clips WHERE clip_id = ?", (clip_id,))
+        clip = cursor.fetchone()
+
+    streamer = clip["streamer"] if clip else "Short"
+    raw_title = (clip["ai_title"] or clip["original_title"] or clip_id) if clip else clip_id
+    clean_title = "".join(c for c in raw_title if c.isalnum() or c in (" ", "-", "_")).strip()
+    clean_title = clean_title[:45]
+    filename = f"{streamer}_{clean_title}.mp4"
+
+    init_dir = get_last_export_dir()
+
+    try:
+        res = subprocess.run(
+            [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"HQ Video speichern unter ({streamer})"],
+            capture_output=True,
+            timeout=180
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Dialog-Fehler: {e}"}), 500
+
+    if res.returncode != 0 or not res.stdout:
+        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
+
+    selected_path_str = res.stdout.decode("utf-8", errors="replace").strip()
+    if not selected_path_str:
+        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
+
+    dest_path = Path(selected_path_str)
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(video_path, dest_path)
+        set_last_export_dir(dest_path.parent)
+
+        if sys.platform == "win32":
+            try:
+                subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
+            except Exception:
+                pass
+
+        return jsonify({
+            "success": True,
+            "cancelled": False,
+            "filename": dest_path.name,
+            "path": str(dest_path),
+            "folder": str(dest_path.parent)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Kopierfehler: {e}"}), 500
+
+@app.route("/api/clip/<clip_id>/export-raw-dialog", methods=["POST", "GET"])
+def export_raw_dialog(clip_id):
+    """Öffnet den nativen Windows 'Speichern unter'-Dialog für die 16:9 Rohdatei."""
+    import shutil
+    import subprocess
+
+    video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+    if not video_path.exists():
+        return jsonify({"success": False, "error": "Rohdatei nicht gefunden"}), 404
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT streamer, original_title FROM clips WHERE clip_id = ?", (clip_id,))
+        clip = cursor.fetchone()
+
+    streamer = clip["streamer"] if clip else "Clip"
+    raw_title = (clip["original_title"] or clip_id) if clip else clip_id
+    clean_title = "".join(c for c in raw_title if c.isalnum() or c in (" ", "-", "_")).strip()[:40]
+    filename = f"{streamer}_raw_{clean_title}.mp4" if clean_title else f"raw_{clip_id}.mp4"
+
+    init_dir = get_last_export_dir()
+
+    try:
+        res = subprocess.run(
+            [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"Rohdatei speichern unter ({streamer})"],
+            capture_output=True,
+            timeout=180
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Dialog-Fehler: {e}"}), 500
+
+    if res.returncode != 0 or not res.stdout:
+        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
+
+    selected_path_str = res.stdout.decode("utf-8", errors="replace").strip()
+    if not selected_path_str:
+        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
+
+    dest_path = Path(selected_path_str)
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(video_path, dest_path)
+        set_last_export_dir(dest_path.parent)
+
+        if sys.platform == "win32":
+            try:
+                subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
+            except Exception:
+                pass
+
+        return jsonify({
+            "success": True,
+            "cancelled": False,
+            "filename": dest_path.name,
+            "path": str(dest_path),
+            "folder": str(dest_path.parent)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Kopierfehler: {e}"}), 500
 
 @app.route("/api/clip/<clip_id>/export-to-downloads", methods=["POST", "GET"])
 def export_clip_to_downloads(clip_id):
