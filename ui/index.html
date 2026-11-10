@@ -9,6 +9,17 @@
     <style>
         body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #f3f4f6; font-weight: 600; }
+        .tab-content.hidden { display: none !important; }
+        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden {
+            display: none !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+        }
+        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden) {
+            display: flex !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+        }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -36,6 +47,79 @@
         .handle-w { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
         .handle-e { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
     </style>
+    <script>
+        // Immediate Zero-Delay Handlers (execute on initial paint before any async script)
+        function openStreamerModal() {
+            var m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+        }
+        function closeStreamerModal() {
+            var m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(function(el) {
+                el.classList.add('hidden');
+                el.style.setProperty('display', 'none', 'important');
+            });
+            document.querySelectorAll('.tab-btn').forEach(function(el) {
+                el.classList.remove('active', 'text-amber-400');
+                el.classList.add('text-slate-400');
+            });
+            var target = document.getElementById('tab-' + tabId);
+            if (target) {
+                target.classList.remove('hidden');
+                target.style.setProperty('display', 'block', 'important');
+            }
+            var btn = document.getElementById('tab-' + tabId + '-btn');
+            if (btn) {
+                btn.classList.add('active', 'text-amber-400');
+                btn.classList.remove('text-slate-400');
+            }
+        }
+        function openCropModal(clipId, streamer, title) {
+            var m = document.getElementById('crop-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+            if (window.__realOpenCropModal) window.__realOpenCropModal(clipId, streamer, title);
+        }
+        function closeCropModal() {
+            var m = document.getElementById('crop-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function openRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull) {
+            var m = document.getElementById('preview-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+            if (window.__realOpenRawPreview) window.__realOpenRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull);
+        }
+        function closePreviewModal() {
+            var m = document.getElementById('preview-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+    </script>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-7xl mx-auto space-y-6">
@@ -186,7 +270,7 @@
                                 <th class="py-3.5 px-4 text-right whitespace-nowrap">Aktion</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/80">
+                        <tbody id="queue-tbody" class="divide-y divide-slate-800/80">
                             
                             <tr onclick="openRawPreview('MushyDaintyPterodactylMcaT-1wFa7LvoaIbGidoD', 'nooreax', 'latest chat logs, kein trimak', '410', '5', 'Gestern (12:16 Uhr)', '09.11.2026, 12:16 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
@@ -833,7 +917,7 @@
                                 </td>
                             </tr>
                             
-                            <tr onclick="openRawPreview('SaltySmilingGrouseDoubleRainbow-TsslhU1RLx_SGAmH', 'krokoboss', 'DIGGA', '58', '23', 'Heute, vor 8 Std.', '10.11.2026, 02:26 Uhr')"
+                            <tr onclick="openRawPreview('SaltySmilingGrouseDoubleRainbow-TsslhU1RLx_SGAmH', 'krokoboss', 'DIGGA', '58', '23', 'Heute, vor 9 Std.', '10.11.2026, 02:26 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
@@ -847,7 +931,7 @@
                                 </td>
                                 <td class="py-3.5 px-4 whitespace-nowrap" title="10.11.2026, 02:26 Uhr">
                                     <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 8 Std.
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 9 Std.
                                     </div>
                                     
                                     <span class="text-[11px] text-slate-500 block">10.11.2026, 02:26 Uhr</span>
@@ -1177,7 +1261,7 @@
                                 </td>
                             </tr>
                             
-                            <tr onclick="openRawPreview('BoredElegantTeaPeteZaroll-s1jxh3_sHG1XeHrE', 'krokoboss', 'In der villa', '35', '33', 'Heute, vor 10 Std.', '10.11.2026, 00:02 Uhr')"
+                            <tr onclick="openRawPreview('BoredElegantTeaPeteZaroll-s1jxh3_sHG1XeHrE', 'krokoboss', 'In der villa', '35', '33', 'Heute, vor 11 Std.', '10.11.2026, 00:02 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
@@ -1191,7 +1275,7 @@
                                 </td>
                                 <td class="py-3.5 px-4 whitespace-nowrap" title="10.11.2026, 00:02 Uhr">
                                     <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 10 Std.
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 11 Std.
                                     </div>
                                     
                                     <span class="text-[11px] text-slate-500 block">10.11.2026, 00:02 Uhr</span>
@@ -1337,7 +1421,7 @@
             </div>
 
             <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
-            <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
+            <div id="streamer-pills-container" class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">🔍 Filter nach Streamer:</span>
                 <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 font-semibold transition">
                     Alle (6)
@@ -1369,7 +1453,7 @@
                 
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div id="studio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 
                 <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl flex flex-col hover:border-slate-700 transition-all duration-300 studio-clip-card " id="card-SpinelessConfidentPeppermintPoooound-wCVoDk2Su-nHuyfK" data-streamer="eliasn97">
                     <!-- Card Header: Streamer & Veröffentlicht-Checkbox -->
@@ -1395,7 +1479,7 @@
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/SpinelessConfidentPeppermintPoooound-wCVoDk2Su-nHuyfK" type="video/mp4">
                         </video>
                         
@@ -1588,7 +1672,7 @@
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/BitterRefinedHerringHeyGuys-utTO8AHNI-urHDf3" type="video/mp4">
                         </video>
                         
@@ -1781,7 +1865,7 @@
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/HotTubularWolverineTwitchRPG-c1e7QM9xr8W_4eZ2" type="video/mp4">
                         </video>
                         
@@ -1974,7 +2058,7 @@
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/ColorfulBoredRaccoonUWot-TNA50jOutcyQH6CG" type="video/mp4">
                         </video>
                         
@@ -2167,7 +2251,7 @@
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/TrappedClumsyTomatoNononoCat-g7KuQxQvkjN3EQoU" type="video/mp4">
                         </video>
                         
@@ -2360,7 +2444,7 @@
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/FreezingPleasantEggplantSquadGoals-7FL7j3oqUWxOBu9g" type="video/mp4">
                         </video>
                         
@@ -2575,7 +2659,7 @@
                                 <th class="py-3.5 px-4 text-right">Aktionen</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/80">
+                        <tbody id="planner-tbody" class="divide-y divide-slate-800/80">
                             
                             <tr>
                                 <td colspan="5" class="py-8 text-center text-slate-500">Keine Clips im Veröffentlichungs-Zeitplan. Klicke im Studio auf „<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Zeitplan“!</td>
@@ -2601,7 +2685,7 @@
                                 <th class="py-3.5 px-4">Status & Link</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/80">
+                        <tbody id="published-tbody" class="divide-y divide-slate-800/80">
                             
                             <tr>
                                 <td colspan="4" class="py-8 text-center text-slate-500">Noch keine Clips veröffentlicht.</td>
@@ -2796,7 +2880,7 @@
     </div>
 
     <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
-    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700/80 rounded-lg max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
                 <div>
@@ -2838,7 +2922,7 @@
     </div>
 
     <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
-    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
                 <div class="flex items-center gap-2.5">
@@ -2850,7 +2934,7 @@
             
             <div class="p-5 overflow-y-auto space-y-6">
                 <!-- Neuer Streamer Formular -->
-                <form action="/api/streamers/add" method="POST" class="bg-slate-950/80 border border-zinc-700 p-4 rounded space-y-3 shadow-inner">
+                <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="bg-slate-950/80 border border-zinc-700 p-4 rounded space-y-3 shadow-inner">
                     <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Neuen Streamer hinzufügen</span>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="sm:col-span-1">
@@ -2880,7 +2964,7 @@
                         <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Aktuell überwachte Streamer</span>
                         <span class="text-xs text-slate-500 font-mono">15 aktiv</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                    <div id="streamer-modal-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
                         
                         <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded hover:border-slate-600 transition">
                             <div>
@@ -3069,7 +3153,7 @@
     </div>
 
     <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
-    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden flex items-center justify-center p-2 sm:p-4">
+    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
             <!-- Header -->
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">

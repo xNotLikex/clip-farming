@@ -546,6 +546,25 @@ async function removeStreamer(name) {
     }
 }
 
+async function addStreamerFromForm(form) {
+    const fd = new FormData(form);
+    const name = (fd.get('name') || '').trim();
+    const min_views = parseInt(fd.get('min_views') || '30', 10);
+    const max_clips = parseInt(fd.get('max_clips') || '2', 10);
+    if (!name) return;
+    try {
+        await apiFetch('/api/streamers/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ name, min_views: String(min_views), max_clips: String(max_clips) }).toString()
+        });
+        form.reset();
+        await refreshDashboard();
+    } catch (e) {
+        alert('Fehler beim Hinzufügen: ' + e);
+    }
+}
+
 // ----------------------------------------
 // INITIALIZATION
 // ----------------------------------------
@@ -2254,7 +2273,7 @@ if (document.readyState === 'loading') {
                         if (method === 'POST') {
                             options.body = new FormData(form);
                         }
-                        await fetch(action, options);
+                        await apiFetch(rawAction, options);
                         await refreshDashboard();
                     } catch (err) {
                         console.error('Form submission failed:', err);
@@ -2266,6 +2285,9 @@ if (document.readyState === 'loading') {
 
         // Explicitly attach all interactive functions to window
         window.switchTab = switchTab;
+        window.addStreamerFromForm = addStreamerFromForm;
+        window.__realOpenCropModal = openCropModal;
+        window.__realOpenRawPreview = openRawPreview;
         window.openStreamerModal = openStreamerModal;
         window.closeStreamerModal = closeStreamerModal;
         window.filterStudioByStreamer = filterStudioByStreamer;

@@ -283,6 +283,17 @@ HTML_DASHBOARD = """
     <style>
         body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #f3f4f6; font-weight: 600; }
+        .tab-content.hidden { display: none !important; }
+        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden {
+            display: none !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+        }
+        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden) {
+            display: flex !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+        }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -310,6 +321,79 @@ HTML_DASHBOARD = """
         .handle-w { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
         .handle-e { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
     </style>
+    <script>
+        // Immediate Zero-Delay Handlers (execute on initial paint before any async script)
+        function openStreamerModal() {
+            var m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+        }
+        function closeStreamerModal() {
+            var m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(function(el) {
+                el.classList.add('hidden');
+                el.style.setProperty('display', 'none', 'important');
+            });
+            document.querySelectorAll('.tab-btn').forEach(function(el) {
+                el.classList.remove('active', 'text-amber-400');
+                el.classList.add('text-slate-400');
+            });
+            var target = document.getElementById('tab-' + tabId);
+            if (target) {
+                target.classList.remove('hidden');
+                target.style.setProperty('display', 'block', 'important');
+            }
+            var btn = document.getElementById('tab-' + tabId + '-btn');
+            if (btn) {
+                btn.classList.add('active', 'text-amber-400');
+                btn.classList.remove('text-slate-400');
+            }
+        }
+        function openCropModal(clipId, streamer, title) {
+            var m = document.getElementById('crop-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+            if (window.__realOpenCropModal) window.__realOpenCropModal(clipId, streamer, title);
+        }
+        function closeCropModal() {
+            var m = document.getElementById('crop-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function openRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull) {
+            var m = document.getElementById('preview-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+            if (window.__realOpenRawPreview) window.__realOpenRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull);
+        }
+        function closePreviewModal() {
+            var m = document.getElementById('preview-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+    </script>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-7xl mx-auto space-y-6">
@@ -458,7 +542,7 @@ HTML_DASHBOARD = """
                                 <th class="py-3.5 px-4 text-right whitespace-nowrap">Aktion</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/80">
+                        <tbody id="queue-tbody" class="divide-y divide-slate-800/80">
                             {% for clip in queue_clips %}
                             <tr onclick="openRawPreview('{{ clip.clip_id }}', '{{ clip.streamer|e }}', '{{ clip.original_title|e }}', '{{ clip.view_count }}', '{{ '%.0f'|format(clip.duration) }}', '{{ clip.created_ago|e }}', '{{ clip.created_full|e }}')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
@@ -538,7 +622,7 @@ HTML_DASHBOARD = """
             </div>
 
             <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
-            <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
+            <div id="streamer-pills-container" class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">🔍 Filter nach Streamer:</span>
                 <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 font-semibold transition">
                     Alle ({{ ready_clips|length }})
@@ -550,7 +634,7 @@ HTML_DASHBOARD = """
                 {% endfor %}
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div id="studio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {% for clip in ready_clips %}
                 <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl flex flex-col hover:border-slate-700 transition-all duration-300 studio-clip-card {% if clip.is_manually_published %}opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90{% endif %}" id="card-{{ clip.clip_id }}" data-streamer="{{ clip.streamer|lower }}">
                     <!-- Card Header: Streamer & Veröffentlicht-Checkbox -->
@@ -576,7 +660,7 @@ HTML_DASHBOARD = """
                     <!-- Video Player Container (9:16) -->
                     <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                         {% if clip.has_video %}
-                        <video controls preload="metadata" class="w-full h-full object-contain">
+                        <video controls preload="none" class="w-full h-full object-contain">
                             <source src="/video/{{ clip.clip_id }}" type="video/mp4">
                         </video>
                         {% else %}
@@ -766,7 +850,7 @@ HTML_DASHBOARD = """
                                 <th class="py-3.5 px-4 text-right">Aktionen</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/80">
+                        <tbody id="planner-tbody" class="divide-y divide-slate-800/80">
                             {% for clip in scheduled_clips %}
                             <tr class="hover:bg-slate-800/40 transition">
                                 <td class="py-3.5 px-4 font-bold text-amber-400">{{ clip.streamer }}</td>
@@ -822,7 +906,7 @@ HTML_DASHBOARD = """
                                 <th class="py-3.5 px-4">Status & Link</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/80">
+                        <tbody id="published-tbody" class="divide-y divide-slate-800/80">
                             {% for clip in published_clips %}
                             <tr class="hover:bg-slate-800/40 transition">
                                 <td class="py-3.5 px-4 font-bold text-amber-400">{{ clip.streamer }}</td>
@@ -1085,7 +1169,7 @@ HTML_DASHBOARD = """
     </div>
 
     <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
-    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700/80 rounded-lg max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
                 <div>
@@ -1127,7 +1211,7 @@ HTML_DASHBOARD = """
     </div>
 
     <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
-    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
                 <div class="flex items-center gap-2.5">
@@ -1139,7 +1223,7 @@ HTML_DASHBOARD = """
             
             <div class="p-5 overflow-y-auto space-y-6">
                 <!-- Neuer Streamer Formular -->
-                <form action="/api/streamers/add" method="POST" class="bg-slate-950/80 border border-zinc-700 p-4 rounded space-y-3 shadow-inner">
+                <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="bg-slate-950/80 border border-zinc-700 p-4 rounded space-y-3 shadow-inner">
                     <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Neuen Streamer hinzufügen</span>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="sm:col-span-1">
@@ -1169,7 +1253,7 @@ HTML_DASHBOARD = """
                         <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Aktuell überwachte Streamer</span>
                         <span class="text-xs text-slate-500 font-mono">{{ streamers|length }} aktiv</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                    <div id="streamer-modal-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
                         {% for s in streamers %}
                         <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded hover:border-slate-600 transition">
                             <div>
@@ -1190,7 +1274,7 @@ HTML_DASHBOARD = """
     </div>
 
     <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
-    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden flex items-center justify-center p-2 sm:p-4">
+    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
             <!-- Header -->
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
