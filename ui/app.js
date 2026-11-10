@@ -732,7 +732,7 @@ if (document.readyState === 'loading') {
             }
         }
 
-        let logsOpen = false;
+        let logsOpen = true;
         function toggleLogs() {
             logsOpen = !logsOpen;
             const box = document.getElementById('log-box');

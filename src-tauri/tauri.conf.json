@@ -12,6 +12,7 @@
       {
         "label": "main",
         "title": "Clip Farming Studio",
+        "url": "http://127.0.0.1:5000",
         "width": 1440,
         "height": 920,
         "minWidth": 1024,

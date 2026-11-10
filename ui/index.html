@@ -141,6 +141,22 @@
                 fetch('/api/process-all', { method: 'POST' });
             }
         }
+        function toggleLogs() {
+            var box = document.getElementById('log-box');
+            var icon = document.getElementById('log-toggle-icon');
+            if (!box) return;
+            if (box.classList.contains('hidden') || box.style.display === 'none') {
+                box.classList.remove('hidden');
+                box.style.display = 'block';
+                if (icon) icon.innerText = '▲ Verbergen';
+                window.logsOpen = true;
+            } else {
+                box.classList.add('hidden');
+                box.style.display = 'none';
+                if (icon) icon.innerText = '▼ Anzeigen';
+                window.logsOpen = false;
+            }
+        }
     </script>
 </head>
 <body class="p-4 md:p-8">
@@ -229,9 +245,9 @@
                     <span class="text-xs font-bold uppercase tracking-wider text-amber-400">📡 Live Activity Feed</span>
                     <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">0 Einträge</span>
                 </div>
-                <span id="log-toggle-icon" class="text-slate-400 text-xs">▼ Anzeigen</span>
+                <span id="log-toggle-icon" class="text-slate-400 text-xs font-medium hover:text-amber-400 transition">▲ Verbergen</span>
             </div>
-            <div id="log-box" class="mt-3 hidden bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800/50">
+            <div id="log-box" class="mt-3 bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5 border border-slate-800/50">
                 <div class="text-slate-500">Warte auf Aktionen...</div>
             </div>
         </div>
@@ -2014,7 +2030,7 @@
                                 </td>
                             </tr>
                             
-                            <tr onclick="openRawPreview('BoredElegantTeaPeteZaroll-s1jxh3_sHG1XeHrE', 'krokoboss', 'In der villa', '35', '33', 'Heute, vor 11 Std.', '10.11.2026, 00:02 Uhr')"
+                            <tr onclick="openRawPreview('BoredElegantTeaPeteZaroll-s1jxh3_sHG1XeHrE', 'krokoboss', 'In der villa', '35', '33', 'Heute, vor 12 Std.', '10.11.2026, 00:02 Uhr')"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
@@ -2028,7 +2044,7 @@
                                 </td>
                                 <td class="py-3.5 px-4 whitespace-nowrap" title="10.11.2026, 00:02 Uhr">
                                     <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 11 Std.
+                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Heute, vor 12 Std.
                                     </div>
                                     
                                     <span class="text-[11px] text-slate-500 block">10.11.2026, 00:02 Uhr</span>

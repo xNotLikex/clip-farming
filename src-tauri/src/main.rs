@@ -51,6 +51,16 @@ fn ensure_backend_running() {
             .args(["-m", "src.web_studio"])
             .spawn();
     }
+
+    // Wait up to 5 seconds for backend to become ready
+    if let Ok(addr) = "127.0.0.1:5000".parse::<SocketAddr>() {
+        for _ in 0..50 {
+            if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
 }
 
 fn main() {

@@ -29,6 +29,16 @@ if sys.platform == "win32":
         pass
 
 app = Flask(__name__)
+@app.after_request
+def add_cors_and_security_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range, Authorization"
+    response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    response.headers["Accept-Ranges"] = "bytes"
+    return response
+
 
 @app.before_request
 def handle_options():
@@ -415,6 +425,22 @@ HTML_DASHBOARD = """
                 fetch('/api/process-all', { method: 'POST' });
             }
         }
+        function toggleLogs() {
+            var box = document.getElementById('log-box');
+            var icon = document.getElementById('log-toggle-icon');
+            if (!box) return;
+            if (box.classList.contains('hidden') || box.style.display === 'none') {
+                box.classList.remove('hidden');
+                box.style.display = 'block';
+                if (icon) icon.innerText = '▲ Verbergen';
+                window.logsOpen = true;
+            } else {
+                box.classList.add('hidden');
+                box.style.display = 'none';
+                if (icon) icon.innerText = '▼ Anzeigen';
+                window.logsOpen = false;
+            }
+        }
     </script>
 </head>
 <body class="p-4 md:p-8">
@@ -503,9 +529,9 @@ HTML_DASHBOARD = """
                     <span class="text-xs font-bold uppercase tracking-wider text-amber-400">📡 Live Activity Feed</span>
                     <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">0 Einträge</span>
                 </div>
-                <span id="log-toggle-icon" class="text-slate-400 text-xs">▼ Anzeigen</span>
+                <span id="log-toggle-icon" class="text-slate-400 text-xs font-medium hover:text-amber-400 transition">▲ Verbergen</span>
             </div>
-            <div id="log-box" class="mt-3 hidden bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800/50">
+            <div id="log-box" class="mt-3 bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5 border border-slate-800/50">
                 <div class="text-slate-500">Warte auf Aktionen...</div>
             </div>
         </div>
@@ -1689,17 +1715,21 @@ def get_status():
 def trigger_run_api():
     """Startet das Suchen & Herunterladen auf Twitch."""
     if not status_manager.get_state().get("is_running", False):
-        from src.scheduler import PipelineOrchestrator
-        orch = PipelineOrchestrator()
+        status_manager.set_task("harvesting", "Scanne Twitch-Streamer nach neuen Clips...")
         
         def run_harvest_background():
-            status_manager.set_task("harvesting", "Scanne Twitch-Streamer nach neuen Clips...")
-            streamers = orch.config.get("streamers", [])
-            for s in streamers:
-                if s.get("enabled", True):
-                    status_manager.set_task("harvesting", "Scanne Twitch...", streamer=s.get("name"))
-                    orch.harvester.harvest_channel(s)
-            status_manager.set_task("idle", "Clips heruntergeladen und in Warteschlange gespeichert.")
+            try:
+                from src.scheduler import PipelineOrchestrator
+                orch = PipelineOrchestrator()
+                streamers = orch.config.get("streamers", [])
+                for s in streamers:
+                    if s.get("enabled", True):
+                        status_manager.set_task("harvesting", "Scanne Twitch...", streamer=s.get("name"))
+                        orch.harvester.harvest_channel(s)
+            except Exception as e:
+                status_manager.set_task("error", f"Fehler beim Clip-Scannen: {e}")
+            finally:
+                status_manager.set_task("idle", "Twitch-Scan beendet. Clips in der Warteschlange gespeichert.")
 
         thread = threading.Thread(target=run_harvest_background, daemon=True)
         thread.start()
@@ -1716,17 +1746,22 @@ def process_one_clip_route(clip_id):
 def process_all_api():
     """Schneidet alle Clips in der Warteschlange im Hintergrund."""
     if not status_manager.get_state().get("is_running", False):
+        status_manager.set_task("processing", "Starte Schneidevorgang für alle Clips...")
+        
         def run_all_worker():
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT clip_id FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
-                clips = cursor.fetchall()
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT clip_id FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
+                    clips = cursor.fetchall()
 
-            for idx, c in enumerate(clips, 1):
-                status_manager.set_task("processing", f"Schneide Clip [{idx}/{len(clips)}]...")
-                process_single_clip(c["clip_id"])
-
-            status_manager.set_task("idle", f"Alle {len(clips)} Clips fertig ins Studio übertragen.")
+                for idx, c in enumerate(clips, 1):
+                    status_manager.set_task("processing", f"Schneide Clip [{idx}/{len(clips)}]...")
+                    process_single_clip(c["clip_id"])
+            except Exception as e:
+                status_manager.set_task("error", f"Fehler beim Schneidevorgang: {e}")
+            finally:
+                status_manager.set_task("idle", f"Alle Clips fertig ins Studio übertragen.")
 
         thread = threading.Thread(target=run_all_worker, daemon=True)
         thread.start()
