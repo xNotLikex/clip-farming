@@ -133,7 +133,8 @@ def download_and_run_installer(download_url: str) -> Dict[str, Any]:
                 pass
             
             # Starte Installer mit Zielverzeichnis-Vorgabe
-            subprocess.Popen(f'"{installer_file}" /DIR="{current_install_dir}"')
+            # H2 Audit-Fix: List-Form statt String-Form (Shell-Injection-Schutz)
+            subprocess.Popen([str(installer_file), f'/DIR={current_install_dir}'])
         else:
             subprocess.Popen([str(installer_file)])
         

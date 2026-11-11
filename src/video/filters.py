@@ -3,8 +3,10 @@ import cv2
 import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
+from src.config import PROJECT_ROOT
 
-MODELS_DIR = Path("data/models")
+# H3 Audit-Fix: Absoluter Pfad statt relativ zum CWD
+MODELS_DIR = PROJECT_ROOT / "data" / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 YUNET_PATH = MODELS_DIR / "yunet.onnx"
 

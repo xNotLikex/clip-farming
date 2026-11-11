@@ -52,15 +52,10 @@ def handle_options():
         response = app.make_default_options_response()
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range, Authorization"
         return response
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    return response
+# Zweiter CORS-Handler entfernt (C3 Audit-Fix: überschrieb Range-Header aus dem ersten Handler)
 
 composer = VideoComposer()
 yt_uploader = YouTubeUploader()

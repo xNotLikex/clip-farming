@@ -1,4 +1,4 @@
-use tauri::Manager;
+// L1 Audit-Fix: tauri::Manager unused import entfernt
 
 pub mod commands;
 pub mod db;

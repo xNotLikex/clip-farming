@@ -114,6 +114,10 @@ pub fn save_clip_crop(
         }
     }
 
+    // Geänderte Metadaten auf Disk schreiben
+    let json_str = serde_json::to_string_pretty(&meta_val).map_err(|e| e.to_string())?;
+    fs::write(&meta_file, json_str).map_err(|e| format!("Fehler beim Schreiben der Metadaten: {}", e))?;
+
     Ok(true)
 }
 
@@ -191,6 +195,10 @@ pub async fn api_proxy(
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
     let url = if endpoint.starts_with("http") {
+        // C4 Audit-Fix: Nur localhost:5000 erlauben, kein beliebiger SSRF
+        if !endpoint.starts_with("http://127.0.0.1:5000") && !endpoint.starts_with("http://localhost:5000") {
+            return Err("Nur Anfragen an den lokalen Backend-Server (127.0.0.1:5000) sind erlaubt.".to_string());
+        }
         endpoint
     } else {
         let clean = endpoint.trim_start_matches('/');

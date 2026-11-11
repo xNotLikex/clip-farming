@@ -1581,7 +1581,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                 if (data.logs && data.logs.length > 0) {
                     document.getElementById('log-count').innerText = data.logs.length + ' Einträge';
                     const logBox = document.getElementById('log-box');
-                    logBox.innerHTML = data.logs.slice(-30).map(l => '<div>' + l + '</div>').join('');
+                    logBox.innerHTML = data.logs.slice(-30).map(l => '<div>' + escapeHtml(l) + '</div>').join('');
                     if (logsOpen) {
                         logBox.scrollTop = logBox.scrollHeight;
                     }

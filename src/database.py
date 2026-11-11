@@ -95,11 +95,19 @@ def save_clip(clip_data: Dict[str, Any]):
 
 def update_clip_status(clip_id: str, status: str, **kwargs):
     """Aktualisiert den Status und Metadaten eines Clips."""
+    # C8 Audit-Fix: Nur erlaubte Spaltennamen akzeptieren (SQL-Injection-Schutz)
+    ALLOWED_COLUMNS = {
+        "raw_path", "rendered_path", "ai_title", "ai_description", "ai_tags",
+        "published_at", "scheduled_publish_at", "is_manually_published",
+        "youtube_video_id", "tiktok_video_id", "error_log"
+    }
     with get_db_connection() as conn:
         cursor = conn.cursor()
         fields = ["status = ?"]
         values = [status]
         for key, val in kwargs.items():
+            if key not in ALLOWED_COLUMNS:
+                raise ValueError(f"Unzulässiger Spaltenname: {key}")
             fields.append(f"{key} = ?")
             values.append(val)
         values.append(clip_id)

@@ -38,7 +38,8 @@ class PipelineOrchestrator:
 
     def run_cycle(self):
         """Fuehrt einen kompletten Harvesting-, Schneide- und Upload-Zyklus durch."""
-        status_manager.state["is_running"] = True
+        # C1 Audit-Fix: status_manager.state existiert nicht → .update() verwenden
+        status_manager.update(is_running=True)
         status_manager.set_task("starting", "Initialisiere Pipeline-Durchlauf...")
         print("\n" + "="*70)
         print("  🚀 [CLIP-FARMING] Starte neuen Durchlauf...")
@@ -63,7 +64,7 @@ class PipelineOrchestrator:
         pending = get_pending_clips(limit=10)
         if not pending:
             status_manager.set_task("idle", "Keine offenen Clips in der Warteschlange. Standby.")
-            status_manager.state["is_running"] = False
+            status_manager.update(is_running=False)
             print("[i] Keine offenen Clips zur Verarbeitung.")
             return
 
@@ -171,7 +172,7 @@ class PipelineOrchestrator:
                 update_clip_status(clip_id, "failed", error_log=str(e))
 
         status_manager.set_task("idle", f"Zyklus abgeschlossen. {len(pending)} Clips verarbeitet.")
-        status_manager.state["is_running"] = False
+        status_manager.update(is_running=False)
 
     def run_forever(self, interval_minutes: int = 15):
         """Startet den vollautomatischen 24/7 Autopilot-Modus."""
