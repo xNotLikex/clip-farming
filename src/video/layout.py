@@ -10,6 +10,7 @@ from src.config import (
     SHORTS_OUTPUT_DIR,
     RAW_CLIPS_DIR,
     METADATA_OUTPUT_DIR,
+    DATA_DIR,
     load_config,
     get_streamers,
     PRESET_CORNER_CROPS
@@ -50,6 +51,62 @@ def get_video_duration(video_path: Path) -> float:
         return float(out)
     except Exception:
         return 30.0
+
+def generate_thumbnail(clip_id: str, force: bool = False) -> Optional[Path]:
+    """
+    Erzeugt ein 9:16 JPEG-Vorschaubild aus dem fertigen Short (oder Rohclip als Fallback).
+    Mit force=True wird ein bestehendes Vorschaubild stets ueberschrieben.
+    """
+    thumb_dir = DATA_DIR / "thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / f"{clip_id}.jpg"
+
+    if thumb_path.exists() and not force:
+        return thumb_path
+
+    video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+    if not video_path.exists():
+        video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+
+    if not video_path.exists():
+        return None
+
+    try:
+        # Extrahiere Frame bei 1.0s (wo Bild, Hook-Sticker & Untertitel sichtbar sind)
+        subprocess.run([
+            "ffmpeg", "-y", "-ss", "00:00:01.000", "-i", str(video_path),
+            "-frames:v", "1", "-update", "1", "-q:v", "2", str(thumb_path)
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=6)
+    except Exception:
+        pass
+
+    if not thumb_path.exists() or thumb_path.stat().st_size == 0:
+        try:
+            # Fallback bei ultrakurzen Videos auf 0.2s
+            subprocess.run([
+                "ffmpeg", "-y", "-ss", "00:00:00.200", "-i", str(video_path),
+                "-frames:v", "1", "-update", "1", "-q:v", "2", str(thumb_path)
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=6)
+        except Exception:
+            pass
+
+    if not thumb_path.exists() or thumb_path.stat().st_size == 0:
+        try:
+            cap = cv2.VideoCapture(str(video_path))
+            cap.set(cv2.CAP_PROP_POS_MSEC, 500)
+            ret, frame = cap.read()
+            if not ret:
+                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                ret, frame = cap.read()
+            if ret and frame is not None:
+                cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+            cap.release()
+        except Exception:
+            pass
+
+    if thumb_path.exists() and thumb_path.stat().st_size > 0:
+        return thumb_path
+    return None
 
 class VideoComposer:
     def __init__(self):
@@ -551,6 +608,11 @@ class VideoComposer:
 
             if output_file.exists() and output_file.stat().st_size > 1000:
                 print(f"[+] 9:16 Short fertiggestellt: {output_file.name}")
+                try:
+                    generate_thumbnail(clip_id, force=True)
+                    print(f"[+] Vorschaubild fuer {clip_id} erfolgreich neu generiert.")
+                except Exception as th_err:
+                    print(f"[!] Fehler beim Aktualisieren des Vorschaubilds fuer {clip_id}: {th_err}")
                 if on_progress:
                     on_progress(100, 0, f"{speed_factor:.1f}x")
                 return output_file

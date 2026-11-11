@@ -17,7 +17,7 @@ from src.config import (
     get_autopilot_settings, save_autopilot_settings
 )
 from src.database import get_db_connection, update_clip_status
-from src.video.layout import VideoComposer, cancel_active_render
+from src.video.layout import VideoComposer, cancel_active_render, generate_thumbnail
 from src.video.filters import AVAILABLE_CAM_FILTERS
 from src.uploaders.youtube import YouTubeUploader
 from src.uploaders.tiktok import TikTokUploader
@@ -1579,7 +1579,30 @@ HTML_DASHBOARD = """
                             btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm';
                             btn.innerHTML = '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen';
                         }
+
+                        // Bei Uebergang von aktiv -> idle: Studio-Vorschaukarten & Videos aktualisieren
+                        if (window.gLiveStudioPrevRunning) {
+                            if (typeof window.refreshDashboard === 'function') {
+                                window.refreshDashboard();
+                            } else {
+                                var ts = Date.now();
+                                document.querySelectorAll('img[id^="poster-img-"]').forEach(function(img) {
+                                    var base = img.src.split('?')[0];
+                                    img.src = base + '?v=' + ts;
+                                });
+                                document.querySelectorAll('video[id^="studio-video-"]').forEach(function(vid) {
+                                    var pBase = (vid.getAttribute('poster') || '').split('?')[0];
+                                    if (pBase) vid.setAttribute('poster', pBase + '?v=' + ts);
+                                    var s = vid.querySelector('source');
+                                    if (s) {
+                                        s.src = s.src.split('?')[0] + '?v=' + ts;
+                                        vid.load();
+                                    }
+                                });
+                            }
+                        }
                     }
+                    window.gLiveStudioPrevRunning = data.is_running;
 
                     if (data.logs && data.logs.length > 0) {
                         var countEl = document.getElementById('log-count');
@@ -1854,13 +1877,13 @@ HTML_DASHBOARD = """
                         {% if clip.has_video %}
                         <!-- Instant Visible Poster Overlay to guarantee frame is never black -->
                         <div id="poster-overlay-{{ clip.clip_id }}" class="absolute inset-0 z-10 flex items-center justify-center cursor-pointer transition-opacity duration-300" onclick="startStudioVideoPlay('{{ clip.clip_id }}', this)">
-                            <img src="/thumbnail/{{ clip.clip_id }}" alt="Vorschau" class="absolute inset-0 w-full h-full object-cover">
+                            <img id="poster-img-{{ clip.clip_id }}" src="/thumbnail/{{ clip.clip_id }}?v={{ clip.updated_at }}" alt="Vorschau" class="absolute inset-0 w-full h-full object-cover">
                             <div class="w-14 h-14 rounded-full bg-slate-900/80 border-2 border-amber-400/90 text-amber-400 flex items-center justify-center text-xl shadow-2xl backdrop-blur transition-transform group-hover:bg-amber-500">
                                 ▶
                             </div>
                         </div>
-                        <video id="studio-video-{{ clip.clip_id }}" controls preload="metadata" poster="/thumbnail/{{ clip.clip_id }}" class="w-full h-full object-contain relative z-0" onplay="var p = document.getElementById('poster-overlay-{{ clip.clip_id }}'); if (p) p.style.display = 'none';">
-                            <source src="/video/{{ clip.clip_id }}" type="video/mp4">
+                        <video id="studio-video-{{ clip.clip_id }}" controls preload="metadata" poster="/thumbnail/{{ clip.clip_id }}?v={{ clip.updated_at }}" class="w-full h-full object-contain relative z-0" onplay="var p = document.getElementById('poster-overlay-{{ clip.clip_id }}'); if (p) p.style.display = 'none';">
+                            <source src="/video/{{ clip.clip_id }}?v={{ clip.updated_at }}" type="video/mp4">
                         </video>
                         {% else %}
                         <div class="text-center p-6 text-slate-500">
@@ -3282,6 +3305,15 @@ def get_dashboard_dict():
                 pass
 
         short_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+        thumb_file = DATA_DIR / "thumbnails" / f"{clip_id}.jpg"
+        mtime = 0
+        if thumb_file.exists():
+            mtime = int(thumb_file.stat().st_mtime)
+        elif short_file.exists():
+            mtime = int(short_file.stat().st_mtime)
+        else:
+            mtime = int(time.time())
+
         created_ago, created_full = format_relative_time(r["clip_created_at"] or r["harvested_at"])
         ready_clips.append({
             "clip_id": clip_id,
@@ -3295,6 +3327,7 @@ def get_dashboard_dict():
             "cam_filter": cam_filter,
             "is_manually_published": is_manually_published,
             "has_video": short_file.exists(),
+            "updated_at": mtime,
             "created_ago": created_ago,
             "created_full": created_full
         })
@@ -3552,42 +3585,11 @@ def make_svg_poster(title: str = "Clip", streamer: str = "") -> Response:
 
 @app.route("/thumbnail/<clip_id>")
 def serve_thumbnail(clip_id):
-    """Liefert ein gecachtes JPEG-Vorschaubild (Poster) für das 9:16 Short."""
-    thumb_dir = DATA_DIR / "thumbnails"
-    thumb_dir.mkdir(parents=True, exist_ok=True)
-    thumb_path = thumb_dir / f"{clip_id}.jpg"
-
-    if not thumb_path.exists():
-        video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
-        if not video_path.exists():
-            video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
-        
-        if video_path.exists():
-            try:
-                subprocess.run([
-                    "ffmpeg", "-y", "-ss", "00:00:00.500", "-i", str(video_path),
-                    "-frames:v", "1", "-q:v", "2", str(thumb_path)
-                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
-            except Exception:
-                pass
-
-            if not thumb_path.exists():
-                try:
-                    cap = cv2.VideoCapture(str(video_path))
-                    cap.set(cv2.CAP_PROP_POS_MSEC, 500)
-                    ret, frame = cap.read()
-                    if not ret:
-                        cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-                        ret, frame = cap.read()
-                    if ret and frame is not None:
-                        cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-                    cap.release()
-                except Exception:
-                    pass
-
-    if thumb_path.exists():
+    """Liefert ein JPEG-Vorschaubild (Poster) für das 9:16 Short."""
+    thumb_path = generate_thumbnail(clip_id, force=False)
+    if thumb_path and thumb_path.exists() and thumb_path.stat().st_size > 0:
         response = send_file(thumb_path, mimetype="image/jpeg")
-        response.headers["Cache-Control"] = "public, max-age=86400"
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
 
     title = clip_id
@@ -4014,7 +4016,7 @@ def save_clip(clip_id):
             def on_rerender_progress(pct: int, eta: int, speed: str):
                 status_manager.set_progress(percent=pct, eta_seconds=eta, speed=speed, phase="rendering", clip_id=clip_id)
 
-            composer.render_short(
+            rendered_file = composer.render_short(
                 raw_video_path=raw_path,
                 clip_id=clip_id,
                 ass_subtitle_path=active_sub_path,
@@ -4025,6 +4027,11 @@ def save_clip(clip_id):
                 cam_filter=cam_filter,
                 on_progress=on_rerender_progress
             )
+            if rendered_file and rendered_file.exists():
+                try:
+                    generate_thumbnail(clip_id, force=True)
+                except Exception:
+                    pass
             status_manager.reset_progress()
             status_manager.set_task("idle", f"Neu-Rendern von '{title}' fertiggestellt.")
 
@@ -4584,6 +4591,10 @@ def save_crop_api(clip_id):
                 )
                 status_manager.reset_progress()
                 if rendered_path and rendered_path.exists():
+                    try:
+                        generate_thumbnail(clip_id, force=True)
+                    except Exception:
+                        pass
                     status_manager.set_task("idle", f"Zuschnitt-Rendering für '{title}' fertiggestellt.")
                     update_clip_status(clip_id, "ready", rendered_path=str(rendered_path), ai_title=title)
             except Exception as e:

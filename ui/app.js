@@ -343,8 +343,8 @@ function renderStudio(clips, streamerCounts) {
             <!-- Video Player -->
             <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                 ${clip.has_video ? `
-                <video controls preload="metadata" poster="${getBackendUrl('/thumbnail/' + clip.clip_id)}" class="w-full h-full object-contain">
-                    <source src="${getBackendUrl('/video/' + clip.clip_id)}" type="video/mp4">
+                <video id="studio-video-${clip.clip_id}" controls preload="metadata" poster="${getBackendUrl('/thumbnail/' + clip.clip_id + '?v=' + (clip.updated_at || Date.now()))}" class="w-full h-full object-contain">
+                    <source src="${getBackendUrl('/video/' + clip.clip_id + '?v=' + (clip.updated_at || Date.now()))}" type="video/mp4">
                 </video>
                 ` : `
                 <div class="text-center p-6 text-slate-500">
@@ -1309,6 +1309,7 @@ if (document.readyState === 'loading') {
         }
 
 let gPrevRunning = false;
+let gPrevTaskStatus = '';
 
 function showToast(message, type = 'info') {
     let toast = document.getElementById('ui-toast');
@@ -1542,12 +1543,19 @@ async function downloadRawVideo(clipId, btn, evt) {
 
                     // Transition from running -> idle
                     if (gPrevRunning) {
-                        showToast('Twitch-Suche abgeschlossen! Warteschlange aktualisiert.', 'success');
+                        if (gPrevTaskStatus === 'rendering') {
+                            showToast('Rendering fertiggestellt! Neues Video & Vorschaubild geladen.', 'success');
+                        } else {
+                            showToast('Aktion abgeschlossen! Dashboard aktualisiert.', 'success');
+                        }
                         refreshDashboard();
                     }
                 }
 
                 gPrevRunning = data.is_running;
+                if (data.is_running) {
+                    gPrevTaskStatus = data.status || '';
+                }
 
                 if (data.logs && data.logs.length > 0) {
                     document.getElementById('log-count').innerText = data.logs.length + ' Einträge';

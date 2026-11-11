@@ -10,7 +10,21 @@ streamers:
   enabled: true
   min_clip_views: 25
   max_clips_per_run: 2
-  layout: auto
+  layout: custom
+  custom_crops:
+    mode: split
+    cam:
+      x_pct: 0.6956314253077802
+      y_pct: 0.5494139097603077
+      w_pct: 0.30436857469221984
+      h_pct: 0.3607331255611494
+      enabled: true
+    game:
+      x_pct: 0.24
+      y_pct: 0
+      w_pct: 0.51
+      h_pct: 1
+      enabled: true
 - name: papaplatte
   platform: twitch
   enabled: true

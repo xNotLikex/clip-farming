@@ -34,6 +34,8 @@ pub struct ReadyClip {
     pub cam_filter: String,
     pub is_manually_published: bool,
     pub has_video: bool,
+    #[serde(default)]
+    pub updated_at: i64,
     pub created_ago: String,
     pub created_full: String,
 }
