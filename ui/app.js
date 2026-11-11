@@ -363,7 +363,7 @@ function renderStudio(clips, streamerCounts) {
             </div>
 
             <!-- Edit Form -->
-            <form action="/save/${clip.clip_id}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
+            <form id="form-${clip.clip_id}" action="/save/${clip.clip_id}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
@@ -2860,7 +2860,6 @@ async function downloadRawVideo(clipId, btn, evt) {
                 payload = {
                     layout_mode: 'single_916',
                     render_now: renderNow,
-                    transcript: editedTranscript,
                     custom_crops: {
                         mode: 'single_916',
                         enabled: true,
@@ -2880,7 +2879,6 @@ async function downloadRawVideo(clipId, btn, evt) {
                 payload = {
                     layout_mode: 'custom',
                     render_now: renderNow,
-                    transcript: editedTranscript,
                     custom_crops: {
                         mode: 'split',
                         enabled: true,
@@ -2910,6 +2908,10 @@ async function downloadRawVideo(clipId, btn, evt) {
                 };
             }
 
+            if (typeof editedTranscript === 'string') {
+                payload.transcript = editedTranscript;
+            }
+
             const modalFilterSelect = document.getElementById('crop-cam-filter-select');
             if (modalFilterSelect) {
                 payload.cam_filter = modalFilterSelect.value;
@@ -2929,6 +2931,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     if (renderNow) {
                         const renderCard = document.getElementById('render-progress-card');
                         if (renderCard) renderCard.classList.remove('hidden');
+                        updateStatus();
                     }
                 }
             } catch (e) {

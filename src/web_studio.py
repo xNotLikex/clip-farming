@@ -4157,61 +4157,66 @@ def save_clip(clip_id):
 
         if raw_path.exists():
             status_manager.set_task("rendering", f"Rendere Short '{title}' neu...", clip_title=title)
-            
-            active_sub_path = None
-            if sub_position != "none":
-                from src.video.subtitles import SubtitleGenerator, align_words_with_edited_text
-                sub_gen = SubtitleGenerator()
-                segments = None
-                if words_path.exists():
+            try:
+                active_sub_path = None
+                if sub_position != "none":
+                    from src.video.subtitles import SubtitleGenerator, align_words_with_edited_text
+                    sub_gen = SubtitleGenerator()
+                    segments = None
+                    if words_path.exists():
+                        try:
+                            with open(words_path, "r", encoding="utf-8") as wf:
+                                segments = json.load(wf)
+                        except Exception:
+                            pass
+                    
+                    if not segments and raw_path.exists():
+                        from src.video.transcriber import VideoTranscriber
+                        transcriber = VideoTranscriber()
+                        segments = transcriber.transcribe(raw_path)
+
+                    # Wenn der Nutzer den Untertiteltext bearbeitet hat, Wörter und Zeitstempel neu ausrichten!
+                    if edited_transcript:
+                        total_dur = 30.0
+                        try:
+                            from src.video.layout import get_video_duration
+                            total_dur = get_video_duration(raw_path)
+                        except Exception:
+                            pass
+                        segments = align_words_with_edited_text(segments, edited_transcript, total_dur)
+                        with open(words_path, "w", encoding="utf-8") as wf:
+                            json.dump(segments, wf, indent=2, ensure_ascii=False)
+
+                    if segments:
+                        sub_gen.generate_ass(segments, ass_path, position=sub_position)
+                        active_sub_path = ass_path
+
+                def on_rerender_progress(pct: int, eta: int, speed: str):
+                    status_manager.set_progress(percent=pct, eta_seconds=eta, speed=speed, phase="rendering", clip_id=clip_id)
+
+                rendered_file = composer.render_short(
+                    raw_video_path=raw_path,
+                    clip_id=clip_id,
+                    ass_subtitle_path=active_sub_path,
+                    header_sticker_text=sticker_text,
+                    streamer_name=(meta.get("streamer") or ""),
+                    layout_mode=layout_mode,
+                    custom_crops=meta.get("custom_crops"),
+                    cam_filter=cam_filter,
+                    on_progress=on_rerender_progress
+                )
+                if rendered_file and rendered_file.exists():
                     try:
-                        with open(words_path, "r", encoding="utf-8") as wf:
-                            segments = json.load(wf)
+                        generate_thumbnail(clip_id, force=True)
                     except Exception:
                         pass
-                
-                if not segments and raw_path.exists():
-                    from src.video.transcriber import VideoTranscriber
-                    transcriber = VideoTranscriber()
-                    segments = transcriber.transcribe(raw_path)
-
-                # Wenn der Nutzer den Untertiteltext bearbeitet hat, Wörter und Zeitstempel neu ausrichten!
-                if edited_transcript:
-                    total_dur = 30.0
-                    try:
-                        from src.video.layout import get_video_duration
-                        total_dur = get_video_duration(raw_path)
-                    except Exception:
-                        pass
-                    segments = align_words_with_edited_text(segments, edited_transcript, total_dur)
-                    with open(words_path, "w", encoding="utf-8") as wf:
-                        json.dump(segments, wf, indent=2, ensure_ascii=False)
-
-                if segments:
-                    sub_gen.generate_ass(segments, ass_path, position=sub_position)
-                    active_sub_path = ass_path
-
-            def on_rerender_progress(pct: int, eta: int, speed: str):
-                status_manager.set_progress(percent=pct, eta_seconds=eta, speed=speed, phase="rendering", clip_id=clip_id)
-
-            rendered_file = composer.render_short(
-                raw_video_path=raw_path,
-                clip_id=clip_id,
-                ass_subtitle_path=active_sub_path,
-                header_sticker_text=sticker_text,
-                streamer_name=meta.get("streamer", ""),
-                layout_mode=layout_mode,
-                custom_crops=meta.get("custom_crops"),
-                cam_filter=cam_filter,
-                on_progress=on_rerender_progress
-            )
-            if rendered_file and rendered_file.exists():
-                try:
-                    generate_thumbnail(clip_id, force=True)
-                except Exception:
-                    pass
-            status_manager.reset_progress()
-            status_manager.set_task("idle", f"Neu-Rendern von '{title}' fertiggestellt.")
+                    status_manager.set_task("idle", f"Neu-Rendern von '{title}' fertiggestellt.")
+                else:
+                    status_manager.set_task("error", f"Neu-Rendern von '{title}' fehlgeschlagen oder abgebrochen.")
+            except Exception as e:
+                status_manager.set_task("error", f"Fehler beim Neu-Rendern von '{title}': {e}")
+            finally:
+                status_manager.reset_progress()
 
         return redirect(url_for("index") + "?tab=studio")
 
@@ -4403,7 +4408,7 @@ def remove_streamer_route(name):
 @app.route("/api/streamers/update", methods=["POST"])
 def update_streamer_route():
     data = request.get_json(silent=True) or request.form
-    name = data.get("name", "").strip().lower()
+    name = (data.get("name") or "").strip().lower()
     min_views = data.get("min_clip_views")
     max_clips = data.get("max_clips_per_run")
     layout = data.get("layout")
@@ -4716,7 +4721,7 @@ def get_clip_meta_api(clip_id):
         except Exception:
             pass
 
-    streamer_name = (clip["streamer"] if clip else meta.get("streamer", "")).strip()
+    streamer_name = ((clip["streamer"] if clip else None) or meta.get("streamer") or "").strip()
     if not streamer_name and clip_id.startswith("sample_"):
         streamer_name = clip_id.replace("sample_", "").strip()
     streamer_crops = None
@@ -4843,11 +4848,27 @@ def save_crop_api(clip_id):
         words_path = RAW_CLIPS_DIR / f"{clip_id}_words.json"
         title = meta.get("title") or clip_id
         sticker_text = meta.get("sticker_text") or title
-        sub_position = meta.get("sub_position", "bottom")
+        sub_position = meta.get("sub_position") or "bottom"
+        streamer_name = (meta.get("streamer") or "").strip()
+        if not streamer_name:
+            try:
+                with get_db_connection() as conn:
+                    row = conn.execute("SELECT streamer FROM clips WHERE clip_id = ?", (clip_id,)).fetchone()
+                    if row and row["streamer"]:
+                        streamer_name = str(row["streamer"]).strip()
+            except Exception:
+                pass
+        raw_transcript = data.get("transcript")
 
         def render_worker():
+            finished_cleanly = False
             try:
-                status_manager.set_task("rendering", f"Rendere Short mit Zuschnitt: '{title}'...", clip_title=title)
+                if not raw_path.exists():
+                    status_manager.set_task("error", f"Rohvideo für '{title}' nicht gefunden.")
+                    finished_cleanly = True
+                    return
+
+                status_manager.set_task("rendering", f"Rendere Short mit Zuschnitt: '{title}'...", clip_title=title, streamer=streamer_name)
                 active_sub_path = None
                 if sub_position != "none":
                     from src.video.subtitles import SubtitleGenerator
@@ -4866,8 +4887,8 @@ def save_crop_api(clip_id):
                         with open(words_path, "w", encoding="utf-8") as wf:
                             json.dump(segments, wf, indent=2, ensure_ascii=False)
 
-                    if "transcript" in data and data["transcript"].strip():
-                        ed_transcript = data["transcript"].strip()
+                    if isinstance(raw_transcript, str) and raw_transcript.strip():
+                        ed_transcript = raw_transcript.strip()
                         txt_path = RAW_CLIPS_DIR / f"{clip_id}_transcript.txt"
                         txt_path.write_text(ed_transcript, encoding="utf-8")
                         total_dur = 30.0
@@ -4893,13 +4914,12 @@ def save_crop_api(clip_id):
                     clip_id=clip_id,
                     ass_subtitle_path=active_sub_path,
                     header_sticker_text=sticker_text,
-                    streamer_name=meta.get("streamer", ""),
+                    streamer_name=streamer_name,
                     layout_mode=layout_mode,
                     custom_crops=custom_crops,
                     cam_filter=meta.get("cam_filter", "none"),
                     on_progress=on_progress
                 )
-                status_manager.reset_progress()
                 if rendered_path and rendered_path.exists():
                     try:
                         generate_thumbnail(clip_id, force=True)
@@ -4907,9 +4927,17 @@ def save_crop_api(clip_id):
                         pass
                     status_manager.set_task("idle", f"Zuschnitt-Rendering für '{title}' fertiggestellt.")
                     update_clip_status(clip_id, "ready", rendered_path=str(rendered_path), ai_title=title)
+                else:
+                    status_manager.set_task("error", f"Rendering für '{title}' fehlgeschlagen oder abgebrochen.")
+                finished_cleanly = True
             except Exception as e:
-                status_manager.reset_progress()
                 status_manager.log(f"Fehler beim Rendern von {clip_id}: {e}")
+                status_manager.set_task("error", f"Fehler beim Rendern von '{title}': {e}")
+                finished_cleanly = True
+            finally:
+                status_manager.reset_progress()
+                if not finished_cleanly:
+                    status_manager.set_task("error", f"Rendering für '{title}' unerwartet beendet.")
 
         t = threading.Thread(target=render_worker, daemon=True)
         t.start()
