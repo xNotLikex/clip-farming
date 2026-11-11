@@ -9,6 +9,7 @@ import threading
 import cv2
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional, List, Dict, Any
 from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for, Response
 
 from src.config import (
@@ -486,15 +487,20 @@ HTML_DASHBOARD = """
         }
         window.loadSampleClipForStreamer = loadSampleClipForStreamer;
         function openSettingsModal() {
+            if (window.openSettingsModal && window.openSettingsModal !== openSettingsModal) {
+                return window.openSettingsModal();
+            }
             var m = document.getElementById('settings-modal');
             if (m) {
                 m.classList.remove('hidden');
                 m.classList.add('flex');
                 m.style.setProperty('display', 'flex', 'important');
-                if (window.loadSettingsIntoForm) window.loadSettingsIntoForm();
             }
         }
         function closeSettingsModal() {
+            if (window.closeSettingsModal && window.closeSettingsModal !== closeSettingsModal) {
+                return window.closeSettingsModal();
+            }
             var m = document.getElementById('settings-modal');
             if (m) {
                 m.classList.add('hidden');
@@ -502,80 +508,6 @@ HTML_DASHBOARD = """
                 m.style.setProperty('display', 'none', 'important');
             }
         }
-        function loadSettingsIntoForm() {
-            fetch('/api/settings')
-                .then(function(r) { return r.json(); })
-                .then(function(s) {
-                    if (!s) return;
-                    var form = document.getElementById('settings-form');
-                    if (!form) return;
-                    if (form.elements['autopilot_enabled']) form.elements['autopilot_enabled'].checked = !!s.enabled;
-                    if (form.elements['interval_minutes']) form.elements['interval_minutes'].value = s.interval_minutes || 30;
-                    if (form.elements['time_filter']) form.elements['time_filter'].value = s.time_filter || 'LAST_DAY';
-                    if (form.elements['fallback_to_week']) form.elements['fallback_to_week'].checked = s.fallback_to_week !== false;
-                    if (form.elements['auto_render']) form.elements['auto_render'].checked = !!s.auto_render;
-                    if (form.elements['hardware_encoder']) form.elements['hardware_encoder'].value = s.hardware_encoder || 'auto';
-                    if (form.elements['whisper_model']) form.elements['whisper_model'].value = s.whisper_model || 'small';
-                })
-                .catch(function(err) {
-                    console.warn('loadSettingsIntoForm error:', err);
-                });
-        }
-        window.loadSettingsIntoForm = loadSettingsIntoForm;
-
-        function saveSettingsFromForm(e) {
-            if (e && e.preventDefault) e.preventDefault();
-            var form = document.getElementById('settings-form');
-            if (!form) return false;
-
-            var payload = {
-                enabled: form.elements['autopilot_enabled'] ? form.elements['autopilot_enabled'].checked : true,
-                interval_minutes: parseInt(form.elements['interval_minutes'].value, 10) || 30,
-                time_filter: form.elements['time_filter'] ? form.elements['time_filter'].value : 'LAST_DAY',
-                fallback_to_week: form.elements['fallback_to_week'] ? form.elements['fallback_to_week'].checked : true,
-                auto_render: form.elements['auto_render'] ? form.elements['auto_render'].checked : false,
-                hardware_encoder: form.elements['hardware_encoder'] ? form.elements['hardware_encoder'].value : 'auto',
-                whisper_model: form.elements['whisper_model'] ? form.elements['whisper_model'].value : 'small'
-            };
-
-            var btn = form.querySelector('button[type="submit"]');
-            if (btn) {
-                btn.disabled = true;
-                btn.classList.add('opacity-70');
-            }
-
-            fetch('/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data && data.success) {
-                    if (window.showToast) window.showToast('Einstellungen erfolgreich gespeichert!', 'success');
-                    else alert('Einstellungen gespeichert!');
-                    closeSettingsModal();
-                } else {
-                    var msg = (data && data.error) ? data.error : 'Fehler beim Speichern';
-                    if (window.showToast) window.showToast(msg, 'error');
-                    else alert(msg);
-                }
-            })
-            .catch(function(err) {
-                var msg = 'Netzwerkfehler beim Speichern: ' + err;
-                if (window.showToast) window.showToast(msg, 'error');
-                else alert(msg);
-            })
-            .finally(function() {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-70');
-                }
-            });
-
-            return false;
-        }
-        window.saveSettingsFromForm = saveSettingsFromForm;
         function switchTab(tabId) {
             if (!tabId) return;
             try {
@@ -3524,13 +3456,48 @@ def execute_process_all_job() -> bool:
     thread.start()
     return True
 
+def cleanup_old_clips_housekeeping(max_age_days: int = 7):
+    """Löscht nicht übernommene Roh-Clips, die älter als max_age_days Tage sind."""
+    try:
+        cutoff = datetime.now() - timedelta(days=max_age_days)
+        cutoff_str = cutoff.strftime("%Y-%m-%d")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT clip_id FROM clips WHERE status = 'harvested' AND clip_created_at < ?",
+                (cutoff_str,)
+            )
+            old_rows = cursor.fetchall()
+            deleted_count = 0
+            for r in old_rows:
+                cid = r["clip_id"]
+                raw_f = RAW_CLIPS_DIR / f"{cid}.mp4"
+                if raw_f.exists():
+                    try:
+                        raw_f.unlink()
+                    except Exception:
+                        pass
+                cursor.execute("UPDATE clips SET status = 'deleted' WHERE clip_id = ?", (cid,))
+                deleted_count += 1
+            if deleted_count > 0:
+                conn.commit()
+                status_manager.log(f"🧹 Housekeeping: {deleted_count} veraltete Roh-Clips (> {max_age_days} Tage) automatisch bereinigt.")
+    except Exception as e:
+        status_manager.log(f"Housekeeping-Fehler: {e}")
+
 def autopilot_background_worker():
     """Prüft periodisch im Hintergrund nach neuen Clips gemäß konfiguriertem Intervall."""
     time.sleep(10)
     last_check_timestamp = time.time()
+    last_housekeeping_timestamp = 0
     while True:
         try:
             time.sleep(15)
+            # Housekeeping einmal alle 24 Stunden ausführen
+            if time.time() - last_housekeeping_timestamp >= 86400:
+                cleanup_old_clips_housekeeping(max_age_days=7)
+                last_housekeeping_timestamp = time.time()
+
             settings = get_autopilot_settings()
             if not settings.get("enabled", True):
                 continue
@@ -3635,10 +3602,22 @@ def delete_older_queue_clips():
     status_manager.log(f"🧹 {count} Roh-Clips von gestern und älter aus der Warteschlange gelöscht.")
     return redirect(url_for("index"))
 
+def _safe_resolve_clip_path(base_dir: Path, clip_id: str, suffix: str = ".mp4") -> Optional[Path]:
+    """Prüft, ob der Pfad sicher innerhalb des base_dir liegt (Schutz vor Directory Traversal)."""
+    # Nur erlaubte Zeichen im clip_id
+    if not clip_id or any(c in clip_id for c in ("/", "\\", "..")):
+        return None
+    p = (base_dir / f"{clip_id}{suffix}").resolve()
+    try:
+        p.relative_to(base_dir.resolve())
+        return p
+    except ValueError:
+        return None
+
 @app.route("/raw-video/<clip_id>")
 def serve_raw_video(clip_id):
-    raw_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
-    if raw_path.exists():
+    raw_path = _safe_resolve_clip_path(RAW_CLIPS_DIR, clip_id, ".mp4")
+    if raw_path and raw_path.exists():
         return send_file(raw_path, mimetype="video/mp4", conditional=True)
     return "Rohdatei nicht gefunden", 404
 
@@ -3726,16 +3705,16 @@ def serve_raw_thumbnail(clip_id):
 
 @app.route("/video/<clip_id>")
 def serve_video(clip_id):
-    video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
-    if video_path.exists():
+    video_path = _safe_resolve_clip_path(SHORTS_OUTPUT_DIR, f"short_{clip_id}", ".mp4")
+    if video_path and video_path.exists():
         return send_file(video_path, mimetype="video/mp4", conditional=True)
     return "Video nicht gefunden", 404
 
 @app.route("/download/short/<clip_id>")
 def download_short_route(clip_id):
     """Ermöglicht den direkten Download des gerenderten 9:16 Shorts in HQ."""
-    video_path = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
-    if not video_path.exists():
+    video_path = _safe_resolve_clip_path(SHORTS_OUTPUT_DIR, f"short_{clip_id}", ".mp4")
+    if not video_path or not video_path.exists():
         return "Video noch nicht gerendert oder nicht gefunden.", 404
 
     with get_db_connection() as conn:
@@ -3758,8 +3737,8 @@ def download_short_route(clip_id):
 @app.route("/download/raw/<clip_id>")
 def download_raw_route(clip_id):
     """Ermöglicht den Download der originalen Twitch-Rohvideodatei."""
-    raw_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
-    if raw_path.exists():
+    raw_path = _safe_resolve_clip_path(RAW_CLIPS_DIR, clip_id, ".mp4")
+    if raw_path and raw_path.exists():
         return send_file(raw_path, as_attachment=True, download_name=f"raw_{clip_id}.mp4", mimetype="video/mp4")
     return "Rohdatei nicht gefunden", 404
 
