@@ -1,0 +1,13 @@
+---
+description: Anti-AI-Slop and clean UI guidelines for frontend components and styling
+globs: ui/**/*.{html,js,css}, src/web_studio.py
+---
+# Anti-AI-UI Rules (Enforced)
+
+Follow these strict rules when building or editing interfaces:
+- **NO UI Emojis:** Never use emojis as icons in buttons, badges, tabs, cards, or headings. Always use clean inline SVG icons.
+- **NO Gradient Text:** No `bg-clip-text text-transparent`. Headings must be solid text colors with WCAG 2.2 AA contrast.
+- **NO Purple/Indigo AI Defaults:** No `#6366f1`, `#a855f7`, `text-purple-400`, or purple-to-pink gradients.
+- **Restrained Radii:** Maximum `rounded-lg` (8px) for cards and modals. Maximum `rounded-md` (6px) or `rounded-lg` for buttons and inputs. No `rounded-2xl`, `rounded-3xl`, or pill buttons everywhere.
+- **Clean 1px Borders over Diffuse Glow:** No neon drop shadows or floaty glassmorphism. Use crisp 1px borders (`border-slate-800`).
+- **No Transform Hover Effects:** Use `transition-colors duration-150` instead of `hover:scale-105` or springy hover animations.

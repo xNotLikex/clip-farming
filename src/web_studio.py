@@ -452,7 +452,7 @@ HTML_DASHBOARD = """
                 })
                 .finally(function() {
                     if (spinner) spinner.classList.add('hidden');
-                    if (btnText) btnText.innerText = '🎬 Test-Clip laden & Rahmen visuell einstellen';
+                    if (btnText) btnText.innerText = 'Test-Clip laden & Rahmen visuell einstellen';
                     if (btn) {
                         btn.disabled = false;
                         btn.classList.remove('opacity-60', 'cursor-not-allowed');
@@ -743,13 +743,13 @@ HTML_DASHBOARD = """
             var readout = document.getElementById('crop-coords-readout');
             if (readout) {
                 if (currentCropMode === 'single_916') {
-                    readout.innerText = '📱 Vollbild 9:16: ' + Math.round(cropState.single.w * 1920) + 'x1080 px (1 Rahmen • Keine Cam)';
+                    readout.innerText = 'Vollbild 9:16: ' + Math.round(cropState.single.w * 1920) + 'x1080 px (1 Rahmen • Keine Cam)';
                 } else {
                     var camW = Math.round(cropState.cam.w * 1920);
                     var camH = Math.round(cropState.cam.h * 1080);
                     var gameW = Math.round(cropState.game.w * 1920);
                     var gameH = Math.round(cropState.game.h * 1080);
-                    readout.innerText = '📷 Cam: ' + camW + 'x' + camH + ' • 🎮 Game: ' + gameW + 'x' + gameH + ' (2 Rahmen)';
+                    readout.innerText = 'Cam: ' + camW + 'x' + camH + ' • Game: ' + gameW + 'x' + gameH + ' (2 Rahmen)';
                 }
             }
         }
@@ -1025,7 +1025,7 @@ HTML_DASHBOARD = """
         function detectFacecamInCropModal() {
             if (!currentCropClipId) return;
             var badge = document.getElementById('crop-modal-clip-badge');
-            if (badge) badge.innerText = '🔍 KI scannt Facecam...';
+            if (badge) badge.innerText = 'KI scannt Facecam...';
             fetch('/api/clip/' + currentCropClipId + '/detect-cam')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
@@ -1382,7 +1382,7 @@ HTML_DASHBOARD = """
                     if (statusMsg) statusMsg.innerHTML = '<span class="text-rose-400">Fehler beim Update: ' + (res.error || 'Download fehlgeschlagen') + '</span>';
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = '<span>⚡</span> <span>Erneut versuchen</span>';
+                        btn.innerHTML = '<span>Erneut versuchen</span>';
                     }
                 }
             })
@@ -1581,7 +1581,7 @@ HTML_DASHBOARD = """
                         <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v{{ app_version }}</span>
                     </h1>
                     <button id="update-badge" style="display: none;" onclick="openUpdateModal()" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 transition shadow-sm animate-pulse cursor-pointer">
-                        <span>✨</span> <span>Update <span id="update-badge-v"></span> verfügbar</span>
+                        <span>Update <span id="update-badge-v"></span> verfügbar</span>
                     </button>
                     <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
                         <span class="w-2 h-2 rounded-full {% if is_running %}bg-emerald-400 animate-ping{% else %}bg-slate-400{% endif %}" id="live-dot"></span>
@@ -1597,7 +1597,7 @@ HTML_DASHBOARD = """
                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Streamer verwalten ({{ streamers|length }})
                 </button>
                 <button onclick="openSettingsModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
-                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> ⚙️ Einstellungen
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Einstellungen
                 </button>
                 <button onclick="triggerRun()" id="btn-trigger" class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm">
                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen
@@ -1659,7 +1659,7 @@ HTML_DASHBOARD = """
         <div class="bg-slate-900/60 border border-slate-800/80 rounded-lg p-4">
             <div class="flex justify-between items-center cursor-pointer" onclick="toggleLogs()">
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">📡 Live Activity Feed</span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Live Activity Feed</span>
                     <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">{{ initial_logs|length }} Einträge</span>
                 </div>
                 <span id="log-toggle-icon" class="text-slate-400 text-xs font-medium hover:text-amber-400 transition">▲ Verbergen</span>
@@ -1699,7 +1699,7 @@ HTML_DASHBOARD = """
             <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/70 border-b border-slate-800 gap-3">
                     <div>
-                        <span class="text-sm font-bold text-slate-200">📥 {{ counts.harvested }} Roh-Clips lokal auf der Festplatte</span>
+                        <span class="text-sm font-bold text-slate-200">{{ counts.harvested }} Roh-Clips lokal auf der Festplatte</span>
                         <span class="text-xs text-slate-400 block">Tipp: Klicke auf eine Zeile, um das Video vor dem Schneiden abzuspielen.</span>
                     </div>
                     {% if counts.harvested > 0 %}
@@ -1793,7 +1793,7 @@ HTML_DASHBOARD = """
             <!-- Sammel-Aktionen Header -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 p-4 rounded-lg gap-3">
                 <div>
-                    <span class="text-sm font-bold text-white">🎬 {{ counts.ready }} Shorts bereit zur Bearbeitung & Veröffentlichung</span>
+                    <span class="text-sm font-bold text-white">{{ counts.ready }} Shorts bereit zur Bearbeitung & Veröffentlichung</span>
                     <span class="text-xs text-slate-400 block">Du kannst jeden Clip einzeln anpassen oder alle gestaffelt im Zeitplan veröffentlichen.</span>
                 </div>
                 <form action="/api/schedule-all" method="POST" class="flex items-center gap-2">
@@ -1813,7 +1813,7 @@ HTML_DASHBOARD = """
 
             <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
             <div id="streamer-pills-container" class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">🔍 Filter nach Streamer:</span>
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter nach Streamer:</span>
                 <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 font-semibold transition">
                     Alle ({{ ready_clips|length }})
                 </button>
@@ -1853,7 +1853,7 @@ HTML_DASHBOARD = """
                         <!-- Instant Visible Poster Overlay to guarantee frame is never black -->
                         <div id="poster-overlay-{{ clip.clip_id }}" class="absolute inset-0 z-10 flex items-center justify-center cursor-pointer transition-opacity duration-300" onclick="startStudioVideoPlay('{{ clip.clip_id }}', this)">
                             <img src="/thumbnail/{{ clip.clip_id }}" alt="Vorschau" class="absolute inset-0 w-full h-full object-cover">
-                            <div class="w-14 h-14 rounded-full bg-slate-900/80 border-2 border-amber-400/90 text-amber-400 flex items-center justify-center text-xl shadow-2xl backdrop-blur transition-transform group-hover:scale-110">
+                            <div class="w-14 h-14 rounded-full bg-slate-900/80 border-2 border-amber-400/90 text-amber-400 flex items-center justify-center text-xl shadow-2xl backdrop-blur transition-transform group-hover:bg-amber-500">
                                 ▶
                             </div>
                         </div>
@@ -1862,7 +1862,7 @@ HTML_DASHBOARD = """
                         </video>
                         {% else %}
                         <div class="text-center p-6 text-slate-500">
-                            <span class="text-4xl block mb-2 animate-bounce">⏳</span>
+                            <div class="w-8 h-8 mx-auto mb-2 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
                             Video wird gerendert...
                         </div>
                         {% endif %}
@@ -1909,10 +1909,10 @@ HTML_DASHBOARD = """
                                     Untertitel-Platzierung
                                 </label>
                                 <select name="sub_position" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                                    <option value="bottom" {% if clip.sub_position == 'bottom' %}selected{% endif %}>📌 Unten (Standard, über Shorts-UI)</option>
-                                    <option value="center" {% if clip.sub_position == 'center' %}selected{% endif %}>📌 Mitte (Unteres Drittel über Game)</option>
-                                    <option value="top" {% if clip.sub_position == 'top' %}selected{% endif %}>📌 Oben (Über Facecam)</option>
-                                    <option value="none" {% if clip.sub_position == 'none' %}selected{% endif %}>🚫 Keine Untertitel (z.B. Trymacs bereits im Stream)</option>
+                                    <option value="bottom" {% if clip.sub_position == 'bottom' %}selected{% endif %}>Unten (Standard, über Shorts-UI)</option>
+                                    <option value="center" {% if clip.sub_position == 'center' %}selected{% endif %}>Mitte (Unteres Drittel über Game)</option>
+                                    <option value="top" {% if clip.sub_position == 'top' %}selected{% endif %}>Oben (Über Facecam)</option>
+                                    <option value="none" {% if clip.sub_position == 'none' %}selected{% endif %}>Keine Untertitel (z.B. Trymacs bereits im Stream)</option>
                                 </select>
                             </div>
 
@@ -1922,11 +1922,11 @@ HTML_DASHBOARD = """
                                     Video-Layout & Aufteilung
                                 </label>
                                 <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                                    <option value="auto" {% if clip.layout_mode == 'auto' %}selected{% endif %}>🤖 Automatisch (KI erkennt Facecam vs. IRL)</option>
+                                    <option value="auto" {% if clip.layout_mode == 'auto' %}selected{% endif %}>Automatisch (KI erkennt Facecam vs. IRL)</option>
                                     <option value="custom" {% if clip.layout_mode == 'custom' %}selected{% endif %}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
-                                    <option value="single_916" {% if clip.layout_mode == 'single_916' %}selected{% endif %}>📱 Reines 9:16 Vollbild (IRL / Einzelfokus)</option>
-                                    <option value="split_cam_top" {% if clip.layout_mode == 'split_cam_top' %}selected{% endif %}>✂️ Split-Screen (Cam oben, Gameplay unten)</option>
-                                    <option value="blur_stack" {% if clip.layout_mode == 'blur_stack' %}selected{% endif %}>🌫️ Blur-Stack (IRL / Vollbild mit unscharfem Hintergrund)</option>
+                                    <option value="single_916" {% if clip.layout_mode == 'single_916' %}selected{% endif %}>Reines 9:16 Vollbild (IRL / Einzelfokus)</option>
+                                    <option value="split_cam_top" {% if clip.layout_mode == 'split_cam_top' %}selected{% endif %}>Split-Screen (Cam oben, Gameplay unten)</option>
+                                    <option value="blur_stack" {% if clip.layout_mode == 'blur_stack' %}selected{% endif %}>Blur-Stack (IRL / Vollbild mit unscharfem Hintergrund)</option>
                                 </select>
                                 <button type="button" data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.title|e }}" onclick="openCropModalFromButton(this)" 
                                     class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
@@ -1950,7 +1950,7 @@ HTML_DASHBOARD = """
                             <!-- Transkribierter Text / Untertitel (hier editierbar) -->
                             <div>
                                 <label class="block text-xs font-semibold text-amber-300 uppercase tracking-wider mb-1 flex justify-between">
-                                    <span>📄 Untertiteltext (hier bearbeiten & korrigieren)</span>
+                                    <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
                                     <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
                                 </label>
                                 <textarea name="transcript" rows="4" placeholder="Hier Untertiteltext bearbeiten oder eingeben..." 
@@ -1969,7 +1969,7 @@ HTML_DASHBOARD = """
                             <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this, event)" 
                                 class="w-full py-2.5 px-4 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-emerald-300 hover:text-white shadow cursor-pointer"
                                 title="Speicherort wählen & HQ Video sichern (Shift-Klick für Downloads-Ordner)">
-                                <span>💾</span> <span>HQ Video speichern unter... (.mp4)</span>
+                                <span>HQ Video speichern unter... (.mp4)</span>
                             </button>
                             {% endif %}
 
@@ -1997,7 +1997,7 @@ HTML_DASHBOARD = """
             </div>
             {% else %}
             <div class="bg-slate-900 border border-slate-800 rounded-lg p-12 text-center">
-                <span class="text-5xl block mb-3">🎬</span>
+                <div class="w-12 h-12 mx-auto mb-3 text-slate-600 flex items-center justify-center"><svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></div>
                 <h3 class="text-lg font-bold text-slate-300">Noch keine fertig gerenderten Shorts im Studio</h3>
                 <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
                     Klicke im Reiter <strong>„1. Warteschlange“</strong> bei deinen Wunsch-Clips auf <strong>„<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen“</strong>!
@@ -2135,7 +2135,7 @@ HTML_DASHBOARD = """
         <div id="tab-accounts" class="tab-content hidden space-y-6">
             <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
-                    <span class="text-3xl">🔗</span>
+                    <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
                     <div>
                         <h2 class="text-lg font-black text-white">Social Media Konten verknüpfen</h2>
                         <p class="text-xs text-slate-400">Verbinde deine Kanäle, damit gerenderte Shorts automatisch nach Zeitplan oder auf Knopfdruck veröffentlicht werden.</p>
@@ -2158,7 +2158,7 @@ HTML_DASHBOARD = """
                     <div class="space-y-4">
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-3">
-                                <span class="text-3xl">🔴</span>
+                                <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
                                 <div>
                                     <h3 class="text-lg font-bold text-white">YouTube Shorts</h3>
                                     <span class="text-xs text-slate-400">Google YouTube Data API v3</span>
@@ -2166,15 +2166,15 @@ HTML_DASHBOARD = """
                             </div>
                             {% if account_status.youtube.is_connected %}
                             <span class="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                🟢 Verbunden
+                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>Aktiv
                             </span>
                             {% elif account_status.youtube.has_secrets %}
                             <span class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-950 text-amber-400 border border-amber-800">
-                                🟡 Secrets bereit
+                                <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1.5"></span>Bereit
                             </span>
                             {% else %}
                             <span class="px-2.5 py-1 rounded text-xs font-semibold bg-zinc-800 text-slate-400 border border-slate-700">
-                                ⚪ Nicht eingerichtet
+                                <span class="inline-block w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span>Inaktiv
                             </span>
                             {% endif %}
                         </div>
@@ -2219,13 +2219,13 @@ HTML_DASHBOARD = """
                                 <input type="text" name="client_id" placeholder="Google Client-ID (z. B. 123456...apps.googleusercontent.com)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
                                 <input type="password" name="client_secret" placeholder="Google Client-Secret (z. B. GOCSPX-...)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
                                 <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg text-slate-200 transition">
-                                    💾 Zugangsdaten speichern
+                                    Zugangsdaten speichern
                                 </button>
                             </form>
 
                             <!-- Alternative: Datei-Upload -->
                             <details class="text-2xs text-slate-400">
-                                <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">📁 Oder client_secrets.json Datei hochladen...</summary>
+                                <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">Oder client_secrets.json Datei hochladen...</summary>
                                 <form action="/api/accounts/youtube/save-secrets" method="POST" enctype="multipart/form-data" class="space-y-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
                                     <input type="file" name="secrets_file" accept=".json" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-2xs file:font-bold file:bg-zinc-800 file:text-zinc-200 border-zinc-700 cursor-pointer">
                                     <button type="submit" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-2xs font-bold rounded text-slate-300">JSON speichern</button>
@@ -2255,7 +2255,7 @@ HTML_DASHBOARD = """
                         </form>
                         <form action="/api/accounts/youtube/disconnect" method="POST" onsubmit="return confirm('YouTube-Verbindung wirklich trennen?');">
                             <button type="submit" class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-lg transition">
-                                🔌 YouTube Verbindung trennen
+                                YouTube Verbindung trennen
                             </button>
                         </form>
                     </div>
@@ -2267,7 +2267,7 @@ HTML_DASHBOARD = """
                     <div class="space-y-4">
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-3">
-                                <span class="text-3xl">🎵</span>
+                                <svg class="w-8 h-8 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
                                 <div>
                                     <h3 class="text-lg font-bold text-white">TikTok</h3>
                                     <span class="text-xs text-slate-400">Creator Session Upload</span>
@@ -2275,11 +2275,11 @@ HTML_DASHBOARD = """
                             </div>
                             {% if account_status.tiktok.is_connected %}
                             <span class="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                🟢 Session aktiv
+                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>Aktiv
                             </span>
                             {% else %}
                             <span class="px-2.5 py-1 rounded text-xs font-semibold bg-zinc-800 text-slate-400 border border-slate-700">
-                                ⚪ Nicht verknüpft
+                                <span class="inline-block w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span>Inaktiv
                             </span>
                             {% endif %}
                         </div>
@@ -2293,14 +2293,14 @@ HTML_DASHBOARD = """
                             <div class="text-2xs font-mono text-slate-500 pt-1">Session-ID: {{ account_status.tiktok.session_id_preview }}</div>
                             <div class="pt-2">
                                 <button type="button" onclick="startTikTokBrowserLogin()" class="text-2xs text-slate-400 hover:text-slate-200 underline">
-                                    🔄 Erneut verbinden / Anderen Account wählen
+                                    Erneut verbinden / Anderen Account wählen
                                 </button>
                             </div>
                         </div>
                         {% else %}
                         <!-- ⭐ AUTOMATISCHER BROWSER LOGIN (MÖGLICHKEIT 1) -->
-                        <div class="p-4 bg-gradient-to-r from-pink-950/70 via-purple-950/60 to-pink-950/70 border border-pink-500/50 rounded-lg text-center shadow-lg">
-                            <span class="text-2xs font-black text-pink-300 uppercase tracking-wider block mb-1">⭐ Automatische 1-Klick Methode (Empfohlen):</span>
+                        <div class="p-4 bg-gradient-to-r from-pink-950/70 via-slate-900 to-slate-900 border border-slate-800 rounded-lg text-center shadow-lg">
+                            <span class="text-2xs font-black text-pink-300 uppercase tracking-wider block mb-1">Automatische 1-Klick Methode (Empfohlen):</span>
                             <p class="text-xs text-slate-300 mb-3">Öffnet automatisch ein Login-Fenster. Logge dich einfach ein (z. B. <strong>QR-Code mit deiner Handy-TikTok-App scannen</strong>). Das Tool verbindet sich dann automatisch!</p>
                             
                             <button type="button" onclick="startTikTokBrowserLogin()" id="btn-tt-browser-login"
@@ -2317,7 +2317,7 @@ HTML_DASHBOARD = """
 
                         <!-- Collapsible: Manuelle Alternative -->
                         <details class="text-2xs text-slate-400">
-                            <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">⚙️ Alternative: Manuelle sessionid Eingabe (Entwicklertools F12)...</summary>
+                            <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">Alternative: Manuelle sessionid Eingabe (Entwicklertools F12)...</summary>
                             
                             <div class="space-y-3 bg-slate-950/70 p-3 rounded border border-slate-800">
                                 <div class="text-2xs text-slate-400 space-y-1">
@@ -2338,7 +2338,7 @@ HTML_DASHBOARD = """
                                             <option value="public" {% if account_status.tiktok.upload_mode == 'public' %}selected{% endif %}>Öffentlich</option>
                                         </select>
                                         <button type="submit" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 font-bold text-xs rounded-lg text-slate-200 transition">
-                                            💾 Speichern
+                                            Speichern
                                         </button>
                                     </div>
                                 </form>
@@ -2354,7 +2354,7 @@ HTML_DASHBOARD = """
                         </div>
                         <form action="/api/accounts/tiktok/disconnect" method="POST" onsubmit="return confirm('TikTok-Verbindung trennen?');">
                             <button type="submit" class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-lg transition">
-                                🔌 TikTok Verbindung trennen
+                                TikTok Verbindung trennen
                             </button>
                         </form>
                     </div>
@@ -2367,15 +2367,15 @@ HTML_DASHBOARD = """
         <!-- TAB 5: STREAMER VERWALTEN (FULL PAGE) -->
         <div id="tab-streamers" class="tab-content hidden space-y-6">
             <!-- Header Banner -->
-            <div class="bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 rounded-lg p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 shrink-0">
+                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 shrink-0">
                         👥
                     </div>
                     <div>
                         <div class="flex items-center gap-3">
                             <h2 class="text-xl font-black text-white">Überwachte Streamer verwalten</h2>
-                            <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
                                 <span id="fullpage-streamer-count">{{ streamers|length }}</span> Kanäle aktiv
                             </span>
                         </div>
@@ -2388,9 +2388,9 @@ HTML_DASHBOARD = """
                 <!-- Schnellsuche -->
                 <div class="w-full md:w-72">
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 text-xs">🔍</span>
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 text-xs"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
                         <input type="text" id="streamer-search-input" oninput="if (window.filterStreamersList) window.filterStreamersList(this.value);" placeholder="Streamer suchen..." 
-                               class="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
+                               class="w-full bg-slate-950/80 border border-slate-700/80 rounded-md pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
                     </div>
                 </div>
             </div>
@@ -2399,11 +2399,11 @@ HTML_DASHBOARD = """
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
                 <!-- Card 1: Neuen Streamer hinzufügen (7 cols) -->
-                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-xl flex flex-col justify-between">
                     <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="space-y-4">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                                <span>➕</span> Neuen Twitch-Streamer hinzufügen
+                                <span>Neuen Twitch-Streamer hinzufügen</span>
                             </span>
                             <span class="text-2xs text-slate-500">Profilbild wird automatisch von Twitch bezogen</span>
                         </div>
@@ -2411,30 +2411,30 @@ HTML_DASHBOARD = """
                             <div class="sm:col-span-1">
                                 <label class="block text-2xs font-semibold text-slate-300 mb-1">Twitch Kanalname:</label>
                                 <input type="text" name="name" required placeholder="z. B. rewinside, trymacs..." 
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold shadow-inner">
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold shadow-inner">
                             </div>
                             <div>
                                 <label class="block text-2xs font-semibold text-slate-300 mb-1">Min. Views:</label>
                                 <input type="number" name="min_views" value="30" min="5" max="100000"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500 shadow-inner">
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500 shadow-inner">
                             </div>
                             <div>
                                 <label class="block text-2xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
                                 <input type="number" name="max_clips" value="2" min="1" max="10"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner">
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner">
                             </div>
                         </div>
-                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-xl transition shadow-md flex items-center justify-center gap-2">
-                            <span>➕</span> Streamer hinzufügen & überwachen
+                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-md transition shadow-md flex items-center justify-center gap-2">
+                            <span>Streamer hinzufügen & überwachen</span>
                         </button>
                     </form>
                 </div>
 
                 <!-- Card 2: Globale Mindest-Views für alle (5 cols) -->
-                <div class="lg:col-span-5 bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                <div class="lg:col-span-5 bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border border-amber-500/30 rounded-lg p-5 shadow-xl flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-2.5 mb-1.5">
-                            <span class="text-xl">⚡</span>
+                            
                             <span class="text-xs font-bold text-amber-300 uppercase tracking-wider">Mindest-Views für ALLE Streamer</span>
                         </div>
                         <p class="text-2xs text-slate-400 leading-relaxed">
@@ -2443,11 +2443,11 @@ HTML_DASHBOARD = """
                     </div>
 
                     <div class="flex items-center gap-3 pt-3">
-                        <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 flex-1 shadow-inner">
+                        <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-md px-3 py-2 flex-1 shadow-inner">
                             <span class="text-2xs text-slate-400 font-mono">Views:</span>
                             <input type="number" id="bulk-min-views-input-fullpage" value="25" min="1" max="100000" class="w-full bg-transparent text-xs text-amber-300 font-bold text-center focus:outline-none">
                         </div>
-                        <button type="button" onclick="if (window.applyBulkMinViewsFromInput) window.applyBulkMinViewsFromInput('bulk-min-views-input-fullpage'); else applyBulkMinViews();" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-xl transition whitespace-nowrap shadow-md">
+                        <button type="button" onclick="if (window.applyBulkMinViewsFromInput) window.applyBulkMinViewsFromInput('bulk-min-views-input-fullpage'); else applyBulkMinViews();" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-md transition whitespace-nowrap shadow-md">
                             Für alle setzen
                         </button>
                     </div>
@@ -2464,7 +2464,7 @@ HTML_DASHBOARD = """
                 
                 <div id="streamer-grid-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {% for s in streamers %}
-                    <div class="streamer-card bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-xl transition flex flex-col justify-between gap-3.5" data-streamer="{{ s.name|lower }}">
+                    <div class="streamer-card bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-lg p-4 shadow-xl transition flex flex-col justify-between gap-3.5" data-streamer="{{ s.name|lower }}">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3 min-w-0">
                                 <div class="relative shrink-0">
@@ -2476,18 +2476,18 @@ HTML_DASHBOARD = """
                                 </div>
                                 <div class="min-w-0">
                                     <span class="font-bold text-sm text-white truncate block">{{ s.display_name or s.name }}</span>
-                                    <a href="https://twitch.tv/{{ s.name }}" target="_blank" class="text-2xs text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1 hover:underline">
+                                    <a href="https://twitch.tv/{{ s.name }}" target="_blank" class="text-2xs text-slate-400 hover:text-slate-200 font-mono flex items-center gap-1 hover:underline">
                                         <span>twitch.tv/{{ s.name }}</span>
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                     </a>
                                     <div class="mt-1">
                                         {% if s.custom_crops %}
-                                        <span class="inline-flex items-center gap-1 text-2xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
-                                            <span>🎯</span> Eigener Rahmen gespeichert
+                                        <span class="inline-flex items-center gap-1 text-2xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded">
+                                            <span>Eigener Rahmen gespeichert</span>
                                         </span>
                                         {% else %}
-                                        <span class="inline-flex items-center gap-1 text-2xs font-semibold text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-full">
-                                            <span>🤖</span> Layout: {{ s.layout or 'auto' }}
+                                        <span class="inline-flex items-center gap-1 text-2xs font-semibold text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded">
+                                            <span>Layout:</span> {{ s.layout or 'auto' }}
                                         </span>
                                         {% endif %}
                                     </div>
@@ -2498,7 +2498,7 @@ HTML_DASHBOARD = """
                             </button>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                        <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-md border border-slate-800/80 text-xs">
                             <div>
                                 <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
                                 <input type="number" value="{{ s.min_clip_views }}" min="1" max="100000"
@@ -2515,25 +2515,25 @@ HTML_DASHBOARD = """
                                 <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Standard Clip-Layout:</label>
                                 <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
                                         class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
-                                    <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>🤖 Auto (KI Facecam-Scan)</option>
-                                    <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>📱 Split-Screen (Cam oben + Game unten)</option>
-                                    <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>🎬 Keine Cam (Gameplay mit Blur)</option>
-                                    <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>📐 9:16 Vollbild (IRL)</option>
-                                    <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>🎯 Eigener gespeicherter Rahmen</option>
-                                    <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>📍 Cam: Oben Links</option>
-                                    <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>📍 Cam: Oben Rechts</option>
-                                    <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>📍 Cam: Unten Links</option>
-                                    <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>📍 Cam: Unten Rechts</option>
+                                    <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>Auto (KI Facecam-Scan)</option>
+                                    <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>Split-Screen (Cam oben + Game unten)</option>
+                                    <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>Keine Cam (Gameplay mit Blur)</option>
+                                    <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>9:16 Vollbild (IRL)</option>
+                                    <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>Eigener gespeicherter Rahmen</option>
+                                    <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>Cam: Oben Links</option>
+                                    <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>Cam: Oben Rechts</option>
+                                    <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>Cam: Unten Links</option>
+                                    <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>Cam: Unten Rechts</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
-                            <button type="button" onclick="loadSampleClipDirect('{{ s.name }}')" class="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
-                                <span>🎬</span> <span>Test-Clip & Rahmen einstellen</span>
+                            <button type="button" onclick="loadSampleClipDirect('{{ s.name }}')" class="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-md transition flex items-center justify-center gap-1.5 shadow" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                                <span>Test-Clip & Rahmen einstellen</span>
                             </button>
-                            <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition shrink-0" title="Erweiterte Einstellungen">
-                                <span>⚙️</span>
+                            <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-md transition shrink-0" title="Erweiterte Einstellungen">
+                                <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             </button>
                         </div>
                     </div>
@@ -2567,7 +2567,7 @@ HTML_DASHBOARD = """
                 <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
                 <div class="flex items-center gap-2">
                     <button id="modal-download-raw" type="button" onclick="downloadRawVideo(currentPreviewClipId, this, event)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5 cursor-pointer" title="Speicherort wählen & Rohdatei sichern (Shift-Klick für Downloads-Ordner)">
-                        <span>💾</span> <span>Rohdatei speichern unter...</span>
+                        <span>Rohdatei speichern unter...</span>
                     </button>
                     <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-zinc-200 hover:text-white rounded transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
                         <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Zuschnitt festlegen
@@ -2592,7 +2592,7 @@ HTML_DASHBOARD = """
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
                 <div class="flex items-center gap-2.5">
-                    <span class="text-xl">👥</span>
+                    <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     <h3 class="text-base font-bold text-white">Überwachte Streamer verwalten ({{ streamers|length }})</h3>
                 </div>
                 <button onclick="closeStreamerModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
@@ -2620,14 +2620,14 @@ HTML_DASHBOARD = """
                         </div>
                     </div>
                     <button type="submit" class="w-full py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition shadow-sm">
-                        ➕ Streamer hinzufügen & dauerhaft speichern
+                        Streamer hinzufügen & dauerhaft speichern
                     </button>
                 </form>
 
                 <!-- Massen-Einstellung für alle Streamer -->
                 <div class="bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 border border-amber-500/30 rounded-lg p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
                     <div class="flex items-center gap-2.5">
-                        <span class="text-xl">⚡</span>
+                        
                         <div>
                             <span class="text-xs font-bold text-amber-300 block">Mindest-Views für ALLE Streamer setzen</span>
                             <span class="text-2xs text-slate-400">Überschreibt die Mindest-Views für alle derzeit aktiven Streamer mit einem Klick</span>
@@ -2659,21 +2659,21 @@ HTML_DASHBOARD = """
                             </div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5" title="Streamer-Einstellungen & Rahmen konfigurieren">
-                                    <span>⚙️</span> <span>Konfigurieren</span>
+                                    <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> <span>Konfigurieren</span>
                                 </button>
                                 <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
                                     <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
                                     <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
                                             class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-2xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
-                                        <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>🤖 Auto (KI)</option>
-                                        <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>📱 Split-Cam (Oben)</option>
-                                        <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>🎬 Keine Cam (Blur)</option>
-                                        <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>📐 9:16 Vollbild</option>
-                                        <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>🎯 Eigener Rahmen {% if s.custom_crops %}(Gespeichert){% endif %}</option>
-                                        <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>📍 Cam: Oben Links</option>
-                                        <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>📍 Cam: Oben Rechts</option>
-                                        <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>📍 Cam: Unten Links</option>
-                                        <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>📍 Cam: Unten Rechts</option>
+                                        <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>Auto (KI)</option>
+                                        <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>Split-Cam (Oben)</option>
+                                        <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>Keine Cam (Blur)</option>
+                                        <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>9:16 Vollbild</option>
+                                        <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>Eigener Rahmen {% if s.custom_crops %}(Gespeichert){% endif %}</option>
+                                        <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>Cam: Oben Links</option>
+                                        <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>Cam: Oben Rechts</option>
+                                        <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>Cam: Unten Links</option>
+                                        <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>Cam: Unten Rechts</option>
                                     </select>
                                 </div>
                                 <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
@@ -2702,10 +2702,10 @@ HTML_DASHBOARD = """
 
     <!-- POP-UP MODAL: Streamer Konfiguration & Test-Clip Rahmen -->
     <div id="streamer-config-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeStreamerConfigModal();">
-        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
                 <div class="flex items-center gap-2.5">
-                    <span class="text-xl">⚙️</span>
+                    <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     <div>
                         <h3 class="text-base font-bold text-white flex items-center gap-2">
                             <span>Streamer Konfiguration:</span>
@@ -2721,7 +2721,7 @@ HTML_DASHBOARD = """
                 <input type="hidden" id="cfg-streamer-hidden-name" name="name">
                 
                 <!-- Views & Clip Limits -->
-                <div class="grid grid-cols-2 gap-3 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800">
+                <div class="grid grid-cols-2 gap-3 bg-slate-950/70 p-3.5 rounded-md border border-slate-800">
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Min. Views Clips:</label>
                         <input type="number" id="cfg-streamer-min-views" name="min_clip_views" min="1" max="10000" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-bold focus:border-amber-500 focus:outline-none">
@@ -2735,18 +2735,18 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Layout Schnellwahl -->
-                <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                <div class="bg-slate-950/70 p-3.5 rounded-md border border-slate-800 space-y-2">
                     <label class="block text-xs font-semibold text-slate-300">Standard Clip-Layout:</label>
                     <select id="cfg-streamer-layout" name="layout" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
-                        <option value="auto">🤖 Auto (KI Facecam-Scan)</option>
-                        <option value="split_cam_top">📱 Split-Screen (Cam oben + Gameplay unten)</option>
-                        <option value="blur_stack">🎬 Keine Cam (Gameplay mit Blur-Hintergrund)</option>
-                        <option value="single_916">📐 Reines 9:16 Vollbild (IRL)</option>
-                        <option value="custom">🎯 Eigener gespeicherter Rahmen</option>
-                        <option value="top_left">📍 Cam: Oben Links</option>
-                        <option value="top_right">📍 Cam: Oben Rechts</option>
-                        <option value="bottom_left">📍 Cam: Unten Links</option>
-                        <option value="bottom_right">📍 Cam: Unten Rechts</option>
+                        <option value="auto">Auto (KI Facecam-Scan)</option>
+                        <option value="split_cam_top">Split-Screen (Cam oben + Gameplay unten)</option>
+                        <option value="blur_stack">Keine Cam (Gameplay mit Blur-Hintergrund)</option>
+                        <option value="single_916">Reines 9:16 Vollbild (IRL)</option>
+                        <option value="custom">Eigener gespeicherter Rahmen</option>
+                        <option value="top_left">Cam: Oben Links</option>
+                        <option value="top_right">Cam: Oben Rechts</option>
+                        <option value="bottom_left">Cam: Unten Links</option>
+                        <option value="bottom_right">Cam: Unten Rechts</option>
                     </select>
                     <div id="cfg-streamer-custom-badge" class="hidden text-2xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1 rounded-md font-mono items-center gap-1.5">
                         <span>✓</span> <span>Eigener visueller Rahmen für diesen Streamer hinterlegt</span>
@@ -2754,24 +2754,24 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Test-Clip & Rahmenkonfiguration -->
-                <div class="bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border border-amber-500/40 p-4 rounded-xl space-y-2.5 shadow-md">
+                <div class="bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border border-amber-500/40 p-4 rounded-md space-y-2.5 shadow-md">
                     <div class="flex items-center gap-2">
-                        <span class="text-xl">📐</span>
+                        <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg>
                         <div>
                             <span class="text-xs font-bold text-amber-300 block">Visueller Rahmen-Editor für diesen Streamer</span>
                             <span class="text-2xs text-slate-400">Lädt automatisch einen Test-Clip des Streamers herunter. Du richtest Cam und Gameplay ein und das Tool merkt sich die Rahmen dauerhaft.</span>
                         </div>
                     </div>
                     <button type="button" id="btn-load-streamer-sample" onclick="loadSampleClipForStreamer()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow">
-                        <span id="btn-sample-spinner" class="hidden animate-spin">⏳</span>
-                        <span id="btn-sample-text">🎬 Test-Clip laden & Rahmen visuell einstellen</span>
+                        <span id="btn-sample-spinner" class="hidden w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin inline-block"></span>
+                        <span id="btn-sample-text">Test-Clip laden & Rahmen visuell einstellen</span>
                     </button>
                 </div>
 
                 <!-- Footer Actions -->
                 <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
                     <button type="button" onclick="closeStreamerConfigModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">Abbrechen</button>
-                    <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition shadow">💾 Speichern</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition shadow">Speichern</button>
                 </div>
             </form>
         </div>
@@ -2779,10 +2779,10 @@ HTML_DASHBOARD = """
 
     <!-- POP-UP MODAL: Einstellungen & Autopilot -->
     <div id="settings-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeSettingsModal();">
-        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
                 <div class="flex items-center gap-2.5">
-                    <span class="text-xl">⚙️</span>
+                    <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     <div>
                         <h3 class="text-base font-bold text-white">System & Autopilot Einstellungen</h3>
                         <p class="text-2xs text-slate-400">Prüfintervalle, Clip-Filter und Hardware anpassen</p>
@@ -2793,10 +2793,10 @@ HTML_DASHBOARD = """
 
             <form id="settings-form" onsubmit="saveSettingsFromForm(event)" class="p-5 overflow-y-auto space-y-5">
                 <!-- Autopilot Intervall Sektion -->
-                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-4">
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">🤖 Automatischer Autopilot</span>
+                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Automatischer Autopilot</span>
                             <span class="text-2xs text-slate-400">Sucht im Hintergrund selbstständig nach neuen Clips</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
@@ -2823,8 +2823,8 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Zeitfenster & Fallback Sektion -->
-                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-3.5">
-                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">🔍 Clip-Suche & Zeitfenster</span>
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-3.5">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Clip-Suche & Zeitfenster</span>
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Standard-Zeitfenster auf Twitch:</label>
@@ -2852,8 +2852,8 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Hardware & Video-Encoder Sektion -->
-                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-3">
-                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">⚡ Hardware & Engine</span>
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-3">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Hardware & Engine</span>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Video-Encoder:</label>
@@ -2883,7 +2883,7 @@ HTML_DASHBOARD = """
                         Abbrechen
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold rounded-lg transition shadow-md flex items-center gap-2">
-                        <span>💾</span> <span>Einstellungen speichern</span>
+                        <span>Einstellungen speichern</span>
                     </button>
                 </div>
             </form>
@@ -2892,10 +2892,10 @@ HTML_DASHBOARD = """
 
     <!-- POP-UP MODAL: Update Assistent -->
     <div id="update-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4 select-none" style="display: none !important;">
-        <div class="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+        <div class="bg-slate-900 border border-amber-500/50 rounded-lg max-w-lg w-full overflow-hidden shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-start justify-between mb-4 pb-3 border-b border-slate-800">
                 <div class="flex items-center gap-3">
-                    <span class="text-3xl">🚀</span>
+                    <svg class="w-7 h-7 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     <div>
                         <h3 class="text-lg font-bold text-white flex items-center gap-2">
                             <span>Neues Update verfügbar!</span>
@@ -2908,7 +2908,7 @@ HTML_DASHBOARD = """
             </div>
 
             <div class="space-y-3 mb-5">
-                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/90 text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5" id="modal-update-notes">
+                <div class="bg-slate-950 p-3.5 rounded-md border border-slate-800/90 text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5" id="modal-update-notes">
                     <p class="font-bold text-amber-400">Änderungen in dieser Version:</p>
                     <p class="text-slate-400 whitespace-pre-line" id="modal-update-notes-body">Lade Release-Details von GitHub...</p>
                 </div>
@@ -2917,12 +2917,12 @@ HTML_DASHBOARD = """
 
             <div class="flex items-center justify-between gap-3 pt-2">
                 <a id="modal-github-link" href="https://github.com/xNotLikex/clip-farming/releases/latest" target="_blank" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-300 rounded-lg transition flex items-center gap-1.5">
-                    <span>🐙</span> <span>Auf GitHub ansehen</span>
+                    <span>Auf GitHub ansehen</span>
                 </a>
                 <div class="flex items-center gap-2">
                     <button onclick="closeUpdateModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-400 rounded-lg transition">Später</button>
                     <button onclick="performUpdate(this)" id="btn-perform-update" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center gap-2 shadow-lg cursor-pointer">
-                        <span>⚡</span> <span>Jetzt 1-Klick aktualisieren</span>
+                        <span>Jetzt 1-Klick aktualisieren</span>
                     </button>
                 </div>
             </div>
@@ -2935,7 +2935,7 @@ HTML_DASHBOARD = """
             <!-- Header -->
             <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
                 <div class="flex items-center gap-3">
-                    <span class="text-2xl">📐</span>
+                    <svg class="w-6 h-6 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg>
                     <div>
                         <h3 class="text-base font-bold text-white flex items-center gap-2">
                             <span>Visueller Zuschnitt: Cam & Gameplay Rahmen</span>
@@ -2957,11 +2957,11 @@ HTML_DASHBOARD = """
                     <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded border border-slate-800 shadow-inner">
                         <button type="button" onclick="switchCropMode('split')" id="btn-mode-split" 
                             class="flex-1 py-2 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600">
-                            <span>✂️</span> Split-Screen (Cam oben + Gameplay unten)
+                            <span>Split-Screen</span> (Cam oben + Gameplay unten)
                         </button>
                         <button type="button" onclick="switchCropMode('single_916')" id="btn-mode-single" 
                             class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300">
-                            <span>📱</span> Reines 9:16 Vollbild (IRL / Einzelfokus ohne Trennung)
+                            <span>Reines 9:16 Vollbild</span> (IRL / Einzelfokus ohne Trennung)
                         </button>
                     </div>
 
@@ -2978,7 +2978,7 @@ HTML_DASHBOARD = """
                             <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
                             <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
-                                    <span>📷 Facecam</span>
+                                    <span>Facecam</span>
                                     <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
                                 </div>
                                 <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center shadow">
@@ -2994,7 +2994,7 @@ HTML_DASHBOARD = """
                             <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
                             <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 24%; top: 0%; width: 52%; height: 100%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-sky-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
-                                    <span>🎮 Gameplay</span>
+                                    <span>Gameplay</span>
                                     <span id="crop-game-format-badge" class="text-sky-200 text-2xs font-normal">(Festes 9:10 Format)</span>
                                 </div>
                                 <div class="w-5 h-5 rounded-full border border-white/70 bg-sky-500/60 pointer-events-none flex items-center justify-center shadow">
@@ -3010,7 +3010,7 @@ HTML_DASHBOARD = """
                             <!-- 🟪 Reiner 9:16 IRL Vollbild-Rahmen (Festes 9:16 Format, horizontal verschiebbar) -->
                             <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 34%; top: 0%; width: 32%; height: 100%; display: none;">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-bold text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
-                                    <span>📱 9:16 IRL Bildausschnitt</span>
+                                    <span>9:16 IRL Bildausschnitt</span>
                                     <span class="text-fuchsia-200 text-2xs font-normal">(Festes 9:16 Vollbild)</span>
                                 </div>
                                 <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center">
@@ -3023,9 +3023,9 @@ HTML_DASHBOARD = """
                     <!-- Video Scrubber / Timeline Bar -->
                     <div class="bg-slate-950/90 border border-slate-800 rounded p-3 flex flex-col sm:flex-row items-center gap-3">
                         <div class="flex items-center gap-2">
-                            <button onclick="seekCropVideo(-2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden zurück">⏪ -2s</button>
-                            <button onclick="toggleCropVideoPlay()" id="crop-play-btn" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg transition">⏯️ Pause</button>
-                            <button onclick="seekCropVideo(2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden vor">⏩ +2s</button>
+                            <button onclick="seekCropVideo(-2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden zurück">-2s</button>
+                            <button onclick="toggleCropVideoPlay()" id="crop-play-btn" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg transition">Pause</button>
+                            <button onclick="seekCropVideo(2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden vor">+2s</button>
                         </div>
                         <input type="range" id="crop-time-slider" min="0" max="30" step="0.1" value="0" class="flex-1 accent-amber-500 cursor-pointer" oninput="onCropSliderInput(this.value)">
                         <span id="crop-time-display" class="text-xs font-mono font-bold text-slate-300 min-w-[90px] text-right">00:00 / 00:00</span>
@@ -3037,16 +3037,16 @@ HTML_DASHBOARD = """
                         <div id="toolbar-split" class="space-y-2.5">
                             <div class="space-y-1.5">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-xs font-bold text-emerald-400 min-w-[100px]">📷 Cam-Position:</span>
-                                    <button onclick="applyPreset('cam_br')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Unten Rechts</button>
-                                    <button onclick="applyPreset('cam_tl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Oben Links</button>
-                                    <button onclick="applyPreset('cam_tr')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Oben Rechts</button>
-                                    <button onclick="applyPreset('cam_bl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">📍 Unten Links</button>
+                                    <span class="text-xs font-bold text-emerald-400 min-w-[100px]">Cam-Position:</span>
+                                    <button onclick="applyPreset('cam_br')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Unten Rechts</button>
+                                    <button onclick="applyPreset('cam_tl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Oben Links</button>
+                                    <button onclick="applyPreset('cam_tr')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Oben Rechts</button>
+                                    <button onclick="applyPreset('cam_bl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Unten Links</button>
                                     <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
                                          KI Auto-Erkennen
                                     </button>
                                     <button type="button" onclick="switchCropMode('single_916')" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition" title="Facecam entfernen und zu reinem 9:16 Vollbild (1 Rahmen) wechseln">
-                                        🚫 Keine Cam (Vollbild / 1 Rahmen)
+                                        Keine Cam (Vollbild / 1 Rahmen)
                                     </button>
                                 </div>
                                 <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
@@ -3090,8 +3090,8 @@ HTML_DASHBOARD = """
                                          Game-Position:
                                     </span>
                                     <button onclick="applyPreset('game_center')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
-                                    <button onclick="applyPreset('game_left')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">⬅️ Links</button>
-                                    <button onclick="applyPreset('game_right')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                                    <button onclick="applyPreset('game_left')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Links</button>
+                                    <button onclick="applyPreset('game_right')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Rechts</button>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded border border-slate-800/80">
                                     <div class="flex items-center gap-2">
@@ -3119,12 +3119,12 @@ HTML_DASHBOARD = """
 
                         <!-- Toolbar für Reines 9:16 IRL Vollbild -->
                         <div id="toolbar-single" class="hidden flex flex-wrap items-center gap-2.5">
-                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">📱 9:16 Vollbild:</span>
+                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">9:16 Vollbild:</span>
                             <button type="button" onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
-                            <button type="button" onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">⬅️ Links</button>
-                            <button type="button" onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">➡️ Rechts</button>
+                            <button type="button" onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Links</button>
+                            <button type="button" onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Rechts</button>
                             <button type="button" onclick="switchCropMode('split')" class="px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-600/80 text-xs font-bold rounded-lg text-emerald-300 hover:text-white transition flex items-center gap-1.5 shadow" title="Zurück zu 2 Rahmen (Facecam oben + Gameplay unten)">
-                                <span>✂️</span> Facecam hinzufügen (Split-Screen)
+                                <span>Facecam hinzufügen</span> (Split-Screen)
                             </button>
                             <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">1 Rahmen (608x1080 px Vollbild)</span>
                         </div>
@@ -3165,7 +3165,7 @@ HTML_DASHBOARD = """
                 </button>
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" onclick="if (window.saveAsDefaultStreamerLayout) window.saveAsDefaultStreamerLayout();" class="px-3.5 py-2 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 font-bold text-xs rounded transition flex items-center gap-1.5 shadow" title="Speichert diesen Zuschnitt als Standard-Layout für alle zukünftigen Clips dieses Streamers">
-                        <span>⭐</span> <span>Als Standard für Streamer merken</span>
+                        <span>Als Standard für Streamer merken</span>
                     </button>
                     <button onclick="saveCropCoordinates(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded transition">
                         Nur Speichern

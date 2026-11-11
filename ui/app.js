@@ -8,7 +8,15 @@ const SVG_ICONS = {
     calendar: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>',
     clock: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
     eye: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>',
-    play: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+    play: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+    settings: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>',
+    video: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>',
+    check: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>',
+    camera: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>',
+    sparkles: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>',
+    users: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
+    messageSquare: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
+    cpu: '<svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>'
 };
 
 
@@ -334,15 +342,15 @@ function renderStudio(clips, streamerCounts) {
                 </video>
                 ` : `
                 <div class="text-center p-6 text-slate-500">
-                    <span class="text-4xl block mb-2 animate-bounce">⏳</span>
+                    <div class="w-8 h-8 mx-auto mb-2 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
                     Video wird gerendert...
                 </div>
                 `}
-                <span class="absolute top-3 right-3 bg-slate-900/80 text-xs text-slate-300 font-semibold px-2 py-1 rounded-md backdrop-blur">
+                <span class="absolute top-3 right-3 bg-slate-900/90 text-xs text-slate-300 font-semibold px-2 py-1 rounded-md border border-slate-800">
                     ${SVG_ICONS.eye} ${clip.view_count}
                 </span>
                 ${clip.has_video ? `
-                <button type="button" onclick="downloadShortVideo('${clip.clip_id}', this, event)" class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10" title="Speicherort wählen & HQ Video sichern (Shift-Klick für Downloads-Ordner)">
+                <button type="button" onclick="downloadShortVideo('${clip.clip_id}', this, event)" class="absolute bottom-3 right-3 bg-slate-900 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded shadow border border-slate-700 transition flex items-center gap-1.5 cursor-pointer z-10" title="Speicherort wählen & HQ Video sichern (Shift-Klick für Downloads-Ordner)">
                     ${SVG_ICONS.save} <span>HQ Download</span>
                 </button>
                 ` : ''}
@@ -353,7 +361,7 @@ function renderStudio(clips, streamerCounts) {
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1 flex justify-between">
-                            <span>💬 TikTok / Shorts Sprechblasen-Hook</span>
+                            <span class="flex items-center gap-1.5">${SVG_ICONS.messageSquare} TikTok / Shorts Sprechblasen-Hook</span>
                             <span class="text-slate-500 font-normal">Mitte</span>
                         </label>
                         <input type="text" name="sticker_text" value="${escapeHtml(clip.sticker_text || '')}" placeholder="z. B. Was macht er da?!" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
@@ -361,29 +369,29 @@ function renderStudio(clips, streamerCounts) {
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                            📝 Titel (YouTube / TikTok)
+                            Titel (YouTube / TikTok)
                         </label>
                         <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
-                            💬 Untertitel-Platzierung
+                            Untertitel-Platzierung
                         </label>
                         <select name="sub_position" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                            <option value="bottom" ${clip.sub_position === 'bottom' ? 'selected' : ''}>📌 Unten (Standard, über Shorts-UI)</option>
-                            <option value="center" ${clip.sub_position === 'center' ? 'selected' : ''}>📌 Mitte (Unteres Drittel über Game)</option>
-                            <option value="top" ${clip.sub_position === 'top' ? 'selected' : ''}>📌 Oben (Über Facecam)</option>
-                            <option value="none" ${clip.sub_position === 'none' ? 'selected' : ''}>🚫 Keine Untertitel</option>
+                            <option value="bottom" ${clip.sub_position === 'bottom' ? 'selected' : ''}>Unten (Standard, über Shorts-UI)</option>
+                            <option value="center" ${clip.sub_position === 'center' ? 'selected' : ''}>Mitte (Unteres Drittel über Game)</option>
+                            <option value="top" ${clip.sub_position === 'top' ? 'selected' : ''}>Oben (Über Facecam)</option>
+                            <option value="none" ${clip.sub_position === 'none' ? 'selected' : ''}>Keine Untertitel</option>
                         </select>
                     </div>
 
                     <div>
                         <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
-                            📐 Video-Layout & Aufteilung
+                            Video-Layout & Aufteilung
                         </label>
                         <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                            <option value="auto" ${clip.layout_mode === 'auto' ? 'selected' : ''}>🤖 Automatisch (KI erkennt Facecam)</option>
+                            <option value="auto" ${clip.layout_mode === 'auto' ? 'selected' : ''}>Automatisch (KI erkennt Facecam)</option>
                             <option value="custom" ${clip.layout_mode === 'custom' ? 'selected' : ''}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
                             <option value="single_916" ${clip.layout_mode === 'single_916' ? 'selected' : ''}>Reines 9:16 Vollbild (IRL / Fullscreen)</option>
                             <option value="split_cam_top" ${clip.layout_mode === 'split_cam_top' ? 'selected' : ''}>Split-Screen (Facecam oben, Gameplay unten)</option>
@@ -396,7 +404,7 @@ function renderStudio(clips, streamerCounts) {
 
                     <div>
                         <label class="block text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 flex justify-between">
-                            <span>🎭 Cam-Filter / Effekt (Snapchat-Style)</span>
+                            <span>Cam-Filter / Effekt (3D Mesh Deformation)</span>
                             <span class="text-slate-500 font-normal">Fun-Warp für Facecam</span>
                         </label>
                         <select name="cam_filter" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
@@ -537,76 +545,76 @@ function renderStreamers(streamers) {
             const avatarUrl = s.avatar_url || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png';
             const dispName = s.display_name || s.name;
             return `
-            <div class="streamer-card bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-xl transition flex flex-col justify-between gap-3.5" data-streamer="${escapeHtml(s.name.toLowerCase())}">
+            <div class="streamer-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg p-4 shadow-sm transition flex flex-col justify-between gap-3.5" data-streamer="${escapeHtml(s.name.toLowerCase())}">
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="relative shrink-0">
                             <img src="${escapeHtml(avatarUrl)}" 
                                  alt="${escapeHtml(s.name)}" 
                                  onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'"
-                                 class="w-12 h-12 rounded-full border-2 border-amber-500/70 object-cover shadow-md bg-slate-950">
-                            <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
+                                 class="w-11 h-11 rounded-full border border-slate-700 object-cover bg-slate-950">
+                            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
                         </div>
                         <div class="min-w-0">
                             <span class="font-bold text-sm text-white truncate block">${escapeHtml(dispName)}</span>
-                            <a href="https://twitch.tv/${encodeURIComponent(s.name)}" target="_blank" class="text-2xs text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1 hover:underline">
+                            <a href="https://twitch.tv/${encodeURIComponent(s.name)}" target="_blank" class="text-2xs text-slate-400 hover:text-slate-200 font-mono flex items-center gap-1 hover:underline">
                                 <span>twitch.tv/${escapeHtml(s.name)}</span>
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             </a>
                             <div class="mt-1">
                                 ${hasCustom ? `
-                                    <span class="inline-flex items-center gap-1 text-2xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
-                                        <span>🎯</span> Eigener Rahmen gespeichert
+                                    <span class="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">
+                                        ${SVG_ICONS.check} Eigener Rahmen aktiv
                                     </span>
                                 ` : `
-                                    <span class="inline-flex items-center gap-1 text-2xs font-semibold text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-full">
-                                        <span>🤖</span> Layout: ${escapeHtml(curLayout)}
+                                    <span class="inline-flex items-center gap-1 text-2xs font-normal text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded">
+                                        Layout: ${escapeHtml(curLayout)}
                                     </span>
                                 `}
                             </div>
                         </div>
                     </div>
-                    <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Streamer entfernen">
+                    <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-md transition shrink-0" title="Streamer entfernen">
                         ${SVG_ICONS.trash}
                     </button>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-md border border-slate-800/80 text-xs">
                     <div>
-                        <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
+                        <label class="block text-2xs font-medium text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
                         <input type="number" value="${s.min_clip_views || 25}" min="1" max="100000"
                                onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
-                               class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none">
+                               class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
                     </div>
                     <div>
-                        <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Max Clips/Run:</label>
+                        <label class="block text-2xs font-medium text-slate-400 uppercase tracking-wider mb-1">Max Clips/Run:</label>
                         <input type="number" value="${s.max_clips_per_run || 2}" min="1" max="10"
                                onchange="updateStreamerMaxClips('${escapeJs(s.name)}', this.value)"
-                               class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-white font-bold focus:outline-none">
+                               class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-white font-semibold focus:outline-none">
                     </div>
                     <div class="col-span-2 mt-0.5">
-                        <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Standard Clip-Layout:</label>
+                        <label class="block text-2xs font-medium text-slate-400 uppercase tracking-wider mb-1">Standard Clip-Layout:</label>
                         <select onchange="updateStreamerLayout('${escapeJs(s.name)}', this.value)"
-                                class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
-                            <option value="auto" ${curLayout === 'auto' ? 'selected' : ''}>🤖 Auto (KI Facecam-Scan)</option>
-                            <option value="split_cam_top" ${curLayout === 'split_cam_top' ? 'selected' : ''}>📱 Split-Screen (Cam oben + Game unten)</option>
-                            <option value="blur_stack" ${curLayout === 'blur_stack' ? 'selected' : ''}>🎬 Keine Cam (Gameplay mit Blur)</option>
-                            <option value="single_916" ${curLayout === 'single_916' ? 'selected' : ''}>📐 9:16 Vollbild (IRL)</option>
-                            <option value="custom" ${curLayout === 'custom' ? 'selected' : ''}>🎯 Eigener gespeicherter Rahmen</option>
-                            <option value="top_left" ${curLayout === 'top_left' ? 'selected' : ''}>📍 Cam: Oben Links</option>
-                            <option value="top_right" ${curLayout === 'top_right' ? 'selected' : ''}>📍 Cam: Oben Rechts</option>
-                            <option value="bottom_left" ${curLayout === 'bottom_left' ? 'selected' : ''}>📍 Cam: Unten Links</option>
-                            <option value="bottom_right" ${curLayout === 'bottom_right' ? 'selected' : ''}>📍 Cam: Unten Rechts</option>
+                                class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-amber-300 font-medium focus:outline-none">
+                            <option value="auto" ${curLayout === 'auto' ? 'selected' : ''}>Auto (KI Facecam-Scan)</option>
+                            <option value="split_cam_top" ${curLayout === 'split_cam_top' ? 'selected' : ''}>Split-Screen (Cam oben + Game unten)</option>
+                            <option value="blur_stack" ${curLayout === 'blur_stack' ? 'selected' : ''}>Keine Cam (Gameplay mit Blur)</option>
+                            <option value="single_916" ${curLayout === 'single_916' ? 'selected' : ''}>9:16 Vollbild (IRL)</option>
+                            <option value="custom" ${curLayout === 'custom' ? 'selected' : ''}>Eigener gespeicherter Rahmen</option>
+                            <option value="top_left" ${curLayout === 'top_left' ? 'selected' : ''}>Cam: Oben Links</option>
+                            <option value="top_right" ${curLayout === 'top_right' ? 'selected' : ''}>Cam: Oben Rechts</option>
+                            <option value="bottom_left" ${curLayout === 'bottom_left' ? 'selected' : ''}>Cam: Unten Links</option>
+                            <option value="bottom_right" ${curLayout === 'bottom_right' ? 'selected' : ''}>Cam: Unten Rechts</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
-                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
-                        <span>🎬</span> <span>Test-Clip & Rahmen einstellen</span>
+                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-semibold text-xs rounded-md transition flex items-center justify-center gap-1.5" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                        ${SVG_ICONS.scissors} <span>Test-Clip & Rahmen einstellen</span>
                     </button>
-                    <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition shrink-0" title="Erweiterte Einstellungen">
-                        <span>⚙️</span>
+                    <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-md transition shrink-0" title="Erweiterte Einstellungen">
+                        ${SVG_ICONS.settings}
                     </button>
                 </div>
             </div>
@@ -622,22 +630,22 @@ function renderStreamers(streamers) {
             const avatarUrl = s.avatar_url || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png';
             const dispName = s.display_name || s.name;
             return `
-            <div class="flex items-center justify-between bg-slate-800/80 border border-slate-700/80 p-3 rounded-xl hover:border-slate-600 transition gap-3">
+            <div class="flex items-center justify-between bg-slate-800/80 border border-slate-700/80 p-3 rounded-md hover:border-slate-600 transition gap-3">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(s.name)}" onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'" class="w-9 h-9 rounded-full border border-amber-500/70 object-cover bg-slate-950 shrink-0">
+                    <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(s.name)}" onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'" class="w-8 h-8 rounded-full border border-slate-700 object-cover bg-slate-950 shrink-0">
                     <div class="min-w-0">
                         <span class="font-bold text-xs text-amber-400 block truncate">${escapeHtml(dispName)}</span>
                         <span class="text-2xs text-slate-400 font-mono">Min. ${s.min_clip_views || 25} Views • Max ${s.max_clips_per_run || 2}</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition" title="Test-Clip & Rahmen">
-                        🎬 Rahmen
+                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-semibold rounded-md transition flex items-center gap-1" title="Test-Clip & Rahmen">
+                        ${SVG_ICONS.scissors} <span>Rahmen</span>
                     </button>
-                    <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="p-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-lg transition" title="Konfigurieren">
-                        ⚙️
+                    <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="p-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-md transition" title="Konfigurieren">
+                        ${SVG_ICONS.settings}
                     </button>
-                    <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1 hover:bg-rose-950/50 rounded-lg transition" title="Entfernen">
+                    <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1 hover:bg-rose-950/50 rounded-md transition" title="Entfernen">
                         ${SVG_ICONS.trash}
                     </button>
                 </div>
@@ -808,7 +816,7 @@ async function openStreamerConfigModal(streamerName) {
     const btnText = document.getElementById('btn-sample-text');
     const btn = document.getElementById('btn-load-streamer-sample');
     if (spinner) spinner.classList.add('hidden');
-    if (btnText) btnText.innerText = '🎬 Test-Clip laden & Rahmen visuell einstellen';
+    if (btnText) btnText.innerText = 'Test-Clip laden & Rahmen visuell einstellen';
     if (btn) {
         btn.disabled = false;
         btn.classList.remove('opacity-60', 'cursor-not-allowed');
@@ -918,7 +926,7 @@ async function loadSampleClipForStreamer() {
         alert('Fehler beim Laden des Test-Clips: ' + e);
     } finally {
         if (spinner) spinner.classList.add('hidden');
-        if (btnText) btnText.innerText = '🎬 Test-Clip laden & Rahmen visuell einstellen';
+        if (btnText) btnText.innerText = 'Test-Clip laden & Rahmen visuell einstellen';
         if (btn) {
             btn.disabled = false;
             btn.classList.remove('opacity-60', 'cursor-not-allowed');
@@ -1222,9 +1230,9 @@ if (document.readyState === 'loading') {
             if (sEl) sEl.innerText = (streamer || '').toUpperCase();
             const tEl = document.getElementById('modal-title');
             if (tEl) tEl.innerText = title || '';
-            let statsText = '👁️ ' + (views || 0) + ' Views • ⏱️ ' + (duration || 0) + 's (Rohdatei auf Festplatte)';
+            let statsText = (views || 0) + ' Views • ' + (duration || 0) + 's (Rohdatei auf Festplatte)';
             if (createdAgo) {
-                statsText += ' • 📅 Erstellt: ' + createdAgo;
+                statsText += ' • Erstellt: ' + createdAgo;
             }
             const statsElem = document.getElementById('modal-stats');
             if (statsElem) {
@@ -1326,7 +1334,7 @@ async function downloadShortVideo(clipId, btn, evt) {
     const origHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
+        btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-slate-300 border-t-transparent rounded-full animate-spin mr-1"></span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
     }
     if (isQuick) {
         showToast('Exportiere HQ Video direkt in Downloads...', 'info');
@@ -1366,7 +1374,7 @@ async function downloadRawVideo(clipId, btn, evt) {
     const origHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
+        btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-slate-300 border-t-transparent rounded-full animate-spin mr-1"></span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
     }
     if (isQuick) {
         showToast('Exportiere Rohdatei direkt in Downloads...', 'info');
@@ -1442,7 +1450,7 @@ async function downloadRawVideo(clipId, btn, evt) {
             const btn = document.getElementById('btn-process-all');
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<span>⏳</span> Schneide alle Clips...';
+                btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin mr-1.5"></span> <span>Schneide alle Clips...</span>';
             }
             try {
                 await apiFetch('/api/process-all', { method: 'POST' });
@@ -1586,8 +1594,8 @@ async function downloadRawVideo(clipId, btn, evt) {
                 if (boxGame) boxGame.style.display = 'none';
                 if (boxSingle) boxSingle.style.display = 'flex';
                 if (btnToggleCam) {
-                    btnToggleCam.innerText = '📷 Facecam wieder aktivieren';
-                    btnToggleCam.className = 'px-2.5 py-1 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
+                    btnToggleCam.innerText = 'Facecam wieder aktivieren';
+                    btnToggleCam.className = 'px-2.5 py-1 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-500 text-xs font-bold rounded text-emerald-200 transition';
                 }
                 updateBoxDom('single');
             } else {
@@ -1609,8 +1617,8 @@ async function downloadRawVideo(clipId, btn, evt) {
                 if (boxGame) boxGame.style.display = 'flex';
                 if (boxSingle) boxSingle.style.display = 'none';
                 if (btnToggleCam) {
-                    btnToggleCam.innerText = '🚫 Keine Cam (Vollbild / 1 Rahmen)';
-                    btnToggleCam.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition';
+                    btnToggleCam.innerText = 'Keine Cam (Vollbild / 1 Rahmen)';
+                    btnToggleCam.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded text-slate-300 transition';
                 }
                 updateBoxDom('cam');
                 updateBoxDom('game');
@@ -1825,10 +1833,10 @@ async function downloadRawVideo(clipId, btn, evt) {
 
             vid.addEventListener('seeked', draw916Preview);
             vid.addEventListener('play', () => {
-                document.getElementById('crop-play-btn').innerHTML = '⏸️ Pause';
+                document.getElementById('crop-play-btn').innerHTML = 'Pause';
             });
             vid.addEventListener('pause', () => {
-                document.getElementById('crop-play-btn').innerHTML = '▶️ Abspielen';
+                document.getElementById('crop-play-btn').innerHTML = 'Abspielen';
             });
         }
 
@@ -2043,7 +2051,7 @@ async function downloadRawVideo(clipId, btn, evt) {
             if (readout) {
                 if (currentCropMode === 'single_916') {
                     const singlePx = { w: Math.round(cropState.single.w * vw), h: Math.round(cropState.single.h * vh), x: Math.round(cropState.single.x * vw), y: 0 };
-                    readout.innerText = `📱 Reines 9:16 IRL: ${singlePx.w}x${singlePx.h} @ (${singlePx.x}, 0) • Feste 9:16 Proportion (100% Video-Höhe)`;
+                    readout.innerText = `Reines 9:16 IRL: ${singlePx.w}x${singlePx.h} @ (${singlePx.x}, 0) • Feste 9:16 Proportion (100% Video-Höhe)`;
                 } else {
                     const camPx = { w: Math.round(cropState.cam.w * vw), h: Math.round(cropState.cam.h * vh), x: Math.round(cropState.cam.x * vw), y: Math.round(cropState.cam.y * vh) };
                     const gamePx = { w: Math.round(cropState.game.w * vw), h: Math.round(cropState.game.h * vh), x: Math.round(cropState.game.x * vw), y: Math.round(cropState.game.y * vh) };
@@ -2411,7 +2419,7 @@ async function downloadRawVideo(clipId, btn, evt) {
         async function detectFacecamInCropModal() {
             if (!currentCropClipId) return;
             const btn = document.getElementById('btn-crop-detect');
-            btn.innerHTML = '<span>⏳</span> Erkenne...';
+            btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 border-2 border-zinc-200 border-t-transparent rounded-full animate-spin mr-1.5"></span> <span>Erkenne...</span>';
             btn.disabled = true;
             try {
                 const resp = await apiFetch(`/api/clip/${currentCropClipId}/detect-cam`);
@@ -2428,7 +2436,7 @@ async function downloadRawVideo(clipId, btn, evt) {
             } catch (e) {
                 console.error(e);
             } finally {
-                btn.innerHTML = '<span>🤖</span> KI Auto-Erkennen';
+                btn.innerHTML = `${SVG_ICONS.sparkles} <span>KI Auto-Erkennen</span>`;
                 btn.disabled = false;
             }
         }
@@ -2487,7 +2495,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                 ctx.font = 'bold 9px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : '💬 TikTok / Shorts Hook';
+                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : 'TikTok / Shorts Hook';
                 ctx.fillText(titleText, 135, stickerY);
 
             } else if (cropState.cam.enabled) {
@@ -2499,7 +2507,7 @@ async function downloadRawVideo(clipId, btn, evt) {
 
                 const filterVal = document.getElementById('crop-cam-filter-select')?.value || 'none';
                 if (filterVal === 'triangle') {
-                    // 🔺 3D Dreimacs Pyramide
+                    // 3D Dreimacs Pyramide
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(135, 4);
@@ -2510,7 +2518,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'inv_triangle') {
-                    // 🔻 3D Trichter-Kopf
+                    // 3D Trichter-Kopf
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(5, 4);
@@ -2521,7 +2529,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'diamond') {
-                    // 💎 3D Diamant-Kopf
+                    // 3D Diamant-Kopf
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(135, 4);
@@ -2533,7 +2541,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'cube') {
-                    // 📦 3D Block-Kopf (Steve)
+                    // 3D Block-Kopf (Steve)
                     ctx.save();
                     ctx.beginPath();
                     ctx.rect(35, 15, 200, 150);
@@ -2541,7 +2549,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'alien') {
-                    // 👽 3D Megamind / Alien (Riesen-Stirn)
+                    // 3D Megamind / Alien (Riesen-Stirn)
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(135, 6);
@@ -2553,7 +2561,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'gigachad') {
-                    // 🗿 3D Gigachad (Breiter Kiefer)
+                    // 3D Gigachad (Breiter Kiefer)
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(90, 6);
@@ -2566,37 +2574,37 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'hamster') {
-                    // 🎈 3D Hamsterbacken
+                    // 3D Hamsterbacken
                     try {
                         ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
                         ctx.drawImage(vid, cx, cy + ch * 0.4, cw, ch * 0.6, -15, 75, 300, 105);
                     } catch(e) {}
                 } else if (filterVal === 'pinocchio') {
-                    // 🤥 3D Pinocchio Langnase
+                    // 3D Pinocchio Langnase
                     try {
                         ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
                         ctx.drawImage(vid, cx + cw * 0.35, cy + ch * 0.35, cw * 0.3, ch * 0.3, 100, 75, 70, 95);
                     } catch(e) {}
                 } else if (filterVal === 'big_eyes') {
-                    // 👀 3D Glubschaugen (Anime)
+                    // 3D Glubschaugen (Anime)
                     try {
                         ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
                         ctx.drawImage(vid, cx + cw * 0.2, cy + ch * 0.2, cw * 0.6, ch * 0.35, 35, 30, 200, 80);
                     } catch(e) {}
                 } else if (filterVal === 'tiny_face') {
-                    // 🤏 3D Schrumpf-Gesicht (Meme)
+                    // 3D Schrumpf-Gesicht (Meme)
                     try {
                         ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
                         ctx.drawImage(vid, cx + cw * 0.2, cy + ch * 0.2, cw * 0.6, ch * 0.6, 95, 65, 80, 80);
                     } catch(e) {}
                 } else if (filterVal === 'big_mouth') {
-                    // 👄 3D Riesenmund
+                    // 3D Riesenmund
                     try {
                         ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
                         ctx.drawImage(vid, cx + cw * 0.2, cy + ch * 0.55, cw * 0.6, ch * 0.4, 50, 100, 170, 75);
                     } catch(e) {}
                 } else if (filterVal === 'hourglass') {
-                    // ⏳ 3D Sanduhr / Wespentaille (Pinch)
+                    // 3D Sanduhr / Wespentaille (Pinch)
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(5, 4);
@@ -2609,7 +2617,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'fisheye') {
-                    // 🐟 3D Fischauge / Glaskugel
+                    // 3D Fischauge / Glaskugel
                     ctx.save();
                     ctx.beginPath();
                     ctx.ellipse(135, 90, 130, 86, 0, 0, Math.PI * 2);
@@ -2617,7 +2625,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try { ctx.drawImage(vid, cx + cw * 0.1, cy + ch * 0.1, cw * 0.8, ch * 0.8, 0, 0, 270, 180); } catch(e) {}
                     ctx.restore();
                 } else if (filterVal === 'mirror_left') {
-                    // 🪞 Doppel-Links: Linke Hälfte auf rechts gespiegelt
+                    // Doppel-Links: Linke Hälfte auf rechts gespiegelt
                     try {
                         ctx.drawImage(vid, cx, cy, cw / 2, ch, 0, 0, 135, 180);
                         ctx.save();
@@ -2627,7 +2635,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                         ctx.restore();
                     } catch(e) {}
                 } else if (filterVal === 'mirror_right') {
-                    // 🪞 Doppel-Rechts: Rechte Hälfte auf links gespiegelt
+                    // Doppel-Rechts: Rechte Hälfte auf links gespiegelt
                     try {
                         ctx.drawImage(vid, cx + cw / 2, cy, cw / 2, ch, 135, 0, 135, 180);
                         ctx.save();
@@ -2637,12 +2645,12 @@ async function downloadRawVideo(clipId, btn, evt) {
                         ctx.restore();
                     } catch(e) {}
                 } else if (filterVal === 'stretch_vert') {
-                    // 📏 Bleistift-Kopf
+                    // Bleistift-Kopf
                     try {
                         ctx.drawImage(vid, cx + cw * 0.22, cy, cw * 0.56, ch, 0, 0, 270, 180);
                     } catch(e) {}
                 } else if (filterVal === 'squish_wide') {
-                    // 🗜️ Wide Meme
+                    // ️ Wide Meme
                     try {
                         ctx.drawImage(vid, cx, cy + ch * 0.2, cw, ch * 0.6, 0, 0, 270, 180);
                     } catch(e) {}
@@ -2655,25 +2663,25 @@ async function downloadRawVideo(clipId, btn, evt) {
                 // Filter Badge Tag anzeigen
                 if (filterVal && filterVal !== 'none') {
                     const filterLabels = {
-                        triangle: '🔺 3D Dreimacs Pyramide',
-                        inv_triangle: '🔻 3D Trichter-Kopf',
-                        diamond: '💎 3D Diamant-Kopf',
-                        cube: '📦 3D Block-Kopf',
-                        gigachad: '🗿 3D Gigachad Kiefer',
-                        alien: '👽 3D Megamind Alien',
-                        hamster: '🎈 3D Hamsterbacken',
-                        pinocchio: '🤥 3D Pinocchio Langnase',
-                        big_eyes: '👀 3D Glubschaugen',
-                        tiny_face: '🤏 3D Schrumpf-Gesicht',
-                        big_mouth: '👄 3D Riesenmund',
-                        hourglass: '⏳ 3D Sanduhr Pinch',
-                        fisheye: '🐟 3D Glaskugel Fischauge',
-                        swirl: '🌀 3D Strudel Twist',
-                        wave: '🌊 3D Wackelpudding',
-                        mirror_left: '🪞 Doppel-Links',
-                        mirror_right: '🪞 Doppel-Rechts',
-                        stretch_vert: '📏 Bleistift-Kopf',
-                        squish_wide: '🗜️ Wide Meme'
+                        triangle: '3D Dreimacs Pyramide',
+                        inv_triangle: '3D Trichter-Kopf',
+                        diamond: '3D Diamant-Kopf',
+                        cube: '3D Block-Kopf',
+                        gigachad: '3D Gigachad Kiefer',
+                        alien: '3D Megamind Alien',
+                        hamster: '3D Hamsterbacken',
+                        pinocchio: '3D Pinocchio Langnase',
+                        big_eyes: '3D Glubschaugen',
+                        tiny_face: '3D Schrumpf-Gesicht',
+                        big_mouth: '3D Riesenmund',
+                        hourglass: '3D Sanduhr Pinch',
+                        fisheye: '3D Glaskugel Fischauge',
+                        swirl: '3D Strudel Twist',
+                        wave: '3D Wackelpudding',
+                        mirror_left: 'Doppel-Links',
+                        mirror_right: 'Doppel-Rechts',
+                        stretch_vert: 'Bleistift-Kopf',
+                        squish_wide: 'Wide Meme'
                     };
                     const tag = filterLabels[filterVal] || filterVal;
                     ctx.save();
@@ -2728,11 +2736,11 @@ async function downloadRawVideo(clipId, btn, evt) {
                 ctx.font = 'bold 9px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : '💬 TikTok / Shorts Hook';
+                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : 'TikTok / Shorts Hook';
                 ctx.fillText(titleText, 135, 180);
 
             } else {
-                // 📱 Reines Vollbild-Gameplay (Festes 9:16 Short)
+                // Reines Vollbild-Gameplay (Festes 9:16 Short)
                 const gx = cropState.game.x * vw;
                 const gy = cropState.game.y * vh;
                 const gw = Math.max(16, cropState.game.w * vw);
@@ -2761,7 +2769,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                 ctx.font = 'bold 9px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : '💬 TikTok / Shorts Hook';
+                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : 'TikTok / Shorts Hook';
                 ctx.fillText(titleText, 135, stickerY);
             }
 
@@ -2771,8 +2779,8 @@ async function downloadRawVideo(clipId, btn, evt) {
             ctx.fillStyle = '#fde047';
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 2.5;
-            ctx.strokeText("💬 [Untertitel Bereich]", 135, 435);
-            ctx.fillText("💬 [Untertitel Bereich]", 135, 435);
+            ctx.strokeText("[Untertitel Bereich]", 135, 435);
+            ctx.fillText("[Untertitel Bereich]", 135, 435);
         }
 
         async function saveCropCoordinates(renderNow) {
