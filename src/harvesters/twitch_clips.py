@@ -204,45 +204,60 @@ class TwitchClipHarvester:
 
     def harvest_channel(self, streamer_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Harvested die besten neuen Clips für einen Streamer."""
+        # Konfiguration stets frisch laden
+        self.config = load_config()
+        self.twitch_cfg = self.config.get("twitch", {})
+        autopilot_cfg = self.config.get("autopilot", {})
+
         channel_name = streamer_cfg.get("name")
         min_views = streamer_cfg.get("min_clip_views", 50)
         max_clips = streamer_cfg.get("max_clips_per_run", 3)
         hours_back = self.twitch_cfg.get("hours_back", 12)
-        time_filter = streamer_cfg.get("time_filter") or self.twitch_cfg.get("time_filter", "LAST_DAY")
+        time_filter = (
+            streamer_cfg.get("time_filter")
+            or autopilot_cfg.get("time_filter")
+            or self.twitch_cfg.get("time_filter", "LAST_DAY")
+        )
 
         print(f"[*] Scanne Kanal: {channel_name} (Filter: {time_filter}, Min-Views: {min_views}, Max: {max_clips})...")
 
-        # 1. Clips abrufen (Helix oder GQL)
+        # 1. Frische Clips abrufen (Helix oder GQL)
         if self.client_id and self.client_secret:
             all_clips = self.fetch_clips_helix(channel_name, hours_back=hours_back)
         else:
             all_clips = self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter, limit=50)
 
         # 2. Filtern: Noch nicht verarbeitet und mind. min_views
-        unprocessed = [
+        unprocessed_fresh = [
             c for c in all_clips 
             if not is_clip_already_processed(c["clip_id"]) and c["view_count"] >= min_views
         ]
 
-        # 2b. Intelligenter Wochen-Fallback: Falls heute nicht genug Clips gefunden wurden
-        fallback_enabled = self.config.get("autopilot", {}).get("fallback_to_week", True)
-        if len(unprocessed) < max_clips and time_filter == "LAST_DAY" and fallback_enabled and not (self.client_id and self.client_secret):
-            print(f"  [i] Nur {len(unprocessed)}/{max_clips} Clips in 24h für {channel_name} qualifiziert. Prüfe beste Clips der Woche...")
+        # Frische Clips immer zuerst nach Views sortieren und bis zu max_clips übernehmen!
+        unprocessed_fresh.sort(key=lambda x: x["view_count"], reverse=True)
+        selected_clips = list(unprocessed_fresh[:max_clips])
+
+        # 2b. Intelligenter Wochen-Fallback: NUR wenn noch Plätze frei sind UND fallback_to_week aktiv ist!
+        fallback_enabled = autopilot_cfg.get("fallback_to_week", True)
+        if "fallback_to_week" in streamer_cfg:
+            fallback_enabled = bool(streamer_cfg["fallback_to_week"])
+
+        needed_slots = max_clips - len(selected_clips)
+        if needed_slots > 0 and time_filter == "LAST_DAY" and fallback_enabled and not (self.client_id and self.client_secret):
+            print(f"  [i] {len(selected_clips)}/{max_clips} frische Clips (24h) für {channel_name}. Prüfe beste Clips der Woche für {needed_slots} Rest-Plätze...")
             week_clips = self.fetch_clips_gql_fallback(channel_name, time_filter="LAST_WEEK", limit=50)
-            existing_ids = {c["clip_id"] for c in unprocessed}
+            existing_ids = {c["clip_id"] for c in selected_clips}
             week_candidates = [
                 c for c in week_clips
                 if c["clip_id"] not in existing_ids and not is_clip_already_processed(c["clip_id"]) and c["view_count"] >= min_views
             ]
-            unprocessed.extend(week_candidates)
+            week_candidates.sort(key=lambda x: x["view_count"], reverse=True)
+            # Nur die tatsächlich noch benötigten Restplätze mit den besten Wochen-Clips auffüllen!
+            selected_clips.extend(week_candidates[:needed_slots])
 
-        if not unprocessed:
+        if not selected_clips:
             print(f"[-] Keine neuen qualifizierten Clips für {channel_name} gefunden.")
             return []
-
-        # 3. Sortieren nach Beliebtheit (Views) und Top-N auswählen
-        unprocessed.sort(key=lambda x: x["view_count"], reverse=True)
-        selected_clips = unprocessed[:max_clips]
 
         downloaded_clips = []
         for clip in selected_clips:

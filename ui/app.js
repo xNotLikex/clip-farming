@@ -1052,9 +1052,9 @@ async function loadSettingsIntoForm() {
 }
 
 async function saveSettingsFromForm(e) {
-    if (e) e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const form = document.getElementById('settings-form');
-    if (!form) return;
+    if (!form) return false;
     
     const payload = {
         enabled: form.elements['autopilot_enabled'] ? form.elements['autopilot_enabled'].checked : true,
@@ -1066,17 +1066,34 @@ async function saveSettingsFromForm(e) {
         whisper_model: form.elements['whisper_model'] ? form.elements['whisper_model'].value : 'small'
     };
     
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-70');
+    }
+
     try {
-        await apiFetch('/api/settings', {
+        const resp = await apiFetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        showToast('Einstellungen erfolgreich gespeichert!', 'success');
-        closeSettingsModal();
+        const data = await resp.json();
+        if (data && data.success) {
+            showToast('Einstellungen erfolgreich gespeichert!', 'success');
+            closeSettingsModal();
+        } else {
+            showToast('Fehler: ' + (data?.error || 'Unbekannter Fehler'), 'error');
+        }
     } catch (err) {
-        alert('Fehler beim Speichern der Einstellungen: ' + err);
+        showToast('Fehler beim Speichern: ' + err, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-70');
+        }
     }
+    return false;
 }
 
 async function removeStreamer(name) {

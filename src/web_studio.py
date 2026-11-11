@@ -507,6 +507,80 @@ HTML_DASHBOARD = """
                 m.style.setProperty('display', 'none', 'important');
             }
         }
+        function loadSettingsIntoForm() {
+            fetch('/api/settings')
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    if (!s) return;
+                    var form = document.getElementById('settings-form');
+                    if (!form) return;
+                    if (form.elements['autopilot_enabled']) form.elements['autopilot_enabled'].checked = !!s.enabled;
+                    if (form.elements['interval_minutes']) form.elements['interval_minutes'].value = s.interval_minutes || 30;
+                    if (form.elements['time_filter']) form.elements['time_filter'].value = s.time_filter || 'LAST_DAY';
+                    if (form.elements['fallback_to_week']) form.elements['fallback_to_week'].checked = s.fallback_to_week !== false;
+                    if (form.elements['auto_render']) form.elements['auto_render'].checked = !!s.auto_render;
+                    if (form.elements['hardware_encoder']) form.elements['hardware_encoder'].value = s.hardware_encoder || 'auto';
+                    if (form.elements['whisper_model']) form.elements['whisper_model'].value = s.whisper_model || 'small';
+                })
+                .catch(function(err) {
+                    console.warn('loadSettingsIntoForm error:', err);
+                });
+        }
+        window.loadSettingsIntoForm = loadSettingsIntoForm;
+
+        function saveSettingsFromForm(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var form = document.getElementById('settings-form');
+            if (!form) return false;
+
+            var payload = {
+                enabled: form.elements['autopilot_enabled'] ? form.elements['autopilot_enabled'].checked : true,
+                interval_minutes: parseInt(form.elements['interval_minutes'].value, 10) || 30,
+                time_filter: form.elements['time_filter'] ? form.elements['time_filter'].value : 'LAST_DAY',
+                fallback_to_week: form.elements['fallback_to_week'] ? form.elements['fallback_to_week'].checked : true,
+                auto_render: form.elements['auto_render'] ? form.elements['auto_render'].checked : false,
+                hardware_encoder: form.elements['hardware_encoder'] ? form.elements['hardware_encoder'].value : 'auto',
+                whisper_model: form.elements['whisper_model'] ? form.elements['whisper_model'].value : 'small'
+            };
+
+            var btn = form.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-70');
+            }
+
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.success) {
+                    if (window.showToast) window.showToast('Einstellungen erfolgreich gespeichert!', 'success');
+                    else alert('Einstellungen gespeichert!');
+                    closeSettingsModal();
+                } else {
+                    var msg = (data && data.error) ? data.error : 'Fehler beim Speichern';
+                    if (window.showToast) window.showToast(msg, 'error');
+                    else alert(msg);
+                }
+            })
+            .catch(function(err) {
+                var msg = 'Netzwerkfehler beim Speichern: ' + err;
+                if (window.showToast) window.showToast(msg, 'error');
+                else alert(msg);
+            })
+            .finally(function() {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-70');
+                }
+            });
+
+            return false;
+        }
+        window.saveSettingsFromForm = saveSettingsFromForm;
         function switchTab(tabId) {
             if (!tabId) return;
             try {
@@ -2817,7 +2891,7 @@ HTML_DASHBOARD = """
                 <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
             </div>
 
-            <form id="settings-form" onsubmit="saveSettingsFromForm(event)" class="p-5 overflow-y-auto space-y-5">
+            <form id="settings-form" onsubmit="return saveSettingsFromForm(event)" class="p-5 overflow-y-auto space-y-5">
                 <!-- Autopilot Intervall Sektion -->
                 <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-4">
                     <div class="flex items-center justify-between">
@@ -2826,7 +2900,7 @@ HTML_DASHBOARD = """
                             <span class="text-2xs text-slate-400">Sucht im Hintergrund selbstständig nach neuen Clips</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="autopilot_enabled" class="sr-only peer" checked>
+                            <input type="checkbox" name="autopilot_enabled" class="sr-only peer" {% if settings.enabled %}checked{% endif %}>
                             <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                         </label>
                     </div>
@@ -2842,7 +2916,7 @@ HTML_DASHBOARD = """
                         </div>
                         <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
                             <span class="text-xs text-slate-400">Genaues Intervall:</span>
-                            <input type="number" id="setting-interval" name="interval_minutes" value="30" min="5" max="1440" class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-amber-300 font-bold text-center">
+                            <input type="number" id="setting-interval" name="interval_minutes" value="{{ settings.interval_minutes }}" min="5" max="1440" class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-amber-300 font-bold text-center">
                             <span class="text-xs text-slate-400">Minuten</span>
                         </div>
                     </div>
@@ -2855,21 +2929,21 @@ HTML_DASHBOARD = """
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Standard-Zeitfenster auf Twitch:</label>
                         <select name="time_filter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 font-medium">
-                            <option value="LAST_DAY">Letzte 24 Stunden (LAST_DAY) - Frischeste Clips</option>
-                            <option value="LAST_WEEK">Letzte 7 Tage (LAST_WEEK) - Große Auswahl</option>
+                            <option value="LAST_DAY" {% if settings.time_filter == 'LAST_DAY' %}selected{% endif %}>Letzte 24 Stunden (LAST_DAY) - Frischeste Clips</option>
+                            <option value="LAST_WEEK" {% if settings.time_filter == 'LAST_WEEK' %}selected{% endif %}>Letzte 7 Tage (LAST_WEEK) - Große Auswahl</option>
                         </select>
                     </div>
 
                     <div class="flex items-start gap-3 pt-1">
-                        <input type="checkbox" id="setting-fallback" name="fallback_to_week" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4" checked>
+                        <input type="checkbox" id="setting-fallback" name="fallback_to_week" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4" {% if settings.fallback_to_week %}checked{% endif %}>
                         <label for="setting-fallback" class="text-xs text-slate-300 cursor-pointer">
-                            <span class="font-bold text-white block">Intelligenter Wochen-Fallback (Empfohlen)</span>
-                            <span class="text-slate-400 block text-2xs mt-0.5">Falls in den letzten 24h keine neuen Clips die Mindest-Views erreichen, automatisch die besten Clips der Woche nachladen.</span>
+                            <span class="font-bold text-white block">Intelligenter Wochen-Fallback</span>
+                            <span class="text-slate-400 block text-2xs mt-0.5">Falls in den letzten 24h nicht genug Clips die Mindest-Views erreichen, restliche Plätze mit Top-Clips der Woche auffüllen. Frische Clips haben immer Vorrang!</span>
                         </label>
                     </div>
 
                     <div class="flex items-start gap-3 pt-1 border-t border-slate-800/80">
-                        <input type="checkbox" id="setting-autorender" name="auto_render" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4">
+                        <input type="checkbox" id="setting-autorender" name="auto_render" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4" {% if settings.auto_render %}checked{% endif %}>
                         <label for="setting-autorender" class="text-xs text-slate-300 cursor-pointer">
                             <span class="font-bold text-white block">Vollautomatisches Rendering</span>
                             <span class="text-slate-400 block text-2xs mt-0.5">Neu gefundene Clips sofort transkribieren & schneiden, statt sie nur in der Warteschlange abzulegen.</span>
@@ -2884,20 +2958,22 @@ HTML_DASHBOARD = """
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Video-Encoder:</label>
                             <select name="hardware_encoder" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500">
-                                <option value="auto">Automatische Erkennung (Empfohlen)</option>
-                                <option value="nvenc">NVIDIA NVENC (RTX/GTX)</option>
-                                <option value="amf">AMD AMF (Radeon)</option>
-                                <option value="qsv">Intel QuickSync (QSV)</option>
-                                <option value="cpu">Software / CPU (libx264)</option>
+                                <option value="auto" {% if settings.hardware_encoder == 'auto' %}selected{% endif %}>Automatische Erkennung (Empfohlen)</option>
+                                <option value="nvenc" {% if settings.hardware_encoder == 'nvenc' %}selected{% endif %}>NVIDIA NVENC (RTX/GTX)</option>
+                                <option value="amf" {% if settings.hardware_encoder == 'amf' %}selected{% endif %}>AMD AMF (Radeon)</option>
+                                <option value="qsv" {% if settings.hardware_encoder == 'qsv' %}selected{% endif %}>Intel QuickSync (QSV)</option>
+                                <option value="cpu" {% if settings.hardware_encoder == 'cpu' %}selected{% endif %}>Software / CPU (libx264)</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1">Whisper KI-Modell:</label>
                             <select name="whisper_model" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500">
-                                <option value="small">Small (Empfohlen - Beste Balance)</option>
-                                <option value="base">Base (Schneller)</option>
-                                <option value="tiny">Tiny (Ultraschnell)</option>
-                                <option value="medium">Medium (Höchste Genauigkeit)</option>
+                                <option value="tiny" {% if settings.whisper_model == 'tiny' %}selected{% endif %}>Tiny (Ultraschnell)</option>
+                                <option value="base" {% if settings.whisper_model == 'base' %}selected{% endif %}>Base (Schnell)</option>
+                                <option value="small" {% if settings.whisper_model == 'small' %}selected{% endif %}>Small (Empfohlen - Beste Balance)</option>
+                                <option value="medium" {% if settings.whisper_model == 'medium' %}selected{% endif %}>Medium (Hohe Genauigkeit)</option>
+                                <option value="large-v3" {% if settings.whisper_model in ['large', 'large-v3'] %}selected{% endif %}>Large v3 (Maximale Präzision)</option>
+                                <option value="turbo" {% if settings.whisper_model == 'turbo' %}selected{% endif %}>Turbo (Schnell & Präzise)</option>
                             </select>
                         </div>
                     </div>
@@ -3363,6 +3439,7 @@ def get_dashboard_dict():
         "current_task": current_task,
         "is_running": is_running,
         "app_version": APP_VERSION,
+        "settings": get_autopilot_settings(),
     }
 
 @app.route("/")

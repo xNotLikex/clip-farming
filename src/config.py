@@ -292,6 +292,13 @@ def get_autopilot_settings() -> Dict[str, Any]:
         "whisper_model": cfg.get("video", {}).get("whisper_model", "small"),
     }
 
+def _parse_bool(val: Any, default: bool = False) -> bool:
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return default
+    return str(val).strip().lower() in ("true", "1", "yes", "on")
+
 def save_autopilot_settings(settings: Dict[str, Any]) -> bool:
     """Speichert Autopilot- und Prüfintervall-Einstellungen in config.yaml."""
     cfg = load_config()
@@ -299,19 +306,23 @@ def save_autopilot_settings(settings: Dict[str, Any]) -> bool:
         cfg["autopilot"] = {}
     
     if "enabled" in settings:
-        cfg["autopilot"]["enabled"] = bool(settings["enabled"])
+        cfg["autopilot"]["enabled"] = _parse_bool(settings["enabled"], default=True)
     if "interval_minutes" in settings:
-        cfg["autopilot"]["interval_minutes"] = max(1, int(settings["interval_minutes"]))
+        try:
+            cfg["autopilot"]["interval_minutes"] = max(1, int(settings["interval_minutes"]))
+        except (ValueError, TypeError):
+            pass
     if "time_filter" in settings:
         tf = str(settings["time_filter"]).strip().upper()
-        if tf in ["LAST_DAY", "LAST_WEEK", "LAST_MONTH"]:
+        if tf in ["LAST_DAY", "LAST_WEEK", "LAST_MONTH", "ALL_TIME"]:
             cfg["autopilot"]["time_filter"] = tf
-            if "twitch" in cfg:
-                cfg["twitch"]["time_filter"] = tf
+            if "twitch" not in cfg:
+                cfg["twitch"] = {}
+            cfg["twitch"]["time_filter"] = tf
     if "fallback_to_week" in settings:
-        cfg["autopilot"]["fallback_to_week"] = bool(settings["fallback_to_week"])
+        cfg["autopilot"]["fallback_to_week"] = _parse_bool(settings["fallback_to_week"], default=True)
     if "auto_render" in settings:
-        cfg["autopilot"]["auto_render"] = bool(settings["auto_render"])
+        cfg["autopilot"]["auto_render"] = _parse_bool(settings["auto_render"], default=False)
     if "hardware_encoder" in settings:
         if "video" not in cfg:
             cfg["video"] = {}
@@ -319,7 +330,9 @@ def save_autopilot_settings(settings: Dict[str, Any]) -> bool:
     if "whisper_model" in settings:
         if "video" not in cfg:
             cfg["video"] = {}
-        cfg["video"]["whisper_model"] = str(settings["whisper_model"]).strip().lower()
+        wm = str(settings["whisper_model"]).strip().lower()
+        if wm:
+            cfg["video"]["whisper_model"] = wm
 
     save_config(cfg)
     return True
