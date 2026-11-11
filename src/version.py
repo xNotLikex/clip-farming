@@ -3,5 +3,5 @@ Zentrales Versionsmodul für Clip Farming Studio.
 Wird bei jeder Änderung um +0.01 hochgezählt.
 """
 
-APP_VERSION = "0.5.5"
+APP_VERSION = "0.5.6"
 GITHUB_REPO = "xNotLikex/clip-farming"

@@ -4098,6 +4098,44 @@ def export_raw_to_downloads(clip_id):
 @app.route("/save/<clip_id>", methods=["POST"])
 def save_clip(clip_id):
     action = request.form.get("action")
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+
+    def _finish_save(redirect_tab: str = "studio"):
+        if is_fetch:
+            return jsonify({"success": True, "action": action or "save", "clip_id": clip_id})
+        return redirect(url_for("index") + f"?tab={redirect_tab}")
+
+    if action == "delete":
+        cancel_active_render(clip_id)
+        update_clip_status(clip_id, "deleted")
+        short_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+        if short_file.exists():
+            deleted = False
+            for _ in range(5):
+                try:
+                    short_file.unlink()
+                    deleted = True
+                    break
+                except PermissionError:
+                    time.sleep(0.15)
+                except OSError as e:
+                    print(f"[!] Konnte {short_file.name} nicht löschen: {e}")
+                    deleted = True
+                    break
+            if not deleted and short_file.exists():
+                def _bg_unlink(path_to_del):
+                    for _ in range(10):
+                        time.sleep(0.5)
+                        try:
+                            if not path_to_del.exists():
+                                return
+                            path_to_del.unlink()
+                            return
+                        except OSError:
+                            continue
+                threading.Thread(target=_bg_unlink, args=(short_file,), daemon=True).start()
+        return _finish_save("studio")
+
     sticker_text = request.form.get("sticker_text", "").strip()
     title = request.form.get("title", "").strip()
     sub_position = request.form.get("sub_position", "bottom")
@@ -4122,28 +4160,20 @@ def save_clip(clip_id):
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
 
-    if action != "delete" and "transcript" in request.form:
+    if "transcript" in request.form:
         txt_path = RAW_CLIPS_DIR / f"{clip_id}_transcript.txt"
         txt_path.write_text(edited_transcript, encoding="utf-8")
 
     update_clip_status(clip_id, "ready", ai_title=title)
 
-    if action == "delete":
-        cancel_active_render(clip_id)
-        short_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
-        if short_file.exists():
-            short_file.unlink()
-        update_clip_status(clip_id, "deleted")
-        return redirect(url_for("index") + "?tab=studio")
-
-    elif action == "publish_now":
+    if action == "publish_now":
         publish_clip_now(clip_id)
-        return redirect(url_for("index") + "?tab=studio")
+        return _finish_save("studio")
 
     elif action == "schedule":
         # Einzelnen Clip in Zeitplan einreihen
         schedule_single_clip(clip_id)
-        return redirect(url_for("index") + "?tab=planner")
+        return _finish_save("planner")
 
     elif action == "rerender":
         # Wenn der Nutzer nochmals auf Rendern drückt:
@@ -4222,9 +4252,9 @@ def save_clip(clip_id):
             finally:
                 status_manager.reset_progress()
 
-        return redirect(url_for("index") + "?tab=studio")
+        return _finish_save("studio")
 
-    return redirect(url_for("index") + "?tab=studio")
+    return _finish_save("studio")
 
 def schedule_single_clip(clip_id: str, interval_minutes: int = None):
     """Reiht einen Clip in die automatische Veröffentlichungs-Warteschlange ein."""

@@ -3478,6 +3478,27 @@ async function importTwitchClipToStudio(index, mode, btn) {
                     const submitVal = e.submitter ? e.submitter.value : '';
                     const submitBtn = e.submitter || null;
                     const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+                    // Wichtig: FormData VOR submitBtn.disabled = true erzeugen, da deaktivierte
+                    // Submit-Buttons sonst vom Browser aus FormData ausgeschlossen werden!
+                    let formData = null;
+                    if (method === 'POST') {
+                        formData = new FormData(form, e.submitter);
+                        if (submitBtn && submitBtn.name && !formData.has(submitBtn.name)) {
+                            formData.set(submitBtn.name, submitBtn.value || '');
+                        }
+                    }
+                    if (submitVal === 'delete') {
+                        const cardVideo = form.closest('.studio-clip-card')?.querySelector('video');
+                        if (cardVideo) {
+                            try {
+                                cardVideo.pause();
+                                cardVideo.querySelectorAll('source').forEach(s => s.remove());
+                                cardVideo.removeAttribute('src');
+                                cardVideo.load();
+                            } catch (_) {}
+                            await new Promise(r => setTimeout(r, 80));
+                        }
+                    }
                     if (submitBtn) {
                         submitBtn.disabled = true;
                         submitBtn.classList.add('opacity-70');
@@ -3489,11 +3510,22 @@ async function importTwitchClipToStudio(index, mode, btn) {
                         updateStatus();
                     }
                     try {
-                        let options = { method };
+                        let options = {
+                            method,
+                            headers: { 'X-Requested-With': 'fetch' }
+                        };
                         if (method === 'POST') {
-                            options.body = new FormData(form, e.submitter);
+                            options.body = formData;
                         }
-                        await apiFetch(actionUrl, options);
+                        const res = await apiFetch(actionUrl, options);
+                        if (!res.ok) {
+                            let errDetail = `HTTP ${res.status}`;
+                            try {
+                                const errJson = await res.json();
+                                if (errJson && errJson.error) errDetail = errJson.error;
+                            } catch (_) {}
+                            throw new Error(errDetail);
+                        }
                         await refreshDashboard(true);
                         if (submitVal === 'delete') {
                             showToast('Clip aus Studio gelöscht.', 'info');
