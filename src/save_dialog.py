@@ -80,6 +80,10 @@ def open_save_dialog(suggested_filename: str, initial_dir: str = "", title: str 
                     return str(Path(selected).resolve())
                 return ""
             else:
+                err = comdlg32.CommDlgExtendedError()
+                if err != 0:
+                    sys.stderr.write(f"GetSaveFileNameW failed (code {err}), trying fallback\n")
+                    raise RuntimeError(f"GetSaveFileNameW error {err}")
                 # Benutzer hat 'Abbrechen' geklickt
                 return ""
         except Exception as e:

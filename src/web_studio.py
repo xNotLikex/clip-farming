@@ -12,7 +12,7 @@ from pathlib import Path
 from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for, Response
 
 from src.config import (
-    SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, DATA_DIR, load_config,
+    PROJECT_ROOT, SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, DATA_DIR, load_config,
     get_streamers, get_streamers_with_avatars, add_streamer, remove_streamer, update_streamer, update_all_streamers_min_views,
     get_autopilot_settings, save_autopilot_settings
 )
@@ -1280,11 +1280,12 @@ HTML_DASHBOARD = """
                 } else if (data && data.cancelled) {
                     showToast('Speichern abgebrochen', 'info');
                 } else {
-                    window.location.href = '/download/short/' + encodeURIComponent(clipId);
+                    var err = (data && data.error) ? data.error : 'Konnte Speicher-Dialog nicht öffnen.';
+                    showToast('Fehler: ' + err, 'error');
                 }
             } catch (err) {
-                console.warn('Export endpoint failed, falling back:', err);
-                window.location.href = '/download/short/' + encodeURIComponent(clipId);
+                console.warn('Export endpoint failed:', err);
+                showToast('Fehler beim Exportieren: ' + err, 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -1320,11 +1321,12 @@ HTML_DASHBOARD = """
                 } else if (data && data.cancelled) {
                     showToast('Speichern abgebrochen', 'info');
                 } else {
-                    window.location.href = '/download/raw/' + encodeURIComponent(clipId);
+                    var err = (data && data.error) ? data.error : 'Konnte Speicher-Dialog nicht öffnen.';
+                    showToast('Fehler: ' + err, 'error');
                 }
             } catch (err) {
-                console.warn('Export raw endpoint failed, falling back:', err);
-                window.location.href = '/download/raw/' + encodeURIComponent(clipId);
+                console.warn('Export raw endpoint failed:', err);
+                showToast('Fehler beim Exportieren: ' + err, 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -3730,20 +3732,24 @@ def export_clip_dialog(clip_id):
 
     init_dir = get_last_export_dir()
 
+    selected_path_str = ""
     try:
-        res = subprocess.run(
-            [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"HQ Video speichern unter ({streamer})"],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            timeout=180
-        )
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Dialog-Fehler: {e}"}), 500
+        from src.save_dialog import open_save_dialog
+        selected_path_str = open_save_dialog(filename, str(init_dir), f"HQ Video speichern unter ({streamer})")
+    except Exception as dlg_err:
+        print(f"[!] Direct save_dialog exception: {dlg_err}, trying subprocess...")
+        try:
+            res = subprocess.run(
+                [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"HQ Video speichern unter ({streamer})"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                timeout=180
+            )
+            if res.returncode == 0 and res.stdout:
+                selected_path_str = res.stdout.decode("utf-8", errors="replace").strip()
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Dialog-Fehler: {e}"}), 500
 
-    if res.returncode != 0 or not res.stdout:
-        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
-
-    selected_path_str = res.stdout.decode("utf-8", errors="replace").strip()
     if not selected_path_str:
         return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
 
@@ -3791,20 +3797,24 @@ def export_raw_dialog(clip_id):
 
     init_dir = get_last_export_dir()
 
+    selected_path_str = ""
     try:
-        res = subprocess.run(
-            [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"Rohdatei speichern unter ({streamer})"],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            timeout=180
-        )
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Dialog-Fehler: {e}"}), 500
+        from src.save_dialog import open_save_dialog
+        selected_path_str = open_save_dialog(filename, str(init_dir), f"Rohdatei speichern unter ({streamer})")
+    except Exception as dlg_err:
+        print(f"[!] Direct raw save_dialog exception: {dlg_err}, trying subprocess...")
+        try:
+            res = subprocess.run(
+                [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"Rohdatei speichern unter ({streamer})"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                timeout=180
+            )
+            if res.returncode == 0 and res.stdout:
+                selected_path_str = res.stdout.decode("utf-8", errors="replace").strip()
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Dialog-Fehler: {e}"}), 500
 
-    if res.returncode != 0 or not res.stdout:
-        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
-
-    selected_path_str = res.stdout.decode("utf-8", errors="replace").strip()
     if not selected_path_str:
         return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
 

@@ -1359,7 +1359,7 @@ async function downloadShortVideo(clipId, btn, evt) {
         const endpoint = isQuick
             ? '/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads'
             : '/api/clip/' + encodeURIComponent(clipId) + '/export-dialog';
-        const res = await fetch(getBackendUrl(endpoint), {
+        const res = await apiFetch(endpoint, {
             method: 'POST',
             headers: { 'Accept': 'application/json' }
         });
@@ -1369,11 +1369,13 @@ async function downloadShortVideo(clipId, btn, evt) {
         } else if (data && data.cancelled) {
             showToast('Speichern abgebrochen', 'info');
         } else {
-            window.location.href = getBackendUrl('/download/short/' + encodeURIComponent(clipId));
+            const err = (data && data.error) ? data.error : 'Konnte Speicher-Dialog nicht öffnen.';
+            showToast('Fehler: ' + err, 'error');
+            console.error('Export error:', data);
         }
     } catch (err) {
         console.warn('Export endpoint error:', err);
-        window.location.href = getBackendUrl('/download/short/' + encodeURIComponent(clipId));
+        showToast('Fehler beim Exportieren: ' + err, 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -1399,7 +1401,7 @@ async function downloadRawVideo(clipId, btn, evt) {
         const endpoint = isQuick
             ? '/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads'
             : '/api/clip/' + encodeURIComponent(clipId) + '/export-raw-dialog';
-        const res = await fetch(getBackendUrl(endpoint), {
+        const res = await apiFetch(endpoint, {
             method: 'POST',
             headers: { 'Accept': 'application/json' }
         });
@@ -1409,11 +1411,13 @@ async function downloadRawVideo(clipId, btn, evt) {
         } else if (data && data.cancelled) {
             showToast('Speichern abgebrochen', 'info');
         } else {
-            window.location.href = getBackendUrl('/download/raw/' + encodeURIComponent(clipId));
+            const err = (data && data.error) ? data.error : 'Konnte Speicher-Dialog nicht öffnen.';
+            showToast('Fehler: ' + err, 'error');
+            console.error('Export raw error:', data);
         }
     } catch (err) {
         console.warn('Export raw endpoint error:', err);
-        window.location.href = getBackendUrl('/download/raw/' + encodeURIComponent(clipId));
+        showToast('Fehler beim Exportieren: ' + err, 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
