@@ -61,17 +61,19 @@ pub fn delete_queue_clip(clip_id: String) -> Result<bool, String> {
     let db_path = base.join("data").join("pipeline.db");
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
 
-    conn.execute("DELETE FROM clips WHERE clip_id = ?", [&clip_id])
+    conn.execute("UPDATE clips SET status = 'deleted' WHERE clip_id = ?", [&clip_id])
         .map_err(|e| e.to_string())?;
 
-    // Clean up raw mp4 file if exists
-    let raw_file = base.join("downloads").join("raw").join(format!("{}.mp4", clip_id));
-    if raw_file.exists() {
-        let _ = fs::remove_file(raw_file);
-    }
-    let txt_file = base.join("downloads").join("raw").join(format!("{}_transcript.txt", clip_id));
-    if txt_file.exists() {
-        let _ = fs::remove_file(txt_file);
+    // Clean up raw/temp files if present
+    let raw_dir = base.join("downloads").join("raw");
+    for path in [
+        raw_dir.join(format!("{}.mp4", clip_id)),
+        raw_dir.join(format!("{}.ass", clip_id)),
+        raw_dir.join(format!("{}_transcript.txt", clip_id)),
+    ] {
+        if path.exists() {
+            let _ = fs::remove_file(path);
+        }
     }
 
     Ok(true)

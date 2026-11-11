@@ -3613,6 +3613,8 @@ def delete_queue_clip(clip_id):
 
     update_clip_status(clip_id, "deleted")
     status_manager.log(f"Clip {clip_id} gelöscht & dauerhaft ignoriert.")
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"success": True, "clip_id": clip_id})
     return redirect(url_for("index"))
 
 @app.route("/queue/delete-older", methods=["POST"])

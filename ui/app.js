@@ -36,6 +36,13 @@ function getBackendUrl(path) {
 
 function getTauriInvoke() {
     if (typeof window !== 'undefined') {
+        // Auf http://127.0.0.1:5000 blockiert Tauri v2 ACL Standard-IPC ohne Remote-Capability;
+        // direkte Same-Origin REST-Fetches auf Flask sind dort ohnehin nativ verfügbar.
+        const proto = window.location?.protocol || '';
+        const host = window.location?.hostname || '';
+        if (proto === 'http:' && (host === '127.0.0.1' || host === 'localhost')) {
+            return null;
+        }
         if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke.bind(window.__TAURI__.core);
         if (window.__TAURI__?.invoke) return window.__TAURI__.invoke.bind(window.__TAURI__);
         if (window.__TAURI_INTERNALS__?.invoke) return window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
@@ -263,13 +270,27 @@ async function processOneClip(clipId) {
 async function deleteSingleQueueClip(clipId) {
     if (!confirm('Clip unwiderruflich aus der Warteschlange löschen?')) return;
     try {
+        let deleted = false;
         const invoke = getTauriInvoke();
         if (invoke) {
-            await invoke('delete_queue_clip', { clipId });
-        } else {
-            await apiFetch('/queue/delete/' + clipId, { method: 'POST' });
+            try {
+                await invoke('delete_queue_clip', { clipId });
+                deleted = true;
+            } catch (invokeErr) {
+                console.warn('Tauri invoke delete_queue_clip failed, falling back to REST:', invokeErr);
+            }
         }
-        refreshDashboard();
+        if (!deleted) {
+            const res = await apiFetch('/queue/delete/' + clipId, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'fetch' }
+            });
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+        }
+        await refreshDashboard(true);
+        showToast('Clip aus Warteschlange gelöscht.', 'info');
     } catch (e) {
         alert('Fehler beim Löschen: ' + e);
     }
