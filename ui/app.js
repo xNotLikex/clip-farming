@@ -1092,6 +1092,7 @@ async function saveSettingsFromForm(e) {
         if (data && data.success) {
             showToast('Einstellungen erfolgreich gespeichert!', 'success');
             closeSettingsModal();
+            if (typeof refreshDashboard === 'function') refreshDashboard();
         } else {
             showToast('Fehler: ' + (data?.error || 'Unbekannter Fehler'), 'error');
         }
@@ -1266,9 +1267,9 @@ if (document.readyState === 'loading') {
             }
         })();
 
-        let currentPreviewClipId = '';
-        let currentPreviewStreamer = '';
-        let currentPreviewTitle = '';
+        var currentPreviewClipId = '';
+        var currentPreviewStreamer = '';
+        var currentPreviewTitle = '';
 
         function openRawPreview(clipId, streamer, title, views, duration, createdAgo = '', createdFull = '') {
             currentPreviewClipId = clipId;
@@ -1610,19 +1611,19 @@ async function downloadRawVideo(clipId, btn, evt) {
         }
 
         // --- VISUELLER ZUSCHNITT & CROPPER ---
-        let currentCropClipId = null;
-        let currentCropTitle = '';
-        let currentCropStreamer = '';
-        let currentCropMode = 'split'; // 'split' oder 'single_916'
-        let videoNativeWidth = 1920;
-        let videoNativeHeight = 1080;
-        let cropState = {
+        var currentCropClipId = null;
+        var currentCropTitle = '';
+        var currentCropStreamer = '';
+        var currentCropMode = 'split'; // 'split' oder 'single_916'
+        var videoNativeWidth = 1920;
+        var videoNativeHeight = 1080;
+        var cropState = {
             cam: { x: 0.73, y: 0.64, w: 0.26, h: 0.34, enabled: true },
             game: { x: 0.245, y: 0.0, w: 0.51, h: 1.0, enabled: true },
             single: { x: (1 - (608 / 1920)) / 2, y: 0.0, w: 608 / 1920, h: 1.0, enabled: true }
         };
-        let activeCropDrag = null;
-        let cropVideoInitialized = false;
+        var activeCropDrag = null;
+        var cropVideoInitialized = false;
 
         function switchCropMode(mode) {
             currentCropMode = mode;
@@ -1695,7 +1696,7 @@ async function downloadRawVideo(clipId, btn, evt) {
         }
         window.toggleCamEnabled = toggleCamEnabled;
 
-        let cropFallbackImg = new Image();
+        var cropFallbackImg = new Image();
 
         async function openCropModal(clipId, streamer, title) {
             currentCropClipId = clipId;
