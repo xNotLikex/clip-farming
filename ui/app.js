@@ -288,47 +288,49 @@ async function deleteOlderQueue() {
 // ----------------------------------------
 // 2. STUDIO & FREIGABE
 // ----------------------------------------
-function renderStudio(clips, streamerCounts, forceRender = false) {
-    const grid = document.getElementById('studio-grid');
-    const emptyState = document.getElementById('studio-empty-state');
-    const pillsContainer = document.getElementById('streamer-pills-container');
+let gActiveStudioStreamerFilter = 'all';
+let gLastStudioPillsSig = '';
 
-    // Nutzer tippt gerade in einer Studio-Karte (z. B. Untertiteltext) -> DOM nicht überschreiben
-    if (!forceRender && grid && document.activeElement && grid.contains(document.activeElement)) {
-        const tag = document.activeElement.tagName;
+function getStudioCardSignature(clip) {
+    return JSON.stringify([
+        clip.clip_id,
+        clip.updated_at || '',
+        Boolean(clip.has_video),
+        Boolean(clip.is_manually_published),
+        clip.sticker_text || '',
+        clip.title || '',
+        clip.sub_position || '',
+        clip.layout_mode || '',
+        clip.cam_filter || '',
+        clip.transcript || '',
+        clip.view_count || 0,
+        clip.streamer || '',
+        clip.created_ago || '',
+        clip.created_full || ''
+    ]);
+}
+
+function isStudioCardBusy(cardEl) {
+    if (!cardEl) return false;
+    const active = document.activeElement;
+    if (active && cardEl.contains(active)) {
+        const tag = active.tagName;
         if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') {
-            return;
+            return true;
         }
     }
-
-    // Render Streamer Filter Pills
-    if (pillsContainer && streamerCounts) {
-        const totalCount = clips ? clips.length : 0;
-        let pillsHtml = `
-            <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 text-white transition shadow">
-                Alle (${totalCount})
-            </button>
-        `;
-        for (const [stName, count] of Object.entries(streamerCounts)) {
-            pillsHtml += `
-                <button onclick="filterStudioByStreamer('${stName.toLowerCase()}')" id="pill-${stName.toLowerCase()}" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-                    ${stName} (${count})
-                </button>
-            `;
-        }
-        pillsContainer.innerHTML = pillsHtml;
+    const video = cardEl.querySelector('video');
+    if (video && ((!video.paused && !video.ended) || (video.currentTime > 0 && !video.ended))) {
+        return true;
     }
+    return false;
+}
 
-    if (!clips || clips.length === 0) {
-        if (grid) grid.innerHTML = '';
-        if (emptyState) emptyState.classList.remove('hidden');
-        return;
-    }
-    if (emptyState) emptyState.classList.add('hidden');
-
-    if (!grid) return;
-    grid.innerHTML = clips.map(clip => `
-        <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-700 transition-all duration-300 studio-clip-card ${clip.is_manually_published ? 'opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90' : ''}" id="card-${clip.clip_id}" data-streamer="${escapeHtml(clip.streamer.toLowerCase())}">
+function buildStudioCardHtml(clip, cardSig) {
+    const cacheBust = encodeURIComponent(String(clip.updated_at || '1'));
+    const sigAttr = escapeHtml(cardSig || getStudioCardSignature(clip));
+    return `
+        <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-700 transition-all duration-300 studio-clip-card ${clip.is_manually_published ? 'opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90' : ''}" id="card-${clip.clip_id}" data-streamer="${escapeHtml(clip.streamer.toLowerCase())}" data-card-sig="${sigAttr}">
             <!-- Header -->
             <div class="flex justify-between items-center bg-slate-950/90 px-4 py-2.5 border-b border-slate-800">
                 <div class="flex items-center gap-2">
@@ -352,8 +354,8 @@ function renderStudio(clips, streamerCounts, forceRender = false) {
             <!-- Video Player -->
             <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                 ${clip.has_video ? `
-                <video id="studio-video-${clip.clip_id}" controls preload="metadata" poster="${getBackendUrl('/thumbnail/' + clip.clip_id + '?v=' + (clip.updated_at || Date.now()))}" class="w-full h-full object-contain">
-                    <source src="${getBackendUrl('/video/' + clip.clip_id + '?v=' + (clip.updated_at || Date.now()))}" type="video/mp4">
+                <video id="studio-video-${clip.clip_id}" controls preload="metadata" poster="${getBackendUrl('/thumbnail/' + clip.clip_id + '?v=' + cacheBust)}" class="w-full h-full object-contain">
+                    <source src="${getBackendUrl('/video/' + clip.clip_id + '?v=' + cacheBust)}" type="video/mp4">
                 </video>
                 ` : `
                 <div class="text-center p-6 text-slate-500">
@@ -464,7 +466,101 @@ function renderStudio(clips, streamerCounts, forceRender = false) {
                 </div>
             </form>
         </div>
-    `).join('');
+    `;
+}
+
+function renderStudio(clips, streamerCounts, forceRender = false) {
+    const grid = document.getElementById('studio-grid');
+    const emptyState = document.getElementById('studio-empty-state');
+    const pillsContainer = document.getElementById('streamer-pills-container');
+
+    // Nutzer tippt gerade in einer Studio-Karte -> bei aktivem Formularfokus nicht global eingreifen
+    if (!forceRender && grid && document.activeElement && grid.contains(document.activeElement)) {
+        const tag = document.activeElement.tagName;
+        if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') {
+            return;
+        }
+    }
+
+    // Streamer Filter Pills nur bei tatsächlicher Änderung neu aufbauen
+    if (pillsContainer && streamerCounts) {
+        const totalCount = clips ? clips.length : 0;
+        const pillsSig = JSON.stringify({ totalCount, streamerCounts });
+        if (forceRender || pillsSig !== gLastStudioPillsSig) {
+            gLastStudioPillsSig = pillsSig;
+            let pillsHtml = `
+                <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                    Alle (${totalCount})
+                </button>
+            `;
+            for (const [stName, count] of Object.entries(streamerCounts)) {
+                pillsHtml += `
+                    <button onclick="filterStudioByStreamer('${stName.toLowerCase()}')" id="pill-${stName.toLowerCase()}" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                        ${stName} (${count})
+                    </button>
+                `;
+            }
+            pillsContainer.innerHTML = pillsHtml;
+            filterStudioByStreamer(gActiveStudioStreamerFilter || 'all');
+        }
+    }
+
+    if (!clips || clips.length === 0) {
+        if (grid) grid.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+    }
+    if (emptyState) emptyState.classList.add('hidden');
+    if (!grid) return;
+
+    const targetIds = new Set(clips.map(c => c.clip_id));
+    Array.from(grid.children).forEach(child => {
+        if (child.id && child.id.startsWith('card-')) {
+            const cid = child.id.slice(5);
+            if (!targetIds.has(cid) && (forceRender || !isStudioCardBusy(child))) {
+                child.remove();
+            }
+        }
+    });
+
+    const temp = document.createElement('div');
+    let domMutated = false;
+
+    clips.forEach((clip, idx) => {
+        const cardSig = getStudioCardSignature(clip);
+        const existingCard = document.getElementById('card-' + clip.clip_id);
+
+        if (existingCard) {
+            const busy = isStudioCardBusy(existingCard);
+            const sameSig = existingCard.getAttribute('data-card-sig') === cardSig;
+            if (busy || (!forceRender && sameSig)) {
+                // Laufende Video-Wiedergabe oder unveränderte Karte niemals zerstören!
+                return;
+            }
+            if (forceRender && sameSig) {
+                return;
+            }
+            temp.innerHTML = buildStudioCardHtml(clip, cardSig).trim();
+            const newCard = temp.firstElementChild;
+            if (newCard) {
+                existingCard.replaceWith(newCard);
+                domMutated = true;
+            }
+            return;
+        }
+
+        temp.innerHTML = buildStudioCardHtml(clip, cardSig).trim();
+        const newCard = temp.firstElementChild;
+        if (!newCard) return;
+
+        const refNode = grid.children[idx] || null;
+        grid.insertBefore(newCard, refNode);
+        domMutated = true;
+    });
+
+    if (domMutated && gActiveStudioStreamerFilter && gActiveStudioStreamerFilter !== 'all') {
+        filterStudioByStreamer(gActiveStudioStreamerFilter);
+    }
 }
 
 async function scheduleSingleClip(clipId) {
@@ -1208,19 +1304,20 @@ if (document.readyState === 'loading') {
         }
 
         function filterStudioByStreamer(streamerName) {
+            gActiveStudioStreamerFilter = streamerName || 'all';
             document.querySelectorAll('.streamer-pill').forEach(btn => {
-                btn.classList.remove('active', 'bg-amber-500', 'text-zinc-950', 'text-white');
+                btn.classList.remove('active', 'bg-amber-500', 'text-zinc-950', 'text-white', 'shadow');
                 btn.classList.add('bg-slate-800', 'text-slate-300');
             });
             
-            const activePill = document.getElementById('pill-' + streamerName);
+            const activePill = document.getElementById('pill-' + gActiveStudioStreamerFilter) || document.getElementById('pill-all');
             if (activePill) {
                 activePill.classList.remove('bg-slate-800', 'text-slate-300');
-                activePill.classList.add('active', 'bg-amber-500', 'text-zinc-950');
+                activePill.classList.add('active', 'bg-amber-500', 'text-zinc-950', 'shadow');
             }
 
             document.querySelectorAll('.studio-clip-card').forEach(card => {
-                if (streamerName === 'all' || card.getAttribute('data-streamer') === streamerName) {
+                if (gActiveStudioStreamerFilter === 'all' || card.getAttribute('data-streamer') === gActiveStudioStreamerFilter) {
                     card.classList.remove('hidden');
                 } else {
                     card.classList.add('hidden');
