@@ -37,5 +37,7 @@ config/oauth_token.json
 scratch*
 scratch/
 .system_generated/
+.cursor/
+ANTI_SLOP_RULES.md
 dist/
 *.zip
