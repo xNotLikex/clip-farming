@@ -116,6 +116,122 @@ class TwitchClipHarvester:
             print(f"[!] GQL-Fehler bei Kanal {channel_name}: {e}")
             return []
 
+    def search_channel_clips_detailed(self, channel_name: str, time_filter: str = "LAST_DAY", limit: int = 24) -> Dict[str, Any]:
+        """
+        Manuelle Studio-Suche: Holt Clips eines beliebigen Streamers inkl. Thumbnail, Spiel-Kategorie
+        und Streamer-Profilbild für das gewählte Zeitfenster (LAST_DAY, LAST_WEEK, LAST_MONTH, ALL_TIME).
+        """
+        allowed_filters = {"LAST_DAY", "LAST_WEEK", "LAST_MONTH", "ALL_TIME", "TRENDING"}
+        tf = (time_filter or "LAST_DAY").strip().upper()
+        if tf not in allowed_filters:
+            tf = "LAST_WEEK"
+
+        login_clean = (channel_name or "").strip().lower().lstrip("@")
+        if not login_clean:
+            return {"success": False, "error": "Bitte einen Streamer-Namen eingeben.", "clips": []}
+
+        # Twitch URLs wie twitch.tv/eliasn97 automatisch auf Login kürzen
+        if "twitch.tv/" in login_clean:
+            login_clean = login_clean.split("twitch.tv/")[-1].split("/")[0].split("?")[0]
+
+        safe_limit = max(1, min(50, int(limit or 24)))
+        headers = {"Client-ID": TWITCH_GQL_CLIENT_ID}
+        query = f"""
+        query($login: String!, $limit: Int!) {{
+            user(login: $login) {{
+                id
+                login
+                displayName
+                profileImageURL(width: 70)
+                clips(first: $limit, criteria: {{ filter: {tf} }}) {{
+                    edges {{
+                        node {{
+                            id
+                            slug
+                            title
+                            viewCount
+                            durationSeconds
+                            createdAt
+                            url
+                            thumbnailURL
+                            game {{
+                                name
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+        """
+        payload = {
+            "query": query,
+            "variables": {"login": login_clean, "limit": safe_limit}
+        }
+
+        last_err = None
+        for attempt in range(2):
+            try:
+                resp = requests.post(TWITCH_GQL_URL, json=payload, headers=headers, timeout=12)
+                if resp.status_code != 200:
+                    last_err = f"Twitch API HTTP {resp.status_code}"
+                    time.sleep(0.4)
+                    continue
+
+                data = resp.json()
+                if data.get("errors"):
+                    # Bei transienten Twitch 'service error' einen Retry ausführen
+                    last_err = data["errors"][0].get("message", "Twitch GQL Fehler")
+                    if attempt == 0:
+                        time.sleep(0.5)
+                        continue
+
+                user_data = (data.get("data") or {}).get("user")
+                if not user_data:
+                    return {
+                        "success": False,
+                        "error": f"Streamer '{login_clean}' wurde auf Twitch nicht gefunden.",
+                        "clips": []
+                    }
+
+                edges = ((user_data.get("clips") or {}).get("edges") or [])
+                clips = []
+                for edge in edges:
+                    node = edge.get("node") or {}
+                    slug = node.get("slug") or node.get("id")
+                    if not slug:
+                        continue
+                    game_obj = node.get("game") or {}
+                    clips.append({
+                        "clip_id": slug,
+                        "streamer": user_data.get("login") or login_clean,
+                        "display_name": user_data.get("displayName") or login_clean,
+                        "platform": "twitch",
+                        "title": node.get("title") or "Clip",
+                        "url": node.get("url") or f"https://clips.twitch.tv/{slug}",
+                        "thumbnail_url": node.get("thumbnailURL") or "",
+                        "game": game_obj.get("name") or "",
+                        "view_count": int(node.get("viewCount") or 0),
+                        "duration": float(node.get("durationSeconds") or 30.0),
+                        "created_at": node.get("createdAt")
+                    })
+
+                clips.sort(key=lambda x: x["view_count"], reverse=True)
+                return {
+                    "success": True,
+                    "streamer": {
+                        "login": user_data.get("login") or login_clean,
+                        "display_name": user_data.get("displayName") or login_clean,
+                        "avatar_url": user_data.get("profileImageURL") or ""
+                    },
+                    "time_filter": tf,
+                    "clips": clips
+                }
+            except Exception as e:
+                last_err = str(e)
+                time.sleep(0.4)
+
+        return {"success": False, "error": f"Fehler bei der Twitch-Suche: {last_err}", "clips": []}
+
     def fetch_clips_helix(self, channel_name: str, hours_back: int = 24, time_filter: str = "LAST_DAY") -> List[Dict[str, Any]]:
         """Holt Clips über die offizielle Twitch Helix API mit dynamischem Zeitfenster."""
         token = self._get_app_access_token()

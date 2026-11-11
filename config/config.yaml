@@ -158,7 +158,38 @@ streamers:
   enabled: true
   min_clip_views: 25
   max_clips_per_run: 2
-  layout: auto
+  layout: custom
+  custom_crops:
+    mode: split
+    cam:
+      enabled: true
+      x: 1458
+      y: 772
+      w: 462
+      h: 308
+      x_pct: 0.7592604814485764
+      y_pct: 0.7146790891242387
+      w_pct: 0.24073951855142364
+      h_pct: 0.28532091087576134
+    game:
+      enabled: true
+      x: 482
+      y: 0
+      w: 979
+      h: 1080
+      x_pct: 0.2508304776409866
+      y_pct: 0
+      w_pct: 0.51
+      h_pct: 1
+    single:
+      x: 653
+      y: 0
+      w: 608
+      h: 1080
+      x_pct: 0.34
+      y_pct: 0
+      w_pct: 0.31666666666666665
+      h_pct: 1
 twitch:
   client_id: ''
   client_secret: ''

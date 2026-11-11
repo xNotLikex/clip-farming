@@ -75,8 +75,8 @@ class StatusManager:
             state = self.get_state()
             state["status"] = status
             state["current_task"] = task_desc
-            # is_running darf NUR bei tatsächlich aktiven Hintergrund-Jobs True sein (nicht bei idle oder error)
-            state["is_running"] = status in ("harvesting", "processing", "rendering")
+            # is_running darf bei idle oder error nicht True sein; alle aktiven Phasen sind True
+            state["is_running"] = status not in ("idle", "error")
             if clip_title:
                 state["current_clip"] = clip_title
             if streamer:

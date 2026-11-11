@@ -3100,6 +3100,239 @@ async function downloadRawVideo(clipId, btn, evt) {
     }
 }
 
+// ==========================================
+// MANUELLE STREAMER-CLIP-SUCHE & IMPORT
+// ==========================================
+let gManualSearchTimeframe = 'LAST_DAY';
+let gManualSearchClips = [];
+
+function formatClipDuration(sec) {
+    const s = Math.max(0, Math.round(Number(sec) || 0));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+}
+
+function getDbStatusBadgeHtml(dbStatus) {
+    if (!dbStatus || dbStatus === 'deleted' || dbStatus === 'failed') return '';
+    const map = {
+        harvested: { label: 'In Warteschlange', cls: 'bg-sky-500/20 text-sky-300 border-sky-500/40' },
+        ready: { label: 'Bereits im Studio', cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' },
+        scheduled: { label: 'Eingeplant', cls: 'bg-purple-500/20 text-purple-300 border-purple-500/40' },
+        published: { label: 'Veröffentlicht', cls: 'bg-amber-500/20 text-amber-300 border-amber-500/40' }
+    };
+    const info = map[dbStatus];
+    if (!info) return '';
+    return `<span class="text-[10px] font-bold px-2 py-0.5 rounded border ${info.cls}">${info.label}</span>`;
+}
+
+function selectManualTimeframe(tf) {
+    gManualSearchTimeframe = tf || 'LAST_DAY';
+    document.querySelectorAll('.manual-tf-btn').forEach(btn => {
+        const isActive = btn.dataset.tf === gManualSearchTimeframe;
+        if (isActive) {
+            btn.className = 'manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-zinc-950 transition';
+        } else {
+            btn.className = 'manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition';
+        }
+    });
+    const input = document.getElementById('manual-search-streamer');
+    if (input && input.value.trim()) {
+        searchManualStreamerClips();
+    }
+}
+
+function closeManualSearchResults() {
+    const box = document.getElementById('manual-search-results');
+    if (box) box.classList.add('hidden');
+}
+
+async function searchManualStreamerClips() {
+    const input = document.getElementById('manual-search-streamer');
+    const btn = document.getElementById('btn-manual-search');
+    const resultsBox = document.getElementById('manual-search-results');
+    const infoEl = document.getElementById('manual-search-streamer-info');
+    const grid = document.getElementById('manual-search-grid');
+
+    const streamer = input ? input.value.trim() : '';
+    if (!streamer) {
+        showToast('Bitte zuerst einen Twitch Streamer-Namen eingeben.', 'error');
+        if (input) input.focus();
+        return;
+    }
+
+    const origBtnHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin"></span><span>Suche...</span>';
+    }
+
+    try {
+        const url = `/api/twitch/search-clips?streamer=${encodeURIComponent(streamer)}&timeframe=${encodeURIComponent(gManualSearchTimeframe)}&limit=24`;
+        const res = await apiFetch(url, { method: 'GET' });
+        const data = await res.json();
+
+        if (!data || !data.success) {
+            showToast(data?.error || 'Suche fehlgeschlagen.', 'error');
+            if (resultsBox && grid) {
+                resultsBox.classList.remove('hidden');
+                if (infoEl) infoEl.innerHTML = `<span class="text-xs font-semibold text-rose-400">${escapeHtml(data?.error || 'Kein Streamer gefunden')}</span>`;
+                grid.innerHTML = '';
+            }
+            return;
+        }
+
+        const st = data.streamer || {};
+        gManualSearchClips = data.clips || [];
+
+        if (resultsBox) resultsBox.classList.remove('hidden');
+
+        const tfLabels = {
+            LAST_DAY: 'Letzte 24h',
+            LAST_WEEK: 'Letzte 7 Tage',
+            LAST_MONTH: 'Letzte 30 Tage',
+            ALL_TIME: 'Alle Zeiten'
+        };
+        const tfLabel = tfLabels[data.time_filter] || data.time_filter;
+
+        if (infoEl) {
+            const avatarHtml = st.avatar_url
+                ? `<img src="${escapeHtml(st.avatar_url)}" alt="" class="w-7 h-7 rounded-full border border-slate-700 object-cover">`
+                : '';
+            infoEl.innerHTML = `
+                ${avatarHtml}
+                <div>
+                    <span class="text-xs font-bold text-white">${escapeHtml(st.display_name || st.login || streamer)}</span>
+                    <span class="text-[11px] text-slate-400 ml-2">${gManualSearchClips.length} Clips gefunden (${escapeHtml(tfLabel)})</span>
+                </div>
+            `;
+        }
+
+        if (!grid) return;
+        if (gManualSearchClips.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full py-8 text-center text-xs text-slate-400 bg-slate-950/50 rounded-lg border border-slate-800/80">
+                    Keine Clips für <strong>${escapeHtml(st.display_name || streamer)}</strong> im Zeitfenster <strong>${escapeHtml(tfLabel)}</strong> gefunden. Probiere ein größeres Zeitfenster (z. B. 7 Tage oder 30 Tage).
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = gManualSearchClips.map((c, idx) => {
+            const statusBadge = getDbStatusBadgeHtml(c.db_status);
+            const thumbUrl = c.thumbnail_url ? escapeHtml(c.thumbnail_url) : '';
+            const viewsFormatted = Number(c.view_count || 0).toLocaleString('de-DE');
+            const alreadyInStudio = c.db_status === 'ready';
+            return `
+                <div class="bg-slate-950/90 border border-slate-800 hover:border-amber-500/40 rounded-lg overflow-hidden flex flex-col transition">
+                    <div class="relative aspect-video bg-black overflow-hidden group">
+                        ${thumbUrl
+                            ? `<img src="${thumbUrl}" alt="${escapeHtml(c.title)}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">`
+                            : `<div class="w-full h-full flex items-center justify-center text-slate-600 text-xs">Kein Vorschaubild</div>`
+                        }
+                        <div class="absolute top-2 left-2 bg-black/75 backdrop-blur-sm px-2 py-0.5 rounded text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                            ${SVG_ICONS.eye} ${viewsFormatted}
+                        </div>
+                        <div class="absolute top-2 right-2 bg-black/75 backdrop-blur-sm px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold text-white">
+                            ${formatClipDuration(c.duration)}
+                        </div>
+                        ${c.game ? `<div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-medium text-slate-200 max-w-[85%] truncate">${escapeHtml(c.game)}</div>` : ''}
+                    </div>
+                    <div class="p-3 flex flex-col flex-1 justify-between gap-3">
+                        <div>
+                            <div class="text-xs font-bold text-slate-100 line-clamp-2 leading-snug" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>
+                            <div class="flex items-center justify-between gap-2 mt-1.5">
+                                <span class="text-[11px] text-slate-400" title="${escapeHtml(c.created_full || '')}">${escapeHtml(c.created_ago || '')}</span>
+                                <span id="manual-clip-badge-${idx}">${statusBadge}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 pt-2 border-t border-slate-800/80">
+                            <button type="button" onclick="importTwitchClipToStudio(${idx}, 'studio', this)"
+                                class="flex-1 py-1.5 px-2.5 ${alreadyInStudio ? 'bg-slate-800 hover:bg-amber-500 hover:text-zinc-950 text-slate-300' : 'bg-amber-500 hover:bg-amber-400 text-zinc-950'} font-bold text-[11px] rounded transition flex items-center justify-center gap-1">
+                                ${SVG_ICONS.scissors} <span>${alreadyInStudio ? 'Neu ins Studio' : 'Ins Studio importieren'}</span>
+                            </button>
+                            <button type="button" onclick="importTwitchClipToStudio(${idx}, 'queue', this)" title="Clip zuerst in Warteschlange laden"
+                                class="py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-[11px] rounded border border-slate-700 transition">
+                                + Queue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        showToast('Fehler bei der Twitch-Suche: ' + e, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origBtnHtml;
+        }
+    }
+}
+
+async function importTwitchClipToStudio(index, mode, btn) {
+    const clip = gManualSearchClips[index];
+    if (!clip) return;
+
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span> <span>Lädt...</span>';
+    }
+
+    try {
+        const res = await apiFetch('/api/twitch/import-clip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clip_id: clip.clip_id,
+                streamer: clip.streamer,
+                title: clip.title,
+                url: clip.url,
+                view_count: clip.view_count,
+                duration: clip.duration,
+                created_at: clip.created_at,
+                mode: mode || 'studio'
+            })
+        });
+        const data = await res.json();
+        if (!data || !data.success) {
+            showToast(data?.error || 'Import fehlgeschlagen.', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+            return;
+        }
+
+        const badgeEl = document.getElementById(`manual-clip-badge-${index}`);
+        if (mode === 'queue') {
+            clip.db_status = 'harvested';
+            if (badgeEl) badgeEl.innerHTML = getDbStatusBadgeHtml('harvested');
+            showToast(`✓ "${clip.title}" in Warteschlange importiert!`, 'success');
+            if (btn) {
+                btn.innerHTML = '✓ Queue';
+                btn.disabled = false;
+            }
+            refreshDashboard();
+        } else {
+            showToast(`✂️ Studio-Import für "${clip.title}" gestartet (Transkription & 9:16 Schnitt läuft)...`, 'success');
+            if (badgeEl) badgeEl.innerHTML = '<span class="text-[10px] font-bold px-2 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">Wird gerendert...</span>';
+            if (btn) {
+                btn.innerHTML = '✓ Gestartet';
+                btn.disabled = false;
+            }
+            updateStatus();
+        }
+    } catch (e) {
+        showToast('Fehler beim Importieren: ' + e, 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+}
+
 // Global Form Interceptor for SPA
         document.addEventListener('submit', async (e) => {
             const form = e.target;
@@ -3184,6 +3417,10 @@ async function downloadRawVideo(clipId, btn, evt) {
         window.detectFacecamInCropModal = detectFacecamInCropModal;
         window.refreshDashboard = refreshDashboard;
         window.updateStatus = updateStatus;
+        window.selectManualTimeframe = selectManualTimeframe;
+        window.searchManualStreamerClips = searchManualStreamerClips;
+        window.closeManualSearchResults = closeManualSearchResults;
+        window.importTwitchClipToStudio = importTwitchClipToStudio;
 
         window.addEventListener('error', (e) => {
             console.error('GLOBAL JS ERROR:', e.message, e.filename, e.lineno);

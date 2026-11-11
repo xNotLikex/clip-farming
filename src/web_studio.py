@@ -204,12 +204,16 @@ def process_single_clip(clip_id: str, sub_position: str = "bottom", sticker_text
         status_manager.reset_progress()
 
         if rendered_path and rendered_path.exists():
+            try:
+                generate_thumbnail(clip_id, force=True)
+            except Exception:
+                pass
             update_clip_status(clip_id, "ready", rendered_path=str(rendered_path), ai_title=metadata.get("title"))
             status_manager.set_task("idle", f"Clip '{orig_title}' fertig ins Studio übertragen.")
             return True
     except Exception as e:
         status_manager.reset_progress()
-        status_manager.log(f"Fehler bei Clip {clip_id}: {e}")
+        status_manager.set_task("error", f"Fehler bei Clip {clip_id}: {e}")
         update_clip_status(clip_id, "failed", error_log=str(e))
     return False
 
@@ -1817,6 +1821,53 @@ HTML_DASHBOARD = """
 
         <!-- TAB 2: STUDIO & FREIGABE -->
         <div id="tab-studio" class="tab-content hidden space-y-6">
+            <!-- Manuelle Streamer-Suche & Clip-Explorer -->
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 shadow-xl space-y-4">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            Twitch Clip-Explorer (Manuelle Streamer-Suche)
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Durchsuche beliebige Twitch-Streamer nach Zeitfenster und importiere Wunsch-Clips direkt ins Studio.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative">
+                            <input type="text" id="manual-search-streamer" list="manual-search-datalist"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault(); searchManualStreamerClips();}"
+                                placeholder="Streamer-Name (z. B. eliasn97)..."
+                                class="w-56 sm:w-64 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition">
+                            <datalist id="manual-search-datalist">
+                                {% for s in streamers %}
+                                <option value="{{ s.name }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="inline-flex rounded-lg bg-slate-950 border border-slate-800 p-0.5" role="group" aria-label="Zeitfenster">
+                            <button type="button" onclick="selectManualTimeframe('LAST_DAY')" id="manual-tf-LAST_DAY" data-tf="LAST_DAY" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-zinc-950 transition">24h</button>
+                            <button type="button" onclick="selectManualTimeframe('LAST_WEEK')" id="manual-tf-LAST_WEEK" data-tf="LAST_WEEK" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">7 Tage</button>
+                            <button type="button" onclick="selectManualTimeframe('LAST_MONTH')" id="manual-tf-LAST_MONTH" data-tf="LAST_MONTH" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">30 Tage</button>
+                            <button type="button" onclick="selectManualTimeframe('ALL_TIME')" id="manual-tf-ALL_TIME" data-tf="ALL_TIME" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">All-Time</button>
+                        </div>
+                        <button type="button" id="btn-manual-search" onclick="searchManualStreamerClips()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Clips suchen</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Suchergebnisse -->
+                <div id="manual-search-results" class="hidden pt-3 border-t border-slate-800/80 space-y-3">
+                    <div id="manual-search-header" class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 px-3.5 py-2.5 rounded-lg border border-slate-800/80">
+                        <div class="flex items-center gap-2.5" id="manual-search-streamer-info"></div>
+                        <button type="button" onclick="closeManualSearchResults()" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 transition">
+                            ✕ Ergebnisse schließen
+                        </button>
+                    </div>
+                    <div id="manual-search-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                </div>
+            </div>
+
             {% if ready_clips %}
             <!-- Sammel-Aktionen Header -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 p-4 rounded-lg gap-3">
@@ -4495,6 +4546,138 @@ def settings_route():
             return jsonify({"success": True, "message": "Einstellungen gespeichert."})
         return jsonify({"success": False, "error": "Konnte Einstellungen nicht speichern"}), 500
     return jsonify(get_autopilot_settings())
+
+# ==================== MANUELLE STREAMER-CLIP-SUCHE & IMPORT ====================
+
+@app.route("/api/twitch/search-clips", methods=["GET"])
+def api_twitch_search_clips():
+    """Sucht manuell Clips eines beliebigen Twitch-Streamers im gewünschten Zeitfenster."""
+    streamer = (request.args.get("streamer") or request.args.get("q") or "").strip()
+    timeframe = (request.args.get("timeframe") or "LAST_DAY").strip().upper()
+    try:
+        limit = int(request.args.get("limit", 24))
+    except (ValueError, TypeError):
+        limit = 24
+
+    if not streamer:
+        return jsonify({"success": False, "error": "Bitte einen Streamer-Namen eingeben.", "clips": []}), 400
+
+    from src.harvesters.twitch_clips import TwitchClipHarvester
+    harvester = TwitchClipHarvester()
+    result = harvester.search_channel_clips_detailed(streamer, time_filter=timeframe, limit=limit)
+    if not result.get("success"):
+        return jsonify(result), 404 if "nicht gefunden" in (result.get("error") or "") else 400
+
+    clips = result.get("clips", [])
+    if clips:
+        clip_ids = [c["clip_id"] for c in clips]
+        placeholders = ",".join("?" for _ in clip_ids)
+        status_map = {}
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT clip_id, status FROM clips WHERE clip_id IN ({placeholders})", clip_ids)
+            for row in cursor.fetchall():
+                status_map[row["clip_id"]] = row["status"]
+
+        for c in clips:
+            c["db_status"] = status_map.get(c["clip_id"])
+            created_ago, created_full = format_relative_time(c.get("created_at"))
+            c["created_ago"] = created_ago
+            c["created_full"] = created_full
+
+    return jsonify(result)
+
+
+@app.route("/api/twitch/import-clip", methods=["POST"])
+def api_twitch_import_clip():
+    """Lädt einen manuell ausgewählten Twitch-Clip herunter und übernimmt ihn in Studio oder Warteschlange."""
+    data = request.get_json(silent=True) or {}
+    clip_id = (data.get("clip_id") or "").strip()
+    streamer = (data.get("streamer") or "").strip().lower()
+    title = (data.get("title") or "Clip").strip()
+    url = (data.get("url") or "").strip()
+    mode = (data.get("mode") or "studio").strip().lower()
+
+    if not clip_id or not url or not streamer:
+        return jsonify({"success": False, "error": "Clip-Daten (clip_id, streamer, url) sind unvollständig."}), 400
+    if any(ch in clip_id for ch in ("/", "\\", "..")):
+        return jsonify({"success": False, "error": "Ungültige Clip-ID."}), 400
+
+    def _upsert_imported_clip(raw_file_path: Path):
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT clip_id FROM clips WHERE clip_id = ?", (clip_id,))
+            exists = cursor.fetchone() is not None
+            if exists:
+                cursor.execute("""
+                    UPDATE clips
+                    SET status = 'harvested', raw_path = ?, rendered_path = NULL,
+                        error_log = NULL, is_manually_published = 0, harvested_at = ?
+                    WHERE clip_id = ?
+                """, (str(raw_file_path), datetime.now().isoformat(), clip_id))
+            else:
+                cursor.execute("""
+                    INSERT INTO clips (
+                        clip_id, streamer, platform, original_title, url, view_count,
+                        duration, clip_created_at, harvested_at, status, raw_path
+                    ) VALUES (?, ?, 'twitch', ?, ?, ?, ?, ?, ?, 'harvested', ?)
+                """, (
+                    clip_id,
+                    streamer,
+                    title,
+                    url,
+                    int(data.get("view_count") or 0),
+                    float(data.get("duration") or 30.0),
+                    data.get("created_at"),
+                    datetime.now().isoformat(),
+                    str(raw_file_path)
+                ))
+            conn.commit()
+
+    if mode == "queue":
+        try:
+            from src.harvesters.twitch_clips import TwitchClipHarvester
+            harvester = TwitchClipHarvester()
+            raw_path = harvester.download_clip(url, clip_id)
+            if not raw_path or not raw_path.exists():
+                return jsonify({"success": False, "error": "Clip-Download fehlgeschlagen."}), 500
+            _upsert_imported_clip(raw_path)
+            status_manager.log(f"📥 Clip '{title}' ({streamer}) manuell in Warteschlange importiert.")
+            return jsonify({"success": True, "mode": "queue", "message": f"'{title}' in Warteschlange importiert!"})
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Import fehlgeschlagen: {e}"}), 500
+
+    # Direkt ins Studio importieren (Download + Transkription + Untertitel + 9:16 Render)
+    with _WORKER_LOCK:
+        if status_manager.get_state().get("is_running", False):
+            return jsonify({
+                "success": False,
+                "error": "Pipeline arbeitet gerade noch an einem anderen Clip. Bitte kurz warten oder '+ Queue' nutzen."
+            }), 409
+        status_manager.set_task("processing", f"Lade Clip '{title}' für Studio-Import...", clip_title=title, streamer=streamer)
+
+    def studio_import_worker():
+        try:
+            from src.harvesters.twitch_clips import TwitchClipHarvester
+            harvester = TwitchClipHarvester()
+            raw_path = harvester.download_clip(url, clip_id)
+            if not raw_path or not raw_path.exists():
+                status_manager.set_task("error", f"Download fehlgeschlagen für '{title}'.")
+                return
+
+            _upsert_imported_clip(raw_path)
+            process_single_clip(clip_id)
+        except Exception as e:
+            status_manager.reset_progress()
+            status_manager.set_task("error", f"Fehler beim Studio-Import von '{title}': {e}")
+
+    t = threading.Thread(target=studio_import_worker, daemon=True)
+    t.start()
+    return jsonify({
+        "success": True,
+        "mode": "studio",
+        "message": f"Import & 9:16 Rendering für '{title}' gestartet..."
+    })
 
 # ==================== VISUELLER ZUSCHNITT (CROP) ENDPOINTS ====================
 
