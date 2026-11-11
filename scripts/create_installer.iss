@@ -2,7 +2,7 @@
 ; Erstellt einen vollständigen, autarken Windows-Installer mit eingebetteter Python-Runtime & FFmpeg
 
 #define MyAppName "Clip Farming Studio"
-#define MyAppVersion "0.1.1"
+#define MyAppVersion "0.1.2"
 #define MyAppPublisher "NotLike"
 #define MyAppExeName "clip-farming.exe"
 
@@ -11,7 +11,8 @@ AppId={{8B1A2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={localappdata}\Programs\Clip-Farming
+DefaultDirName={code:GetDefaultInstallDir}
+UsePreviousAppDir=yes
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -62,6 +63,9 @@ Name: "{app}\output\shorts"
 Name: "{app}\output\metadata"
 Name: "{app}\data\thumbnails"
 
+[Registry]
+Root: HKCU; Subkey: "Software\NotLike\Clip-Farming"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
+
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
@@ -73,3 +77,21 @@ Filename: "{app}\runtime\python.exe"; Parameters: "-c ""import os; from src.vide
 
 ; App nach Abschluss optional sofort starten
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function GetDefaultInstallDir(Param: String): String;
+var
+  PrevDir: String;
+begin
+  if RegQueryStringValue(HKCU, 'Software\NotLike\Clip-Farming', 'InstallPath', PrevDir) and (PrevDir <> '') and DirExists(PrevDir) then
+  begin
+    Result := PrevDir;
+    Exit;
+  end;
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B1A2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D}_is1', 'InstallLocation', PrevDir) and (PrevDir <> '') and DirExists(PrevDir) then
+  begin
+    Result := PrevDir;
+    Exit;
+  end;
+  Result := ExpandConstant('{localappdata}\Programs\Clip-Farming');
+end;

@@ -122,8 +122,19 @@ def download_and_run_installer(download_url: str) -> Dict[str, Any]:
         if not installer_file.exists() or installer_file.stat().st_size < 1024 * 1024:
             return {"success": False, "error": "Heruntergeladene Datei ist unvollständig"}
 
-        # Starte den Installer
+        # Starte den Installer mit aktuellem Installationspfad
         if sys.platform == "win32":
+            current_install_dir = str(PROJECT_ROOT.resolve())
+            try:
+                import winreg
+                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\NotLike\Clip-Farming") as key:
+                    winreg.SetValueEx(key, "InstallPath", 0, winreg.REG_SZ, current_install_dir)
+            except Exception:
+                pass
+            
+            # Starte Installer mit Zielverzeichnis-Vorgabe
+            subprocess.Popen(f'"{installer_file}" /DIR="{current_install_dir}"')
+        else:
             subprocess.Popen([str(installer_file)])
         
         return {
