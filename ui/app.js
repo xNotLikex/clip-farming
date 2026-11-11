@@ -815,7 +815,8 @@ async function openStreamerConfigModal(streamerName) {
     }
 
     try {
-        const data = await apiFetch('/api/streamers/' + encodeURIComponent(streamerName) + '/config');
+        const resp = await apiFetch('/api/streamers/' + encodeURIComponent(streamerName) + '/config');
+        const data = await resp.json();
         if (data && data.success) {
             const minViewsInput = document.getElementById('cfg-streamer-min-views');
             if (minViewsInput) minViewsInput.value = data.min_clip_views || 25;
@@ -898,18 +899,22 @@ async function loadSampleClipForStreamer() {
     }
 
     try {
-        const data = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
+        const resp = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
             method: 'POST'
         });
+        const data = await resp.json();
         if (data && data.success && data.clip_id) {
             closeStreamerConfigModal();
             closeStreamerModal();
             showToast(`Test-Clip für ${name} bereit! Rahmen anpassen und 'Als Standard für Streamer merken' klicken.`, 'info');
             openCropModal(data.clip_id, name, data.title || ('Test-Clip Vorlage (' + name + ')'));
         } else {
-            alert('Fehler: ' + (data && data.error ? data.error : 'Konnte keinen Clip laden.'));
+            const err = (data && data.error) ? data.error : 'Konnte keinen Clip laden.';
+            showToast('Fehler: ' + err, 'error');
+            alert('Fehler: ' + err);
         }
     } catch (e) {
+        showToast('Fehler beim Laden des Test-Clips: ' + e, 'error');
         alert('Fehler beim Laden des Test-Clips: ' + e);
     } finally {
         if (spinner) spinner.classList.add('hidden');
@@ -925,18 +930,22 @@ async function loadSampleClipDirect(name) {
     if (!name) return;
     showToast(`Lade Test-Clip für ${name} von Twitch herunter...`, 'info');
     try {
-        const data = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
+        const resp = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
             method: 'POST'
         });
+        const data = await resp.json();
         if (data && data.success && data.clip_id) {
             closeStreamerConfigModal();
             closeStreamerModal();
             showToast(`Test-Clip für ${name} geladen! Cam & Gameplay Rahmen jetzt anpassen und 'Als Standard für Streamer merken' klicken.`, 'success');
             openCropModal(data.clip_id, name, data.title || ('Standard-Rahmen Vorlage (' + name + ')'));
         } else {
-            alert('Fehler: ' + (data && data.error ? data.error : 'Konnte keinen Clip laden.'));
+            const err = (data && data.error) ? data.error : 'Konnte keinen Clip laden.';
+            showToast('Fehler: ' + err, 'error');
+            alert('Fehler: ' + err);
         }
     } catch (e) {
+        showToast('Fehler beim Laden des Test-Clips: ' + e, 'error');
         alert('Fehler beim Laden des Test-Clips: ' + e);
     }
 }
@@ -998,7 +1007,8 @@ function closeSettingsModal() {
 
 async function loadSettingsIntoForm() {
     try {
-        const s = await apiFetch('/api/settings');
+        const resp = await apiFetch('/api/settings');
+        const s = await resp.json();
         if (!s) return;
         const form = document.getElementById('settings-form');
         if (!form) return;
@@ -1623,17 +1633,24 @@ async function downloadRawVideo(clipId, btn, evt) {
             updateBoxDom('game');
             updateBoxDom('single');
 
-            // Preload thumbnail into fallback image for instant canvas rendering
-            cropFallbackImg.src = getBackendUrl('/thumbnail/' + clipId);
+            // 1. Preload 16:9 frame into stage image
+            const stageImg = document.getElementById('crop-stage-img');
+            if (stageImg) {
+                stageImg.src = getBackendUrl('/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now());
+                stageImg.onload = () => draw916Preview();
+            }
+
+            // 2. Preload thumbnail into fallback image for instant canvas rendering
+            cropFallbackImg.src = getBackendUrl('/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now());
             cropFallbackImg.onload = () => {
                 draw916Preview();
             };
 
             const vid = document.getElementById('crop-stage-video');
             if (vid) {
-                vid.poster = getBackendUrl('/thumbnail/' + clipId);
+                vid.poster = getBackendUrl('/thumbnail/raw/' + encodeURIComponent(clipId));
                 vid.muted = true;
-                vid.src = getBackendUrl('/raw-video/' + clipId);
+                vid.src = getBackendUrl('/raw-video/' + encodeURIComponent(clipId));
                 vid.onloadedmetadata = () => {
                     try {
                         vid.currentTime = Math.min(0.5, (vid.duration || 1) / 2);
@@ -2984,6 +3001,7 @@ async function downloadRawVideo(clipId, btn, evt) {
         window.loadStreamerConfigIntoForm = openStreamerConfigModal;
         window.__realSaveStreamerConfig = saveStreamerConfig;
         window.__realLoadSampleClipForStreamer = loadSampleClipForStreamer;
+        window.__realLoadSampleClipDirect = loadSampleClipDirect;
         window.__realOpenStreamerConfigModal = openStreamerConfigModal;
         window.openSettingsModal = openSettingsModal;
         window.closeSettingsModal = closeSettingsModal;

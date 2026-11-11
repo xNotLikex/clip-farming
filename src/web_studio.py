@@ -393,10 +393,73 @@ HTML_DASHBOARD = """
             if (window.__realSaveStreamerConfig) return window.__realSaveStreamerConfig(event);
             if (window.saveStreamerConfig && window.saveStreamerConfig !== saveStreamerConfig) return window.saveStreamerConfig(event);
         }
+        function loadSampleClipDirect(name) {
+            if (!name) return;
+            if (window.__realLoadSampleClipDirect) return window.__realLoadSampleClipDirect(name);
+            if (window.showToast) window.showToast('Lade Test-Clip für ' + name + ' von Twitch...', 'info');
+            fetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.clip_id) {
+                        closeStreamerConfigModal();
+                        closeStreamerModal();
+                        if (window.showToast) window.showToast('Test-Clip für ' + name + ' bereit! Rahmen jetzt anpassen.', 'success');
+                        openCropModal(data.clip_id, name, data.title || ('Test-Clip Vorlage (' + name + ')'));
+                    } else {
+                        var err = (data && data.error) ? data.error : 'Konnte keinen Test-Clip laden';
+                        if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                        else alert('Fehler: ' + err);
+                    }
+                })
+                .catch(function(err) {
+                    if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                    else alert('Fehler beim Laden des Test-Clips: ' + err);
+                });
+        }
+        window.loadSampleClipDirect = loadSampleClipDirect;
         function loadSampleClipForStreamer() {
             if (window.__realLoadSampleClipForStreamer) return window.__realLoadSampleClipForStreamer();
-            if (window.loadSampleClipForStreamer && window.loadSampleClipForStreamer !== loadSampleClipForStreamer) return window.loadSampleClipForStreamer();
+            var hiddenName = document.getElementById('cfg-streamer-hidden-name');
+            var name = hiddenName ? hiddenName.value.trim() : '';
+            if (!name) return;
+            var spinner = document.getElementById('btn-sample-spinner');
+            var btnText = document.getElementById('btn-sample-text');
+            var btn = document.getElementById('btn-load-streamer-sample');
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.innerText = 'Lade Test-Clip von Twitch herunter...';
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+            if (window.showToast) window.showToast('Lade Test-Clip für ' + name + '...', 'info');
+            fetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.clip_id) {
+                        closeStreamerConfigModal();
+                        closeStreamerModal();
+                        if (window.showToast) window.showToast('Test-Clip geladen! Rahmen anpassen.', 'success');
+                        openCropModal(data.clip_id, name, data.title || ('Test-Clip Vorlage (' + name + ')'));
+                    } else {
+                        var err = (data && data.error) ? data.error : 'Konnte keinen Clip laden.';
+                        if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                        else alert('Fehler: ' + err);
+                    }
+                })
+                .catch(function(err) {
+                    if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                    else alert('Fehler beim Laden: ' + err);
+                })
+                .finally(function() {
+                    if (spinner) spinner.classList.add('hidden');
+                    if (btnText) btnText.innerText = '🎬 Test-Clip laden & Rahmen visuell einstellen';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                });
         }
+        window.loadSampleClipForStreamer = loadSampleClipForStreamer;
         function openSettingsModal() {
             var m = document.getElementById('settings-modal');
             if (m) {

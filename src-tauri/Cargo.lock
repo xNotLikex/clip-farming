@@ -364,7 +364,7 @@ dependencies = [
 
 [[package]]
 name = "clip-farming"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "chrono",
  "log",
