@@ -1109,12 +1109,7 @@ if (document.readyState === 'loading') {
 
 
         function openStreamerModal() {
-            const m = document.getElementById('streamer-modal');
-            if (m) {
-                m.classList.remove('hidden');
-                m.classList.add('flex');
-                m.style.display = 'flex';
-            }
+            switchTab('streamers');
         }
 
         function closeStreamerModal() {

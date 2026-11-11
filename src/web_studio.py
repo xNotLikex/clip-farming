@@ -3178,7 +3178,7 @@ HTML_DASHBOARD = """
         </div>
     </div>
 
-    <script src="/app.js"></script>
+    <script src="/app.js?v={{ app_version }}"></script>
 </body>
 </html>
 """
@@ -3187,9 +3187,13 @@ HTML_DASHBOARD = """
 @app.route("/app.js")
 def serve_app_js():
     import os
-    from flask import send_file
+    from flask import send_file, make_response
     ui_app_js = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "app.js")
-    return send_file(ui_app_js, mimetype="application/javascript")
+    resp = make_response(send_file(ui_app_js, mimetype="application/javascript"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 def get_dashboard_dict():
     with get_db_connection() as conn:
