@@ -1,228 +1,459 @@
 <!DOCTYPE html>
-<html lang="de" class="dark">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clip Farming Studio - Erst-Einrichtung</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             background-color: #080c14;
-            color: #f8fafc;
+            color: #f1f5f9;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
             overflow-x: hidden;
+            padding: 24px;
         }
-        .glow-amber {
-            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+        .container {
+            max-width: 760px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .glow-emerald {
-            box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+        .header { text-align: center; margin-bottom: 24px; }
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 14px;
+            border-radius: 9999px;
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            color: #fbbf24;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
         }
-        .step-pulse {
-            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f59e0b;
+            animation: pulse 1.5s infinite;
         }
-        @keyframes pulse-ring {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .title {
+            font-size: 32px;
+            font-weight: 900;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: -0.02em;
         }
+        .title span.highlight {
+            color: #f59e0b;
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 8px;
+            max-width: 580px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.5;
+        }
+        .card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+        .gpu-title-box { display: flex; align-items: center; gap: 12px; }
+        .gpu-title-icon { font-size: 24px; }
+        .gpu-tag { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
+        .gpu-name-text { font-size: 16px; font-weight: 800; color: #ffffff; margin-top: 2px; }
+        .encoder-tag {
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            font-weight: 800;
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+        }
+        .encoder-nvenc { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
+        .encoder-amf { background: rgba(244, 63, 94, 0.15); color: #fb7185; border-color: rgba(244, 63, 94, 0.4); }
+        .encoder-qsv { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border-color: rgba(14, 165, 233, 0.4); }
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 640px) { .specs-grid { grid-template-columns: 1fr; } }
+        .spec-box {
+            background: #090e1a;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .spec-label { font-size: 11px; color: #64748b; font-weight: 600; }
+        .spec-value { font-size: 13px; font-weight: 800; color: #f1f5f9; margin-top: 4px; }
+        .spec-value.green { color: #10b981; }
+        .spec-value.amber { color: #f59e0b; }
+        .spec-value.blue { color: #38bdf8; }
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: #090e1a;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .item-left { display: flex; align-items: center; gap: 12px; }
+        .item-icon { font-size: 18px; width: 24px; text-align: center; }
+        .item-name { font-size: 13px; font-weight: 700; color: #f8fafc; }
+        .item-desc { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .item-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 6px;
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            font-family: monospace;
+            white-space: nowrap;
+        }
+        .item-badge.done { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
+        .item-badge.running { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); animation: pulse 1s infinite; }
+        .btn-primary {
+            width: 100%;
+            padding: 16px 24px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #0b0f19;
+            font-size: 15px;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.35);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            box-shadow: 0 6px 25px rgba(245, 158, 11, 0.5);
+            transform: translateY(-1px);
+        }
+        .btn-primary:active { transform: translateY(0); }
+        .progress-box {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .progress-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background: #090e1a;
+            border: 1px solid #1e293b;
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            padding: 2px;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #f59e0b, #10b981);
+            border-radius: 9999px;
+            transition: width 0.3s ease;
+        }
+        .console-box {
+            background: #050811;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #94a3b8;
+            max-height: 140px;
+            overflow-y: auto;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+        .success-box {
+            display: none;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .success-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 12px auto;
+        }
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #475569;
+            margin-top: 24px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(245, 158, 11, 0.3);
+            border-top-color: #f59e0b;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-black">
+<body>
 
-    <!-- Background Ambient Glow -->
-    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-amber-500/10 blur-[120px] rounded-full"></div>
-        <div class="absolute -bottom-40 right-10 w-[500px] h-[300px] bg-emerald-500/10 blur-[120px] rounded-full"></div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="relative z-10 max-w-3xl mx-auto w-full px-6 py-10 flex-1 flex flex-col justify-center">
+    <div class="container">
 
         <!-- Header -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-3 tracking-wide uppercase">
-                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-                Erst-Einrichtung & Hardware-Optimierung
+        <div class="header">
+            <div class="badge-pill">
+                <span class="pulse-dot"></span>
+                <span>Erst-Einrichtung & Hardware-Optimierung</span>
             </div>
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight flex items-center justify-center gap-3">
-                <span class="text-4xl">🎬</span>
-                <span>Clip Farming <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200">Studio</span></span>
+            <h1 class="title">
+                <span>🎬 Clip Farming</span>
+                <span class="highlight">Studio</span>
             </h1>
-            <p class="text-slate-400 text-sm sm:text-base mt-2 max-w-lg mx-auto">
+            <p class="subtitle">
                 Willkommen! Deine Umgebung wird für diesen PC vollautomatisch eingerichtet – ohne deine Windows-Konfiguration zu verändern.
             </p>
         </div>
 
-        <!-- Hardware Detection Card -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 mb-6 backdrop-blur shadow-xl">
-            <div class="flex items-center justify-between mb-3 border-b border-slate-800/80 pb-3">
-                <div class="flex items-center gap-2.5">
-                    <span class="text-xl">🖥️</span>
+        <!-- Hardware Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="gpu-title-box">
+                    <span class="gpu-title-icon">🖥️</span>
                     <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">Erkannte Hardware</div>
-                        <div id="gpu-name" class="text-base font-bold text-white flex items-center gap-2">
+                        <div class="gpu-tag">Erkannte Hardware</div>
+                        <div id="gpu-name" class="gpu-name-text">
                             <span>Ermittle Grafikkarte...</span>
-                            <span class="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                            <span class="spinner" style="vertical-align: middle; margin-left: 6px;"></span>
                         </div>
                     </div>
                 </div>
-                <div id="encoder-badge" class="px-3 py-1 bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono font-bold rounded-lg flex items-center gap-1.5">
+                <div id="encoder-badge" class="encoder-tag">
                     <span>⏳ Prüfe...</span>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
-                    <div class="text-slate-400 font-medium">Grafikspeicher (VRAM)</div>
-                    <div id="gpu-vram" class="text-sm font-bold text-emerald-400 mt-0.5">- MB</div>
+            <div class="specs-grid">
+                <div class="spec-box">
+                    <div class="spec-label">Grafikspeicher (VRAM)</div>
+                    <div id="gpu-vram" class="spec-value green">- MB</div>
                 </div>
-                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
-                    <div class="text-slate-400 font-medium">Video-Rendering</div>
-                    <div id="gpu-render" class="text-sm font-bold text-amber-400 mt-0.5">Hardware-Beschleunigt</div>
+                <div class="spec-box">
+                    <div class="spec-label">Video-Rendering</div>
+                    <div id="gpu-render" class="spec-value amber">Hardware-Encoder</div>
                 </div>
-                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
-                    <div class="text-slate-400 font-medium">KI-Untertitel (Whisper)</div>
-                    <div id="whisper-device" class="text-sm font-bold text-sky-400 mt-0.5">Automatisch (CUDA/CPU)</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Checklist of Components -->
-        <div class="bg-slate-900/60 border border-slate-800/90 rounded-2xl p-5 mb-6 backdrop-blur">
-            <div class="text-xs text-slate-400 uppercase tracking-wider font-bold mb-3 flex items-center gap-2">
-                <span>📦</span> Was wird im Programmordner eingerichtet?
-            </div>
-            <div class="space-y-2.5 text-xs sm:text-sm">
-                <div id="chk-py" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                    <div class="flex items-center gap-3">
-                        <span id="icon-py" class="text-base text-amber-400">⚙️</span>
-                        <div>
-                            <div class="font-bold text-slate-200">Portable Python 3.12 Laufzeitumgebung</div>
-                            <div class="text-xs text-slate-400 font-normal">Eigenständig in 'runtime/', kein System-Eingriff</div>
-                        </div>
-                    </div>
-                    <span id="status-py" class="text-xs font-mono font-bold text-slate-400 px-2.5 py-0.5 rounded bg-slate-800/80">Bereit</span>
-                </div>
-
-                <div id="chk-ffmpeg" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                    <div class="flex items-center gap-3">
-                        <span id="icon-ffmpeg" class="text-base text-sky-400">⚡</span>
-                        <div>
-                            <div class="font-bold text-slate-200">FFmpeg 7.x Video-Engine</div>
-                            <div class="text-xs text-slate-400 font-normal">Hardware-beschleunigtes MP4-Rendering & Schneiden in 'bin/'</div>
-                        </div>
-                    </div>
-                    <span id="status-ffmpeg" class="text-xs font-mono font-bold text-slate-400 px-2.5 py-0.5 rounded bg-slate-800/80">Bereit</span>
-                </div>
-
-                <div id="chk-ai" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                    <div class="flex items-center gap-3">
-                        <span id="icon-ai" class="text-base text-purple-400">🧠</span>
-                        <div>
-                            <div class="font-bold text-slate-200">KI-Module & Bildverarbeitung</div>
-                            <div class="text-xs text-slate-400 font-normal">Faster-Whisper (Untertitel), OpenCV (Facecam-Tracking), Flask</div>
-                        </div>
-                    </div>
-                    <span id="status-ai" class="text-xs font-mono font-bold text-slate-400 px-2.5 py-0.5 rounded bg-slate-800/80">Bereit</span>
-                </div>
-
-                <div id="chk-cfg" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                    <div class="flex items-center gap-3">
-                        <span id="icon-cfg" class="text-base text-emerald-400">📁</span>
-                        <div>
-                            <div class="font-bold text-slate-200">Ordnerstruktur & Hardware-Konfiguration</div>
-                            <div class="text-xs text-slate-400 font-normal">Automatisch optimiert für deine erkannte Grafikkarte</div>
-                        </div>
-                    </div>
-                    <span id="status-cfg" class="text-xs font-mono font-bold text-slate-400 px-2.5 py-0.5 rounded bg-slate-800/80">Bereit</span>
+                <div class="spec-box">
+                    <div class="spec-label">KI-Untertitel (Whisper)</div>
+                    <div id="whisper-device" class="spec-value blue">Automatisch</div>
                 </div>
             </div>
         </div>
 
-        <!-- Action / Progress Section -->
-        <div class="space-y-4">
-            <!-- Start Button (Visible before starting) -->
-            <button id="btn-start" onclick="startSetup()" class="w-full py-4 px-6 rounded-xl font-bold text-sm sm:text-base bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg glow-amber transition-all duration-200 flex items-center justify-center gap-2 transform active:scale-[0.99] cursor-pointer">
+        <!-- Checklist Card -->
+        <div class="card">
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 12px;">
+                📦 Was wird im Programmordner eingerichtet?
+            </div>
+
+            <div class="checklist-item">
+                <div class="item-left">
+                    <span id="icon-py" class="item-icon" style="color: #f59e0b;">⚙️</span>
+                    <div>
+                        <div class="item-name">Portable Python 3.12 Laufzeitumgebung</div>
+                        <div class="item-desc">Eigenständig in 'runtime/', kein System-Eingriff</div>
+                    </div>
+                </div>
+                <span id="badge-py" class="item-badge">Bereit</span>
+            </div>
+
+            <div class="checklist-item">
+                <div class="item-left">
+                    <span id="icon-ffmpeg" class="item-icon" style="color: #38bdf8;">⚡</span>
+                    <div>
+                        <div class="item-name">FFmpeg 7.x Video-Engine</div>
+                        <div class="item-desc">Hardwarebeschleunigtes MP4-Rendering & Schneiden in 'bin/'</div>
+                    </div>
+                </div>
+                <span id="badge-ffmpeg" class="item-badge">Bereit</span>
+            </div>
+
+            <div class="checklist-item">
+                <div class="item-left">
+                    <span id="icon-ai" class="item-icon" style="color: #a855f7;">🧠</span>
+                    <div>
+                        <div class="item-name">KI-Module & Bildverarbeitung</div>
+                        <div class="item-desc">Faster-Whisper (Untertitel), OpenCV (Facecam-Tracking), Flask</div>
+                    </div>
+                </div>
+                <span id="badge-ai" class="item-badge">Bereit</span>
+            </div>
+
+            <div class="checklist-item">
+                <div class="item-left">
+                    <span id="icon-cfg" class="item-icon" style="color: #10b981;">📁</span>
+                    <div>
+                        <div class="item-name">Ordnerstruktur & Hardware-Konfiguration</div>
+                        <div class="item-desc">Automatisch optimiert für deine erkannte Grafikkarte</div>
+                    </div>
+                </div>
+                <span id="badge-cfg" class="item-badge">Bereit</span>
+            </div>
+        </div>
+
+        <!-- Progress Box -->
+        <div id="progress-box" class="progress-box">
+            <div class="progress-header">
+                <div id="progress-message" style="display: flex; align-items: center; gap: 8px;">
+                    <span class="spinner"></span>
+                    <span>Einrichtung wird ausgeführt...</span>
+                </div>
+                <span id="progress-percent" style="color: #f59e0b; font-family: monospace; font-size: 14px;">0%</span>
+            </div>
+            <div class="progress-track">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+                <span id="progress-step-info">Schritt 1 von 5</span>
+                <span>Portabler App-Ordner</span>
+            </div>
+            <div id="console-log" class="console-box">
+                <div style="color: #f59e0b;">=== Clip-Farming Installationsprotokoll ===</div>
+            </div>
+        </div>
+
+        <!-- Success Box -->
+        <div id="success-box" class="success-box">
+            <div class="success-icon">✓</div>
+            <h2 style="font-size: 18px; font-weight: 800; color: #ffffff;">Einrichtung erfolgreich abgeschlossen!</h2>
+            <p style="font-size: 13px; color: #a7f3d0; margin-top: 4px;">
+                Deine Umgebung ist startklar. Clip Farming Studio öffnet sich jetzt...
+            </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="action-box">
+            <button id="btn-start" class="btn-primary" onclick="startSetup()">
                 <span>🚀</span>
                 <span>Automatische 1-Klick-Einrichtung starten</span>
             </button>
-
-            <!-- Progress Block (Visible while running) -->
-            <div id="progress-card" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl">
-                <div class="flex items-center justify-between text-xs sm:text-sm mb-2">
-                    <div id="progress-message" class="font-bold text-white flex items-center gap-2">
-                        <span class="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
-                        <span>Einrichtung läuft...</span>
-                    </div>
-                    <span id="progress-percent" class="font-mono font-black text-amber-400">0%</span>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5 mb-3">
-                    <div id="progress-bar" class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-300 w-0"></div>
-                </div>
-
-                <!-- Toggle Live Console -->
-                <div class="flex items-center justify-between text-2xs text-slate-500 pt-1 border-t border-slate-800/60">
-                    <span id="progress-step-indicator">Schritt 1 von 5</span>
-                    <button onclick="toggleConsole()" class="hover:text-slate-300 transition underline cursor-pointer">
-                        Live-Protokoll anzeigen
-                    </button>
-                </div>
-
-                <!-- Terminal Console -->
-                <div id="console-log" class="hidden mt-3 bg-black/80 rounded-xl p-3 border border-slate-800/80 font-mono text-2xs text-slate-300 max-h-40 overflow-y-auto space-y-1">
-                    <div class="text-amber-400/80">=== Clip-Farming Installationsprotokoll ===</div>
-                </div>
-            </div>
-
-            <!-- Success Card (Visible after completion) -->
-            <div id="success-card" class="hidden bg-emerald-950/40 border border-emerald-500/50 rounded-2xl p-6 text-center glow-emerald animate-fade-in">
-                <div class="w-12 h-12 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto text-2xl mb-2">
-                    ✓
-                </div>
-                <h3 class="text-lg font-black text-white">Einrichtung erfolgreich abgeschlossen!</h3>
-                <p class="text-xs text-emerald-200/80 mt-1">
-                    Deine Umgebung ist 100% einsatzbereit. Clip Farming Studio startet jetzt...
-                </p>
-            </div>
         </div>
 
     </div>
 
     <!-- Footer -->
-    <div class="text-center py-4 text-slate-500 text-xs border-t border-slate-900/80">
-        Clip Farming Studio • Vollständig portable Windows-Version • Keine Administrator-Rechte nötig
+    <div class="footer">
+        Clip Farming Studio • Vollständig portable Windows-Version • Keine Administrator-Rechte erforderlich
     </div>
 
     <script>
-        let detectedSpecs = null;
+        function getTauriInvoke() {
+            if (typeof window !== 'undefined') {
+                if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke.bind(window.__TAURI__.core);
+                if (window.__TAURI__?.invoke) return window.__TAURI__.invoke.bind(window.__TAURI__);
+                if (window.__TAURI_INTERNALS__?.invoke) return window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
+            }
+            return null;
+        }
 
-        async function initSetupPage() {
+        async function init() {
+            const invoke = getTauriInvoke();
+            if (!invoke) {
+                applySpecs({
+                    gpu_name: "NVIDIA GeForce RTX (Automatisch erkannt)",
+                    vram_mb: 8192,
+                    recommended_encoder: "nvenc",
+                    whisper_device: "cuda",
+                    is_ready: false
+                });
+                return;
+            }
+
             try {
-                if (window.__TAURI__ && window.__TAURI__.core) {
-                    const info = await window.__TAURI__.core.invoke('get_setup_info');
-                    detectedSpecs = info;
-                    applyDetectedSpecs(info);
-                } else {
-                    // Fallback Demo-Modus für normalen Browser-Test
-                    setTimeout(() => {
-                        applyDetectedSpecs({
-                            gpu_name: "NVIDIA GeForce RTX (Automatisch erkannt)",
-                            vram_mb: 8192,
-                            recommended_encoder: "nvenc",
-                            whisper_device: "cuda",
-                            is_ready: false
-                        });
-                    }, 400);
+                const info = await invoke('get_setup_info');
+                if (info && info.is_ready) {
+                    document.body.innerHTML = `
+                        <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; color: #fff;">
+                            <span class="spinner" style="width: 32px; height: 32px; margin-bottom: 16px;"></span>
+                            <h2 style="font-size: 20px; font-weight: bold;">Starte Clip Farming Studio...</h2>
+                        </div>
+                    `;
+                    await invoke('launch_studio_after_setup');
+                    return;
                 }
+                applySpecs(info);
             } catch (e) {
-                console.error("Fehler beim Laden der Hardware-Infos:", e);
-                document.getElementById('gpu-name').innerText = "Hardware-Erkennung bereit";
+                console.error("Fehler beim Abrufen der Setup-Info:", e);
+                document.getElementById('gpu-name').innerText = "Standard Prozessor (CPU)";
             }
         }
 
-        function applyDetectedSpecs(info) {
+        function applySpecs(info) {
             const nameEl = document.getElementById('gpu-name');
             const vramEl = document.getElementById('gpu-vram');
             const badgeEl = document.getElementById('encoder-badge');
@@ -230,106 +461,110 @@
             const whisperEl = document.getElementById('whisper-device');
 
             nameEl.innerText = info.gpu_name || "Standard Prozessor (CPU)";
-            vramEl.innerText = (info.vram_mb > 0) ? `${(info.vram_mb / 1024).toFixed(1)} GB VRAM` : "Shared RAM";
-            
+            vramEl.innerText = (info.vram_mb > 0) ? `${(info.vram_mb / 1024).toFixed(1)} GB VRAM` : "Shared Memory";
+
             const enc = (info.recommended_encoder || 'cpu').toUpperCase();
             if (enc === 'NVENC') {
-                badgeEl.className = "px-3 py-1 bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono font-bold rounded-lg flex items-center gap-1.5";
-                badgeEl.innerHTML = "<span>⚡</span> <span>NVIDIA NVENC aktiv</span>";
-                renderEl.innerText = "NVENC GPU-Rendering";
-                whisperEl.innerText = "CUDA GPU-Beschleunigt";
+                badgeEl.className = 'encoder-tag encoder-nvenc';
+                badgeEl.innerHTML = '⚡ NVIDIA NVENC (GPU)';
+                renderEl.innerText = 'NVENC GPU-Rendering';
+                whisperEl.innerText = 'CUDA GPU-Beschleunigt';
             } else if (enc === 'AMF') {
-                badgeEl.className = "px-3 py-1 bg-rose-950/80 border border-rose-500/60 text-rose-300 text-xs font-mono font-bold rounded-lg flex items-center gap-1.5";
-                badgeEl.innerHTML = "<span>⚡</span> <span>AMD AMF aktiv</span>";
-                renderEl.innerText = "AMF GPU-Rendering";
-                whisperEl.innerText = "CPU (Hohe Performance)";
+                badgeEl.className = 'encoder-tag encoder-amf';
+                badgeEl.innerHTML = '⚡ AMD AMF (GPU)';
+                renderEl.innerText = 'AMF GPU-Rendering';
+                whisperEl.innerText = 'CPU High-Speed';
             } else if (enc === 'QSV') {
-                badgeEl.className = "px-3 py-1 bg-sky-950/80 border border-sky-500/60 text-sky-300 text-xs font-mono font-bold rounded-lg flex items-center gap-1.5";
-                badgeEl.innerHTML = "<span>⚡</span> <span>Intel QuickSync aktiv</span>";
-                renderEl.innerText = "Intel QSV Rendering";
-                whisperEl.innerText = "CPU (Hohe Performance)";
+                badgeEl.className = 'encoder-tag encoder-qsv';
+                badgeEl.innerHTML = '⚡ Intel QSV (GPU)';
+                renderEl.innerText = 'QuickSync Rendering';
+                whisperEl.innerText = 'CPU High-Speed';
             } else {
-                badgeEl.className = "px-3 py-1 bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono font-bold rounded-lg flex items-center gap-1.5";
-                badgeEl.innerHTML = "<span>⚙️</span> <span>CPU-Rendering</span>";
-                renderEl.innerText = "CPU H.264 (Universell)";
-                whisperEl.innerText = "CPU Standard";
+                badgeEl.className = 'encoder-tag';
+                badgeEl.innerHTML = '⚙️ CPU H.264';
+                renderEl.innerText = 'CPU Rendering';
+                whisperEl.innerText = 'CPU Standard';
             }
         }
+
+        let pollTimer = null;
 
         async function startSetup() {
-            const btn = document.getElementById('btn-start');
-            btn.classList.add('hidden');
-            const progCard = document.getElementById('progress-card');
-            progCard.classList.remove('hidden');
+            document.getElementById('action-box').style.display = 'none';
+            document.getElementById('progress-box').style.display = 'block';
 
-            // Listen for Tauri events
-            if (window.__TAURI__ && window.__TAURI__.event) {
-                await window.__TAURI__.event.listen('setup-progress', (event) => {
-                    handleProgressUpdate(event.payload);
-                });
+            const invoke = getTauriInvoke();
+            if (!invoke) {
+                simulateSetup();
+                return;
+            }
 
+            pollTimer = setInterval(async () => {
                 try {
-                    await window.__TAURI__.core.invoke('run_automated_setup');
-                } catch (e) {
-                    logConsole("Fehler während des Setups: " + e);
+                    const prog = await invoke('get_setup_progress');
+                    if (prog) {
+                        updateProgress(prog);
+                    }
+                } catch (e) {}
+            }, 350);
+
+            if (window.__TAURI__?.event?.listen) {
+                window.__TAURI__.event.listen('setup-progress', (e) => {
+                    if (e && e.payload) updateProgress(e.payload);
+                });
+            }
+
+            try {
+                const ok = await invoke('run_automated_setup');
+                if (ok) {
+                    onFinished();
                 }
-            } else {
-                // Browser-Simulationsmodus für optische Überprüfung
-                simulateBrowserSetup();
+            } catch (e) {
+                logConsole("Fehler beim Setup: " + e);
             }
         }
 
-        function handleProgressUpdate(data) {
+        function updateProgress(data) {
             const p = data.percent || 0;
             document.getElementById('progress-percent').innerText = p + '%';
-            document.getElementById('progress-bar').style.width = p + '%';
+            document.getElementById('progress-fill').style.width = p + '%';
+
             if (data.message) {
                 document.getElementById('progress-message').innerHTML = `
-                    <span class="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                    <span class="spinner"></span>
                     <span>${data.message}</span>
                 `;
             }
+
             if (data.step && data.total_steps) {
-                document.getElementById('progress-step-indicator').innerText = `Schritt ${data.step} von ${data.total_steps}`;
-                updateStepBadges(data.step);
+                document.getElementById('progress-step-info').innerText = `Schritt ${data.step} von ${data.total_steps}`;
+                updateBadges(data.step);
             }
+
             if (data.log) {
                 logConsole(data.log);
             }
 
-            if (p >= 100) {
-                finishSetup();
+            if (p >= 100 || data.is_done) {
+                onFinished();
             }
         }
 
-        function updateStepBadges(currentStep) {
-            const steps = ['py', 'ffmpeg', 'ai', 'cfg'];
-            steps.forEach((s, idx) => {
-                const statusEl = document.getElementById('status-' + s);
-                const iconEl = document.getElementById('icon-' + s);
-                if (idx + 2 < currentStep) {
-                    statusEl.innerText = 'Fertig';
-                    statusEl.className = 'text-xs font-mono font-bold text-emerald-400 px-2.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40';
-                    iconEl.innerText = '✓';
-                } else if (idx + 2 === currentStep) {
-                    statusEl.innerText = 'Wird eingerichtet...';
-                    statusEl.className = 'text-xs font-mono font-bold text-amber-300 px-2.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40 animate-pulse';
+        function updateBadges(step) {
+            const list = ['py', 'ffmpeg', 'ai', 'cfg'];
+            list.forEach((item, idx) => {
+                const b = document.getElementById('badge-' + item);
+                const ic = document.getElementById('icon-' + item);
+                const stepNum = idx + 2;
+                if (step > stepNum) {
+                    b.innerText = 'Fertig';
+                    b.className = 'item-badge done';
+                    ic.innerText = '✓';
+                } else if (step === stepNum) {
+                    b.innerText = 'Lädt...';
+                    b.className = 'item-badge running';
                 }
             });
-        }
-
-        function finishSetup() {
-            document.getElementById('progress-card').classList.add('hidden');
-            const succ = document.getElementById('success-card');
-            succ.classList.remove('hidden');
-
-            setTimeout(async () => {
-                if (window.__TAURI__ && window.__TAURI__.core) {
-                    await window.__TAURI__.core.invoke('launch_studio_after_setup');
-                } else {
-                    window.location.href = 'http://127.0.0.1:5000';
-                }
-            }, 1800);
         }
 
         function logConsole(text) {
@@ -340,28 +575,38 @@
             c.scrollTop = c.scrollHeight;
         }
 
-        function toggleConsole() {
-            const c = document.getElementById('console-log');
-            c.classList.toggle('hidden');
+        function onFinished() {
+            if (pollTimer) clearInterval(pollTimer);
+            document.getElementById('progress-box').style.display = 'none';
+            document.getElementById('success-box').style.display = 'block';
+
+            setTimeout(async () => {
+                const invoke = getTauriInvoke();
+                if (invoke) {
+                    await invoke('launch_studio_after_setup');
+                } else {
+                    window.location.href = 'http://127.0.0.1:5000';
+                }
+            }, 1500);
         }
 
-        function simulateBrowserSetup() {
+        function simulateSetup() {
             let p = 0;
             const timer = setInterval(() => {
-                p += 20;
-                let step = Math.min(5, Math.floor(p / 20) + 1);
-                handleProgressUpdate({
+                p += 15;
+                const step = Math.min(5, Math.floor(p / 20) + 1);
+                updateProgress({
                     percent: Math.min(100, p),
                     step: step,
                     total_steps: 5,
-                    message: p === 20 ? "Lade Python 3.12 herunter..." : (p === 40 ? "Entpacke FFmpeg Video-Engine..." : (p === 60 ? "Installiere KI-Module..." : (p === 80 ? "Optimiere Hardware-Konfiguration..." : "Fertiggestellt!"))),
-                    log: `Simulierter Log-Eintrag für Schritt ${step}...`
+                    message: p < 30 ? "Lade Python 3.12 herunter..." : (p < 60 ? "Entpacke FFmpeg Video-Engine..." : (p < 85 ? "Installiere KI-Module..." : "Optimiere Hardware-Konfiguration...")),
+                    log: `Simulierter Download: ${p}% abgeschlossen...`
                 });
                 if (p >= 100) clearInterval(timer);
-            }, 700);
+            }, 600);
         }
 
-        window.addEventListener('DOMContentLoaded', initSetupPage);
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>

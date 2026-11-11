@@ -123,7 +123,7 @@ publishing:
   tiktok:
     enabled: true
     upload_mode: public
-    session_id: a924ad...6d4f
+    session_id: ''
 storage:
   auto_cleanup_raw: true
   database_path: data/pipeline.db

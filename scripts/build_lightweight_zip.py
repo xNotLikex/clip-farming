@@ -24,13 +24,19 @@ def build():
         shutil.rmtree(DIST_DIR)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 2. Copy Executable
-    exe_src = PROJECT_ROOT / "clip-farming.exe"
-    if not exe_src.exists():
-        exe_src = PROJECT_ROOT / "src-tauri" / "target" / "release" / "clip-farming.exe"
-    
-    if not exe_src.exists():
-        raise FileNotFoundError(f"Binary nicht gefunden: {exe_src}")
+    # 2. Copy Executable (Always prefer freshly compiled release binary)
+    target_exe = PROJECT_ROOT / "src-tauri" / "target" / "release" / "clip-farming.exe"
+    root_exe = PROJECT_ROOT / "clip-farming.exe"
+
+    if target_exe.exists():
+        exe_src = target_exe
+        # Also sync to root for local testing
+        shutil.copy2(target_exe, root_exe)
+        print(f"✓ Binary aktualisiert aus release target -> {root_exe.name}")
+    elif root_exe.exists():
+        exe_src = root_exe
+    else:
+        raise FileNotFoundError(f"Binary nicht gefunden in {target_exe} oder {root_exe}")
     
     shutil.copy2(exe_src, DIST_DIR / "clip-farming.exe")
     print(f"✓ Binary kopiert: {exe_src.name} ({exe_src.stat().st_size / (1024*1024):.1f} MB)")

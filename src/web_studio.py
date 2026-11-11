@@ -2,11 +2,14 @@ import os
 import sys
 import json
 import time
+import html
+import shutil
+import subprocess
 import threading
 import cv2
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for
+from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for, Response
 
 from src.config import (
     SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, DATA_DIR, load_config,
@@ -20,6 +23,8 @@ from src.uploaders.tiktok import TikTokUploader
 from src.uploaders.account_manager import account_manager
 from src.uploaders.browser_login import start_tiktok_browser_login, get_browser_login_status
 from src.state import status_manager
+from src.version import APP_VERSION, GITHUB_REPO
+from src.updater import check_for_updates, download_and_run_installer
 
 if sys.platform == "win32":
     try:
@@ -307,29 +312,36 @@ HTML_DASHBOARD = """
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        .crop-handle {
+        #crop-stage-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000000;
+            overflow: hidden;
+            border-radius: 8px;
+            min-height: 260px;
+        }
+        #crop-overlay-layer {
             position: absolute;
-            width: 14px;
-            height: 14px;
-            background: #ffffff;
+            inset: 0;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+        }
+        .crop-cam-handle, .crop-game-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
             border: 2px solid #0f172a;
-            border-radius: 4px;
-            box-shadow: 0 0 6px rgba(0,0,0,0.8);
-            z-index: 20;
-            transition: transform 0.1s;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(0,0,0,0.8);
+            z-index: 30;
+            transition: transform 0.15s;
+            pointer-events: auto;
         }
-        .crop-handle:hover {
+        .crop-cam-handle:hover, .crop-game-handle:hover {
             transform: scale(1.3);
-            background: #f8fafc;
         }
-        .handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
-        .handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
-        .handle-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
-        .handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
-        .handle-n { top: -7px; left: calc(50% - 7px); cursor: ns-resize; }
-        .handle-s { bottom: -7px; left: calc(50% - 7px); cursor: ns-resize; }
-        .handle-w { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
-        .handle-e { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
     </style>
     <script>
         // Immediate Zero-Delay Handlers (execute on initial paint before any async script)
@@ -368,15 +380,47 @@ HTML_DASHBOARD = """
                 btn.classList.add('active', 'text-amber-400');
                 btn.classList.remove('text-slate-400');
             }
+            if (tabId === 'studio') {
+                document.querySelectorAll('#studio-grid video').forEach(function(v) {
+                    try {
+                        if (v.paused && v.currentTime === 0) {
+                            v.currentTime = 0.001;
+                        }
+                    } catch(e) {}
+                });
+            }
         }
+                function openRawPreviewFromRow(row) {
+            if (!row) return;
+            var d = row.dataset;
+            openRawPreview(d.clipId, d.streamer, d.title, d.views, d.duration, d.createdAgo, d.createdFull);
+        }
+        window.openRawPreviewFromRow = openRawPreviewFromRow;
+
+        function openCropModalFromButton(btn) {
+            if (!btn) return;
+            var d = btn.dataset;
+            openCropModal(d.clipId, d.streamer, d.title);
+        }
+        window.openCropModalFromButton = openCropModalFromButton;
+
+        function startStudioVideoPlay(clipId, overlay) {
+            if (overlay) overlay.style.display = 'none';
+            var vid = document.getElementById('studio-video-' + clipId);
+            if (vid) {
+                vid.play().catch(function() {});
+            }
+        }
+        window.startStudioVideoPlay = startStudioVideoPlay;
+
         var currentCropClipId = '';
         var currentCropStreamer = '';
         var currentCropTitle = '';
         var currentCropMode = 'split'; // 'split' oder 'single_916'
         var cropState = {
             cam: { x: 0.68, y: 0.58, w: 0.28, h: 0.35, enabled: true },
-            game: { x: 0.24, y: 0.0, w: 0.52, h: 1.0, enabled: true },
-            single: { x: 0.34, y: 0.0, w: 0.32, h: 1.0, enabled: true }
+            game: { x: 0.24, y: 0.0, w: 0.51, h: 1.0, enabled: true },
+            single: { x: 0.34, y: 0.0, w: 0.316, h: 1.0, enabled: true }
         };
         var activeCropDrag = null;
         var cropFallbackImg = new Image();
@@ -397,28 +441,42 @@ HTML_DASHBOARD = """
                 m.style.setProperty('display', 'flex', 'important');
             }
 
-            // Sync visual boxes immediately so they are never at (0, 0)
-            updateBoxDom('cam');
-            updateBoxDom('game');
-            updateBoxDom('single');
+            // 1. Sofortiges Vorladen des 16:9 Rohbildes als sichtbarer Hintergrund (verhindert schwarzen Kasten)
+            var stageImg = document.getElementById('crop-stage-img');
+            if (stageImg) {
+                stageImg.src = '/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now();
+                stageImg.onload = function() {
+                    draw916Preview();
+                };
+            }
 
-            // Preload thumbnail into fallback image for instant canvas rendering
-            cropFallbackImg.src = '/thumbnail/' + clipId;
+            // 2. Fallback-Image für den rechten 9:16 Preview Canvas
+            cropFallbackImg.src = '/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now();
             cropFallbackImg.onload = function() {
                 draw916Preview();
             };
 
-            // Setup Video
+            // 3. Setup Video-Element für Zeitleiste & Playback
             var vid = document.getElementById('crop-stage-video');
             if (vid) {
-                vid.poster = '/thumbnail/' + clipId;
+                vid.poster = '/thumbnail/raw/' + encodeURIComponent(clipId);
                 vid.muted = true;
-                vid.src = '/raw-video/' + clipId;
+                vid.src = '/raw-video/' + encodeURIComponent(clipId);
                 vid.onloadedmetadata = function() {
                     try {
                         vid.currentTime = Math.min(0.5, (vid.duration || 1) / 2);
-                    } catch(e) {}
-                    draw916Preview();
+                        var playPromise = vid.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(function() {
+                                vid.pause();
+                                draw916Preview();
+                            }).catch(function() {
+                                draw916Preview();
+                            });
+                        }
+                    } catch(e) {
+                        draw916Preview();
+                    }
                 };
                 vid.onseeked = function() {
                     draw916Preview();
@@ -426,8 +484,14 @@ HTML_DASHBOARD = """
                 vid.load();
             }
 
-            // Fetch saved metadata if available
-            fetch('/api/clip/' + clipId + '/meta')
+            // 4. Default Boxen sofort anzeigen
+            updateBoxDom('cam');
+            updateBoxDom('game');
+            updateBoxDom('single');
+            draw916Preview();
+
+            // 5. Gespeicherte Schnitt-Metadaten laden
+            fetch('/api/clip/' + encodeURIComponent(clipId) + '/meta')
                 .then(function(r) { return r.json(); })
                 .then(function(meta) {
                     if (meta && meta.custom_crops) {
@@ -458,7 +522,7 @@ HTML_DASHBOARD = """
         }
 
         function switchCropMode(mode) {
-            currentCropMode = mode;
+            currentCropMode = (mode === 'single_916') ? 'single_916' : 'split';
             var btnSplit = document.getElementById('btn-mode-split');
             var btnSingle = document.getElementById('btn-mode-single');
             var tbSplit = document.getElementById('toolbar-split');
@@ -466,50 +530,48 @@ HTML_DASHBOARD = """
             var boxCam = document.getElementById('crop-box-cam');
             var boxGame = document.getElementById('crop-box-game');
             var boxSingle = document.getElementById('crop-box-single');
-            var btnToggleCam = document.getElementById('btn-crop-toggle-cam');
 
-            if (mode === 'single_916') {
-                if (btnSplit) btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
-                if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-emerald-900/90 text-emerald-100 border border-emerald-500 shadow';
-                if (tbSplit) {
-                    tbSplit.classList.add('hidden');
-                    tbSplit.style.display = 'none';
-                }
+            if (currentCropMode === 'single_916') {
+                if (boxCam) boxCam.style.setProperty('display', 'none', 'important');
+                if (boxGame) boxGame.style.setProperty('display', 'none', 'important');
+                if (boxSingle) boxSingle.style.setProperty('display', 'flex', 'important');
+
+                if (tbSplit) tbSplit.style.setProperty('display', 'none', 'important');
                 if (tbSingle) {
                     tbSingle.classList.remove('hidden');
-                    tbSingle.style.display = 'flex';
+                    tbSingle.style.setProperty('display', 'flex', 'important');
                 }
-                if (boxCam) boxCam.style.display = 'none';
-                if (boxGame) boxGame.style.display = 'none';
-                if (boxSingle) boxSingle.style.display = 'flex';
-                if (btnToggleCam) {
-                    btnToggleCam.innerText = '📷 Facecam wieder aktivieren';
-                    btnToggleCam.className = 'px-2.5 py-1 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-500 text-xs font-bold rounded-lg text-emerald-200 transition';
+
+                if (btnSplit) {
+                    btnSplit.className = "flex-1 py-2 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700 cursor-pointer";
+                }
+                if (btnSingle) {
+                    btnSingle.className = "flex-1 py-2 px-3 rounded text-xs font-bold transition flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-lg border border-emerald-400 cursor-pointer";
                 }
                 updateBoxDom('single');
             } else {
-                if (btnSplit) btnSplit.className = 'flex-1 py-1.5 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600';
-                if (btnSingle) btnSingle.className = 'flex-1 py-1.5 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800';
+                if (boxCam) boxCam.style.setProperty('display', 'flex', 'important');
+                if (boxGame) boxGame.style.setProperty('display', 'flex', 'important');
+                if (boxSingle) boxSingle.style.setProperty('display', 'none', 'important');
+
                 if (tbSplit) {
                     tbSplit.classList.remove('hidden');
-                    tbSplit.style.display = 'block';
+                    tbSplit.style.setProperty('display', 'block', 'important');
                 }
-                if (tbSingle) {
-                    tbSingle.classList.add('hidden');
-                    tbSingle.style.display = 'none';
+                if (tbSingle) tbSingle.style.setProperty('display', 'none', 'important');
+
+                if (btnSplit) {
+                    btnSplit.className = "flex-1 py-2 px-3 rounded text-xs font-bold transition flex items-center justify-center gap-2 bg-amber-500 text-zinc-950 shadow-lg border border-amber-400 cursor-pointer";
                 }
-                if (boxCam) boxCam.style.display = 'flex';
-                if (boxGame) boxGame.style.display = 'flex';
-                if (boxSingle) boxSingle.style.display = 'none';
-                if (btnToggleCam) {
-                    btnToggleCam.innerText = '🚫 Keine Cam (Vollbild / 1 Rahmen)';
-                    btnToggleCam.className = 'px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition';
+                if (btnSingle) {
+                    btnSingle.className = "flex-1 py-2 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700 cursor-pointer";
                 }
                 updateBoxDom('cam');
                 updateBoxDom('game');
             }
             draw916Preview();
         }
+        window.switchCropMode = switchCropMode;
 
         function toggleCamEnabled() {
             if (currentCropMode === 'single_916') {
@@ -525,6 +587,17 @@ HTML_DASHBOARD = """
             if (!box) return;
             var s = cropState[type];
             if (!s) return;
+
+            // Strict sanitization against NaN / undefined / collapse
+            if (typeof s.x !== 'number' || isNaN(s.x)) s.x = (type === 'cam' ? 0.68 : (type === 'game' ? 0.24 : 0.34));
+            if (typeof s.y !== 'number' || isNaN(s.y)) s.y = (type === 'cam' ? 0.58 : 0.0);
+            if (typeof s.w !== 'number' || isNaN(s.w) || s.w < 0.05) s.w = (type === 'cam' ? 0.28 : (type === 'game' ? 0.51 : 0.316));
+            if (typeof s.h !== 'number' || isNaN(s.h) || s.h < 0.05) s.h = (type === 'cam' ? 0.35 : 1.0);
+
+            // Clamp bounds
+            s.x = Math.max(0, Math.min(1 - s.w, s.x));
+            s.y = Math.max(0, Math.min(1 - s.h, s.y));
+
             box.style.left = (s.x * 100) + '%';
             box.style.top = (s.y * 100) + '%';
             box.style.width = (s.w * 100) + '%';
@@ -549,16 +622,20 @@ HTML_DASHBOARD = """
             if (!canvas) return;
             var ctx = canvas.getContext('2d');
             var vid = document.getElementById('crop-stage-video');
-            var source = (vid && vid.readyState >= 2) ? vid : ((cropFallbackImg && cropFallbackImg.complete && cropFallbackImg.naturalWidth > 0) ? cropFallbackImg : null);
+            var stageImg = document.getElementById('crop-stage-img');
+            
+            var source = (vid && vid.readyState >= 2) ? vid : 
+                         ((stageImg && stageImg.complete && stageImg.naturalWidth > 0) ? stageImg : 
+                         ((cropFallbackImg && cropFallbackImg.complete && cropFallbackImg.naturalWidth > 0) ? cropFallbackImg : null));
 
-            ctx.fillStyle = '#05070e';
+            ctx.fillStyle = '#0b0f19';
             ctx.fillRect(0, 0, 270, 480);
 
             if (!source) {
                 ctx.fillStyle = '#1e293b';
-                ctx.fillRect(10, 10, 250, 460);
+                ctx.fillRect(8, 8, 254, 464);
                 ctx.fillStyle = '#94a3b8';
-                ctx.font = '12px sans-serif';
+                ctx.font = 'bold 12px system-ui, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('Lade Frame...', 135, 240);
                 return;
@@ -577,54 +654,49 @@ HTML_DASHBOARD = """
                 } catch(e) {}
             } else {
                 // Split Screen:
-                // 1. Gameplay in lower portion (or background)
+                // 1. Gameplay in lower portion
                 var gx = cropState.game.x * vw;
                 var gy = cropState.game.y * vh;
                 var gw = Math.max(16, cropState.game.w * vw);
                 var gh = Math.max(16, cropState.game.h * vh);
 
-                var gameDestY = cropState.cam.enabled ? 160 : 0;
-                var gameDestH = cropState.cam.enabled ? 320 : 480;
-
                 try {
-                    ctx.drawImage(source, gx, gy, gw, gh, 0, gameDestY, 270, gameDestH);
+                    ctx.drawImage(source, gx, gy, gw, gh, 0, 160, 270, 320);
                 } catch(e) {}
 
                 // 2. Facecam in top portion
-                if (cropState.cam.enabled) {
-                    var cx = cropState.cam.x * vw;
-                    var cy = cropState.cam.y * vh;
-                    var cw = Math.max(16, cropState.cam.w * vw);
-                    var ch = Math.max(16, cropState.cam.h * vh);
+                var cx = cropState.cam.x * vw;
+                var cy = cropState.cam.y * vh;
+                var cw = Math.max(16, cropState.cam.w * vw);
+                var ch = Math.max(16, cropState.cam.h * vh);
 
-                    ctx.save();
+                try {
                     ctx.drawImage(source, cx, cy, cw, ch, 0, 0, 270, 160);
+                } catch(e) {}
 
-                    // Thin separator line
-                    ctx.strokeStyle = '#334155';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(0, 160);
-                    ctx.lineTo(270, 160);
-                    ctx.stroke();
-                    ctx.restore();
-                }
+                // Trennlinie zwischen Facecam und Gameplay
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, 160);
+                ctx.lineTo(270, 160);
+                ctx.stroke();
             }
 
             // Hook Sticker simulation (title badge)
             if (currentCropTitle) {
                 ctx.save();
                 ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                ctx.shadowColor = 'rgba(0,0,0,0.7)';
                 ctx.shadowBlur = 6;
-                var stickerW = 220;
-                var stickerH = 24;
-                var stickerY = (currentCropMode === 'split' && cropState.cam.enabled) ? 172 : 110;
+                var stickerW = 230;
+                var stickerH = 26;
+                var stickerY = (currentCropMode === 'split') ? 172 : 110;
                 var stickerX = (270 - stickerW) / 2;
                 ctx.fillRect(stickerX, stickerY, stickerW, stickerH);
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
+                ctx.font = 'bold 10px system-ui, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 var dispText = currentCropTitle.length > 32 ? currentCropTitle.slice(0, 30) + '...' : currentCropTitle;
@@ -873,6 +945,12 @@ HTML_DASHBOARD = """
                 });
             }
 
+            document.querySelectorAll('.crop-game-handle').forEach(function(h) {
+                h.addEventListener('pointerdown', function(e) {
+                    onPointerDown(e, 'game', true, h.getAttribute('data-handle'));
+                });
+            });
+
             var singleBox = document.getElementById('crop-box-single');
             if (singleBox) {
                 singleBox.addEventListener('pointerdown', function(e) {
@@ -894,13 +972,19 @@ HTML_DASHBOARD = """
                         s.y = Math.max(0, Math.min(1 - s.h, d.initY + dy));
                     }
                 } else if (d.target === 'cam') {
-                    var scaleDelta = (d.handle.includes('r') ? dx : -dx);
+                    var scaleDelta = (d.handle && d.handle.includes('r') ? dx : -dx);
                     var newW = Math.max(280 / 1920, Math.min(800 / 1920, d.initW + scaleDelta));
                     var newH = (newW * 1920 * (2 / 3)) / 1080;
                     cropState.cam.w = newW;
                     cropState.cam.h = newH;
                     if (cropState.cam.x + cropState.cam.w > 1) cropState.cam.x = 1 - cropState.cam.w;
                     if (cropState.cam.y + cropState.cam.h > 1) cropState.cam.y = 1 - cropState.cam.h;
+                } else if (d.target === 'game') {
+                    var scaleDelta = (d.handle && d.handle.includes('r') ? dx : -dx);
+                    var newW = Math.max(480 / 1920, Math.min(1200 / 1920, d.initW + scaleDelta));
+                    cropState.game.w = newW;
+                    cropState.game.h = 1.0;
+                    if (cropState.game.x + cropState.game.w > 1) cropState.game.x = 1 - cropState.game.w;
                 }
                 updateBoxDom(d.target);
                 draw916Preview();
@@ -1045,6 +1129,104 @@ HTML_DASHBOARD = """
             }
         }
 
+                var currentUpdateData = null;
+
+        function checkForUpdates() {
+            fetch('/api/check-update')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.update_available) {
+                        currentUpdateData = data;
+                        var badge = document.getElementById('update-badge');
+                        var badgeV = document.getElementById('update-badge-v');
+                        if (badge && badgeV) {
+                            badgeV.innerText = 'v' + data.latest_version;
+                            badge.style.display = 'inline-flex';
+                        }
+                    }
+                })
+                .catch(function() {});
+        }
+
+        function openUpdateModal() {
+            if (!currentUpdateData) return;
+            var m = document.getElementById('update-modal');
+            var vEl = document.getElementById('modal-update-ver');
+            var notesEl = document.getElementById('modal-update-notes-body');
+            var ghLink = document.getElementById('modal-github-link');
+
+            if (vEl) vEl.innerText = 'v' + currentUpdateData.latest_version;
+            if (notesEl) {
+                var notes = currentUpdateData.release_notes || 'Neue Fehlerbehebungen & Leistungsoptimierungen.';
+                notesEl.innerText = notes;
+            }
+            if (ghLink && currentUpdateData.download_url) {
+                ghLink.href = 'https://github.com/xNotLikex/clip-farming/releases/latest';
+            }
+
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+        }
+
+        function closeUpdateModal() {
+            var m = document.getElementById('update-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        function performUpdate(btn) {
+            if (!currentUpdateData || !currentUpdateData.download_url) {
+                window.open('https://github.com/xNotLikex/clip-farming/releases/latest', '_blank');
+                return;
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Lade Installer...</span>';
+            }
+            var statusMsg = document.getElementById('update-status-msg');
+            if (statusMsg) {
+                statusMsg.innerHTML = '<span class="text-amber-400">Lade Installer von GitHub herunter... Bitte kurz warten.</span>';
+            }
+
+            fetch('/api/apply-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ download_url: currentUpdateData.download_url })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res && res.success) {
+                    if (statusMsg) statusMsg.innerHTML = '<span class="text-emerald-400 font-bold">✓ Installer gestartet! Setup wird ausgeführt...</span>';
+                    setTimeout(closeUpdateModal, 3000);
+                } else {
+                    if (statusMsg) statusMsg.innerHTML = '<span class="text-rose-400">Fehler beim Update: ' + (res.error || 'Download fehlgeschlagen') + '</span>';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>⚡</span> <span>Erneut versuchen</span>';
+                    }
+                }
+            })
+            .catch(function(err) {
+                if (statusMsg) statusMsg.innerHTML = '<span class="text-rose-400">Download fehlgeschlagen. Öffne GitHub...</span>';
+                window.open('https://github.com/xNotLikex/clip-farming/releases/latest', '_blank');
+            });
+        }
+
+        window.checkForUpdates = checkForUpdates;
+        window.openUpdateModal = openUpdateModal;
+        window.closeUpdateModal = closeUpdateModal;
+        window.performUpdate = performUpdate;
+
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkForUpdates, 1500);
+        });
+
         window.addEventListener('DOMContentLoaded', function() {
             initCropInteractions();
         });
@@ -1069,10 +1251,18 @@ HTML_DASHBOARD = """
                 statsElem.innerText = txt;
                 if (createdFull) statsElem.title = createdFull;
             }
+            var poster = document.getElementById('modal-video-poster');
+            if (poster) {
+                poster.src = '/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now();
+                poster.style.display = 'block';
+            }
             var player = document.getElementById('modal-video-player');
             if (player) {
-                player.poster = '/thumbnail/' + clipId;
-                player.src = '/raw-video/' + clipId;
+                player.poster = '/thumbnail/raw/' + encodeURIComponent(clipId);
+                player.src = '/raw-video/' + encodeURIComponent(clipId);
+                player.onplaying = function() {
+                    if (poster) poster.style.display = 'none';
+                };
                 player.load();
                 player.play().catch(function() {});
             }
@@ -1214,7 +1404,11 @@ HTML_DASHBOARD = """
                 <div class="flex items-center gap-3">
                     <h1 class="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
                         <span>CLIP-FARMING</span><span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">STUDIO</span>
+                        <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v{{ app_version }}</span>
                     </h1>
+                    <button id="update-badge" style="display: none;" onclick="openUpdateModal()" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 transition shadow-sm animate-pulse cursor-pointer">
+                        <span>✨</span> <span>Update <span id="update-badge-v"></span> verfügbar</span>
+                    </button>
                     <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
                         <span class="w-2 h-2 rounded-full {% if is_running %}bg-emerald-400 animate-ping{% else %}bg-slate-400{% endif %}" id="live-dot"></span>
                         <span id="live-status-text">{% if is_running %}AKTIV: {{ current_status|upper }}{% else %}STANDBY{% endif %}</span>
@@ -1360,7 +1554,7 @@ HTML_DASHBOARD = """
                         </thead>
                         <tbody id="queue-tbody" class="divide-y divide-slate-800/80">
                             {% for clip in queue_clips %}
-                            <tr onclick="openRawPreview('{{ clip.clip_id }}', '{{ clip.streamer|e }}', '{{ clip.original_title|e }}', '{{ clip.view_count }}', '{{ '%.0f'|format(clip.duration) }}', '{{ clip.created_ago|e }}', '{{ clip.created_full|e }}')"
+                            <tr data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.original_title|e }}" data-views="{{ clip.view_count }}" data-duration="{{ '%.0f'|format(clip.duration) }}" data-created-ago="{{ clip.created_ago|e }}" data-created-full="{{ clip.created_full|e }}" onclick="openRawPreviewFromRow(this)"
                                 class="hover:bg-slate-800/60 cursor-pointer transition group">
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
@@ -1474,9 +1668,16 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- Video Player Container (9:16) -->
-                    <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
+                    <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden group">
                         {% if clip.has_video %}
-                        <video controls preload="metadata" poster="/thumbnail/{{ clip.clip_id }}" class="w-full h-full object-contain">
+                        <!-- Instant Visible Poster Overlay to guarantee frame is never black -->
+                        <div id="poster-overlay-{{ clip.clip_id }}" class="absolute inset-0 z-10 flex items-center justify-center cursor-pointer transition-opacity duration-300" onclick="startStudioVideoPlay('{{ clip.clip_id }}', this)">
+                            <img src="/thumbnail/{{ clip.clip_id }}" alt="Vorschau" class="absolute inset-0 w-full h-full object-cover">
+                            <div class="w-14 h-14 rounded-full bg-slate-900/80 border-2 border-amber-400/90 text-amber-400 flex items-center justify-center text-xl shadow-2xl backdrop-blur transition-transform group-hover:scale-110">
+                                ▶
+                            </div>
+                        </div>
+                        <video id="studio-video-{{ clip.clip_id }}" controls preload="metadata" poster="/thumbnail/{{ clip.clip_id }}" class="w-full h-full object-contain relative z-0" onplay="var p = document.getElementById('poster-overlay-{{ clip.clip_id }}'); if (p) p.style.display = 'none';">
                             <source src="/video/{{ clip.clip_id }}" type="video/mp4">
                         </video>
                         {% else %}
@@ -1547,7 +1748,7 @@ HTML_DASHBOARD = """
                                     <option value="split_cam_top" {% if clip.layout_mode == 'split_cam_top' %}selected{% endif %}>✂️ Split-Screen (Cam oben, Gameplay unten)</option>
                                     <option value="blur_stack" {% if clip.layout_mode == 'blur_stack' %}selected{% endif %}>🌫️ Blur-Stack (IRL / Vollbild mit unscharfem Hintergrund)</option>
                                 </select>
-                                <button type="button" onclick="openCropModal('{{ clip.clip_id }}', '{{ clip.streamer|replace("'", "\\'") }}', '{{ clip.title|replace("'", "\\'") }}')" 
+                                <button type="button" data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.title|e }}" onclick="openCropModalFromButton(this)" 
                                     class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
                                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Bildausschnitt anpassen (Split-Cam oder 9:16)
                                 </button>
@@ -1996,8 +2197,9 @@ HTML_DASHBOARD = """
                 <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
             </div>
             
-            <div class="relative bg-black aspect-video w-full flex items-center justify-center overflow-hidden">
-                <video id="modal-video-player" controls autoplay class="w-full h-full object-contain">
+            <div class="relative bg-black aspect-video w-full flex items-center justify-center overflow-hidden group">
+                <img id="modal-video-poster" src="" class="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none" alt="" style="display: none;">
+                <video id="modal-video-player" controls autoplay class="w-full h-full object-contain relative z-10">
                     <source id="modal-video-source" src="" type="video/mp4">
                     Dein Browser unterstützt dieses Video nicht.
                 </video>
@@ -2090,6 +2292,45 @@ HTML_DASHBOARD = """
         </div>
     </div>
 
+        <!-- POP-UP MODAL: Update Assistent -->
+    <div id="update-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4 select-none" style="display: none !important;">
+        <div class="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-start justify-between mb-4 pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🚀</span>
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>Neues Update verfügbar!</span>
+                            <span id="modal-update-ver" class="text-xs font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-bold">v0.1.x</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Aktuelle Version: <span class="font-mono text-slate-300">v{{ app_version }}</span></p>
+                    </div>
+                </div>
+                <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-0.5 rounded hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <div class="space-y-3 mb-5">
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/90 text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5" id="modal-update-notes">
+                    <p class="font-bold text-amber-400">Änderungen in dieser Version:</p>
+                    <p class="text-slate-400 whitespace-pre-line" id="modal-update-notes-body">Lade Release-Details von GitHub...</p>
+                </div>
+                <div id="update-status-msg" class="text-xs text-center font-semibold text-slate-400"></div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 pt-2">
+                <a id="modal-github-link" href="https://github.com/xNotLikex/clip-farming/releases/latest" target="_blank" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-300 rounded-lg transition flex items-center gap-1.5">
+                    <span>🐙</span> <span>Auf GitHub ansehen</span>
+                </a>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeUpdateModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-400 rounded-lg transition">Später</button>
+                    <button onclick="performUpdate(this)" id="btn-perform-update" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center gap-2 shadow-lg cursor-pointer">
+                        <span>⚡</span> <span>Jetzt 1-Klick aktualisieren</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
     <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4" style="display: none !important;" onclick="if (event.target === this) closeCropModal();">
         <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
@@ -2128,11 +2369,14 @@ HTML_DASHBOARD = """
 
                     <!-- Stage Container (Aspect 16:9) -->
                     <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
-                        <!-- Video element (muted for instant autoplay/frame decoding) -->
-                        <video id="crop-stage-video" muted playsinline preload="auto" class="w-full h-full object-contain pointer-events-none select-none"></video>
+                        <!-- Instant Visible 16:9 Stage Image to guarantee frame is never black -->
+                        <img id="crop-stage-img" src="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-0" alt="">
 
-                        <!-- Draggable Overlay Boxes Container (Feste Größen ohne Verzerrung) -->
-                        <div id="crop-overlay-layer" class="absolute inset-0 select-none pointer-events-none">
+                        <!-- Video element (muted for instant scrubbing) -->
+                        <video id="crop-stage-video" muted playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10"></video>
+
+                        <!-- Draggable Overlay Boxes Container -->
+                        <div id="crop-overlay-layer" class="absolute inset-0 select-none pointer-events-none z-20">
                             <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
                             <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
@@ -2477,12 +2721,27 @@ def get_dashboard_dict():
         "current_status": current_status,
         "current_task": current_task,
         "is_running": is_running,
+        "app_version": APP_VERSION,
     }
 
 @app.route("/")
 def index():
     d = get_dashboard_dict()
     return render_template_string(HTML_DASHBOARD, **d)
+
+@app.route("/api/version")
+def api_version():
+    return jsonify({"version": APP_VERSION, "repo": GITHUB_REPO})
+
+@app.route("/api/check-update")
+def api_check_update():
+    return jsonify(check_for_updates())
+
+@app.route("/api/apply-update", methods=["POST"])
+def api_apply_update():
+    data = request.get_json(silent=True) or {}
+    url = data.get("download_url") or ""
+    return jsonify(download_and_run_installer(url))
 
 @app.route("/api/dashboard")
 def api_dashboard():
@@ -2622,9 +2881,29 @@ def serve_raw_video(clip_id):
         return send_file(raw_path, mimetype="video/mp4", conditional=True)
     return "Rohdatei nicht gefunden", 404
 
+def make_svg_poster(title: str = "Clip", streamer: str = "") -> Response:
+    """Erzeugt ein sauberes SVG-Vorschaubild mit Gradient und Titel als Fallback."""
+    safe_title = html.escape(str(title)[:45])
+    safe_streamer = html.escape(str(streamer).upper()) if streamer else "CLIP"
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0b0f19" />
+          <stop offset="50%" stop-color="#111827" />
+          <stop offset="100%" stop-color="#05070e" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg)"/>
+      <circle cx="640" cy="320" r="64" fill="#1e293b" stroke="#334155" stroke-width="4"/>
+      <polygon points="625,290 670,320 625,350" fill="#f59e0b"/>
+      <text x="640" y="440" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="28" font-weight="bold" fill="#f8fafc" text-anchor="middle">{safe_title}</text>
+      <text x="640" y="480" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="18" font-weight="bold" fill="#f59e0b" text-anchor="middle" letter-spacing="2">{safe_streamer}</text>
+    </svg>"""
+    return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "public, max-age=3600"})
+
 @app.route("/thumbnail/<clip_id>")
 def serve_thumbnail(clip_id):
-    """Liefert ein gecachtes JPEG-Vorschaubild (Poster) für das Video."""
+    """Liefert ein gecachtes JPEG-Vorschaubild (Poster) für das 9:16 Short."""
     thumb_dir = DATA_DIR / "thumbnails"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / f"{clip_id}.jpg"
@@ -2635,26 +2914,23 @@ def serve_thumbnail(clip_id):
             video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
         
         if video_path.exists():
-            # 1. Try FFmpeg first (fastest and supports all MP4 codecs/profiles)
-            import subprocess
             try:
                 subprocess.run([
-                    "ffmpeg", "-y", "-ss", "00:00:01", "-i", str(video_path),
+                    "ffmpeg", "-y", "-ss", "00:00:00.500", "-i", str(video_path),
                     "-frames:v", "1", "-q:v", "2", str(thumb_path)
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
             except Exception:
                 pass
 
-            # 2. Fallback to OpenCV if FFmpeg was unavailable
             if not thumb_path.exists():
                 try:
                     cap = cv2.VideoCapture(str(video_path))
-                    cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+                    cap.set(cv2.CAP_PROP_POS_MSEC, 500)
                     ret, frame = cap.read()
                     if not ret:
                         cap.set(cv2.CAP_PROP_POS_MSEC, 0)
                         ret, frame = cap.read()
-                    if ret:
+                    if ret and frame is not None:
                         cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
                     cap.release()
                 except Exception:
@@ -2664,7 +2940,59 @@ def serve_thumbnail(clip_id):
         response = send_file(thumb_path, mimetype="image/jpeg")
         response.headers["Cache-Control"] = "public, max-age=86400"
         return response
-    return "", 404
+
+    title = clip_id
+    streamer = ""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT streamer, ai_title, original_title FROM clips WHERE clip_id = ?", (clip_id,))
+            clip = cursor.fetchone()
+            if clip:
+                streamer = clip["streamer"] or ""
+                title = clip["ai_title"] or clip["original_title"] or clip_id
+    except Exception:
+        pass
+    return make_svg_poster(title, streamer)
+
+@app.route("/thumbnail/raw/<clip_id>")
+def serve_raw_thumbnail(clip_id):
+    """Liefert das originale 16:9 Vorschaubild der Rohvideodatei."""
+    thumb_dir = DATA_DIR / "thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / f"raw_{clip_id}.jpg"
+
+    if not thumb_path.exists():
+        video_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
+        if video_path.exists():
+            try:
+                subprocess.run([
+                    "ffmpeg", "-y", "-ss", "00:00:00.500", "-i", str(video_path),
+                    "-frames:v", "1", "-q:v", "2", str(thumb_path)
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
+            except Exception:
+                pass
+
+            if not thumb_path.exists():
+                try:
+                    cap = cv2.VideoCapture(str(video_path))
+                    cap.set(cv2.CAP_PROP_POS_MSEC, 500)
+                    ret, frame = cap.read()
+                    if not ret:
+                        cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                        ret, frame = cap.read()
+                    if ret and frame is not None:
+                        cv2.imwrite(str(thumb_path), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                    cap.release()
+                except Exception:
+                    pass
+
+    if thumb_path.exists():
+        response = send_file(thumb_path, mimetype="image/jpeg")
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+
+    return make_svg_poster("Twitch Rohdatei", clip_id)
 
 @app.route("/video/<clip_id>")
 def serve_video(clip_id):
@@ -2754,6 +3082,7 @@ def export_clip_dialog(clip_id):
     try:
         res = subprocess.run(
             [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"HQ Video speichern unter ({streamer})"],
+            cwd=str(PROJECT_ROOT),
             capture_output=True,
             timeout=180
         )
@@ -2814,6 +3143,7 @@ def export_raw_dialog(clip_id):
     try:
         res = subprocess.run(
             [sys.executable, "-m", "src.save_dialog", filename, str(init_dir), f"Rohdatei speichern unter ({streamer})"],
+            cwd=str(PROJECT_ROOT),
             capture_output=True,
             timeout=180
         )

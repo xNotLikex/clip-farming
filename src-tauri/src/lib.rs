@@ -10,18 +10,10 @@ pub mod twitch;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|app| {
-            if let Some(window) = app.get_webview_window("main") {
-                if setup::is_environment_ready() {
-                    let url = tauri::Url::parse("http://127.0.0.1:5000").unwrap();
-                    let _ = window.navigate(url);
-                } else {
-                    // Load local setup.html
-                    let _ = window.navigate(tauri::Url::parse("tauri://localhost/setup.html").unwrap_or_else(|_| {
-                        tauri::Url::parse("http://tauri.localhost/setup.html").unwrap()
-                    }));
-                }
-            }
+        .setup(|_app| {
+            // The window naturally loads index.html (Setup Wizard & Launcher).
+            // It automatically checks if the environment is ready, launches
+            // Python Web Studio in the background, and navigates when ready.
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +28,7 @@ pub fn run() {
             commands::select_hardware_encoder,
             commands::api_proxy,
             setup::get_setup_info,
+            setup::get_setup_progress,
             setup::run_automated_setup,
             setup::launch_studio_after_setup,
         ])

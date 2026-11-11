@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "clip-farming",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.notlike.clipfarming",
   "build": {
     "frontendDist": "../ui"
@@ -12,14 +12,14 @@
       {
         "label": "main",
         "title": "Clip Farming Studio",
-        "url": "setup.html",
+        "url": "index.html",
         "width": 1440,
         "height": 920,
         "minWidth": 1024,
         "minHeight": 720,
         "resizable": true,
         "fullscreen": false,
-        "devtools": false
+        "devtools": true
       }
     ],
     "security": {

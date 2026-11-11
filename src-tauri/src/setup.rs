@@ -3,6 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, WebviewWindow};
 
@@ -18,7 +19,11 @@ pub struct SetupProgressEvent {
     pub total_steps: u32,
     pub message: String,
     pub log: String,
+    pub is_done: bool,
+    pub error: Option<String>,
 }
+
+static CURRENT_PROGRESS: Mutex<Option<SetupProgressEvent>> = Mutex::new(None);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SetupInfo {
@@ -112,12 +117,42 @@ pub fn get_setup_info() -> SetupInfo {
 }
 
 #[tauri::command]
+pub fn get_setup_progress() -> Option<SetupProgressEvent> {
+    CURRENT_PROGRESS.lock().unwrap().clone()
+}
+
+#[tauri::command]
 pub async fn run_automated_setup(app: AppHandle) -> Result<bool, String> {
     let app_dir = get_app_dir();
     let script_path = app_dir.join("scripts\\setup_pc.ps1");
 
     if !script_path.exists() {
-        return Err(format!("Setup-Skript nicht gefunden: {:?}", script_path));
+        let err_msg = format!("Setup-Skript nicht gefunden: {:?}", script_path);
+        let mut p = CURRENT_PROGRESS.lock().unwrap();
+        *p = Some(SetupProgressEvent {
+            percent: 0,
+            step: 0,
+            total_steps: 5,
+            message: "Fehler beim Starten des Setups".to_string(),
+            log: err_msg.clone(),
+            is_done: false,
+            error: Some(err_msg.clone()),
+        });
+        return Err(err_msg);
+    }
+
+    // Set initial progress
+    {
+        let mut p = CURRENT_PROGRESS.lock().unwrap();
+        *p = Some(SetupProgressEvent {
+            percent: 5,
+            step: 1,
+            total_steps: 5,
+            message: "Starte automatische Einrichtung...".to_string(),
+            log: "PowerShell-Skript wird vorbereitet...".to_string(),
+            is_done: false,
+            error: None,
+        });
     }
 
     #[cfg(windows)]
@@ -145,24 +180,81 @@ pub async fn run_automated_setup(app: AppHandle) -> Result<bool, String> {
         for line in reader.lines().flatten() {
             let trimmed = line.trim();
             if let Some(progress_json) = trimmed.strip_prefix("PROGRESS:") {
-                if let Ok(evt) = serde_json::from_str::<SetupProgressEvent>(progress_json) {
+                #[derive(Deserialize)]
+                struct RawProgress {
+                    percent: u32,
+                    step: u32,
+                    total_steps: u32,
+                    message: String,
+                    log: Option<String>,
+                }
+                if let Ok(raw) = serde_json::from_str::<RawProgress>(progress_json) {
+                    let evt = SetupProgressEvent {
+                        percent: raw.percent,
+                        step: raw.step,
+                        total_steps: raw.total_steps,
+                        message: raw.message,
+                        log: raw.log.unwrap_or_default(),
+                        is_done: raw.percent >= 100,
+                        error: None,
+                    };
+                    {
+                        let mut p = CURRENT_PROGRESS.lock().unwrap();
+                        *p = Some(evt.clone());
+                    }
                     let _ = app.emit("setup-progress", evt);
                 }
             } else if !trimmed.is_empty() {
+                let current_p = { CURRENT_PROGRESS.lock().unwrap().clone() };
+                let percent = current_p.as_ref().map(|x| x.percent).unwrap_or(20);
+                let step = current_p.as_ref().map(|x| x.step).unwrap_or(2);
                 let evt = SetupProgressEvent {
-                    percent: 50,
-                    step: 4,
+                    percent,
+                    step,
                     total_steps: 5,
-                    message: "Installation wird ausgeführt...".to_string(),
+                    message: "Installation läuft...".to_string(),
                     log: trimmed.to_string(),
+                    is_done: percent >= 100,
+                    error: None,
                 };
+                {
+                    let mut p = CURRENT_PROGRESS.lock().unwrap();
+                    *p = Some(evt.clone());
+                }
                 let _ = app.emit("setup-progress", evt);
             }
         }
     }
 
     let status = child.wait().map_err(|e| format!("Fehler beim Warten auf Setup: {}", e))?;
-    Ok(status.success())
+    let success = status.success();
+
+    {
+        let mut p = CURRENT_PROGRESS.lock().unwrap();
+        if success {
+            *p = Some(SetupProgressEvent {
+                percent: 100,
+                step: 5,
+                total_steps: 5,
+                message: "Einrichtung erfolgreich abgeschlossen!".to_string(),
+                log: "Alle Module bereit. Starte Clip-Farming Studio...".to_string(),
+                is_done: true,
+                error: None,
+            });
+        } else {
+            *p = Some(SetupProgressEvent {
+                percent: 0,
+                step: 0,
+                total_steps: 5,
+                message: "Fehler beim Ausführen des Setups".to_string(),
+                log: "PowerShell-Skript wurde mit Fehler beendet.".to_string(),
+                is_done: false,
+                error: Some("Setup abgebrochen".to_string()),
+            });
+        }
+    }
+
+    Ok(success)
 }
 
 #[tauri::command]
@@ -200,8 +292,8 @@ pub async fn launch_studio_after_setup(window: WebviewWindow) -> Result<bool, St
                 .spawn();
         }
 
-        // Wait up to 12 seconds for Flask to respond
-        for _ in 0..120 {
+        // Wait up to 15 seconds for Flask to respond
+        for _ in 0..150 {
             if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
                 std::thread::sleep(Duration::from_millis(300));
                 break;
