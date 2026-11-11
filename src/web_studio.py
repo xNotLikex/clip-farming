@@ -188,12 +188,20 @@ def process_single_clip(clip_id: str, sub_position: str = "bottom", sticker_text
             scaled_pct = 30 + int(pct * 0.70)
             status_manager.set_progress(percent=scaled_pct, eta_seconds=eta, speed=speed, phase="rendering", clip_id=clip_id)
 
+        # Streamer Vorkonfiguration abrufen
+        streamers = get_streamers()
+        st_cfg = next((s for s in streamers if s.get("name", "").lower() == streamer.lower()), {})
+        st_layout = metadata.get("layout_mode") or st_cfg.get("layout", "auto")
+        st_crops = metadata.get("custom_crops") or st_cfg.get("custom_crops")
+
         rendered_path = composer.render_short(
             raw_video_path=raw_path,
             clip_id=clip_id,
             ass_subtitle_path=active_sub_path,
             header_sticker_text=sticker_text,
-            layout_mode="auto",
+            streamer_name=streamer,
+            layout_mode=st_layout,
+            custom_crops=st_crops,
             on_progress=on_render_progress
         )
 
@@ -861,6 +869,43 @@ HTML_DASHBOARD = """
                 } else {
                     if (window.showToast) window.showToast('Zuschnitt erfolgreich gespeichert!', 'success');
                 }
+            }).catch(function(err) {
+                alert('Fehler beim Speichern: ' + err);
+            });
+        }
+
+        function saveAsDefaultStreamerLayout() {
+            if (window.__realSaveAsDefaultStreamerLayout) {
+                return window.__realSaveAsDefaultStreamerLayout();
+            }
+            if (!currentCropStreamer) {
+                alert('Kein Streamer ermittelt.');
+                return;
+            }
+            var payload = {
+                mode: currentCropMode === 'single_916' ? 'single_916' : 'split',
+                cam: {
+                    x_pct: cropState.cam.x,
+                    y_pct: cropState.cam.y,
+                    w_pct: cropState.cam.w,
+                    h_pct: cropState.cam.h,
+                    enabled: cropState.cam.enabled
+                },
+                game: {
+                    x_pct: cropState.game.x,
+                    y_pct: 0,
+                    w_pct: cropState.game.w,
+                    h_pct: 1.0,
+                    enabled: true
+                }
+            };
+            fetch('/api/streamers/' + encodeURIComponent(currentCropStreamer) + '/layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ layout: currentCropMode === 'single_916' ? 'single_916' : 'custom', custom_crops: payload })
+            }).then(function() {
+                if (window.showToast) window.showToast('✓ Standard-Layout für ' + currentCropStreamer + ' gespeichert!', 'success');
+                else alert('Standard-Layout gespeichert!');
             }).catch(function(err) {
                 alert('Fehler beim Speichern: ' + err);
             });
@@ -2322,6 +2367,21 @@ HTML_DASHBOARD = """
                             </div>
                             <div class="flex items-center gap-2.5 flex-wrap">
                                 <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
+                                    <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
+                                            class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-2xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
+                                        <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>🤖 Auto (KI)</option>
+                                        <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>📱 Split-Cam (Oben)</option>
+                                        <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>🎬 Keine Cam (Blur)</option>
+                                        <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>📐 9:16 Vollbild</option>
+                                        <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>🎯 Eigener Rahmen {% if s.custom_crops %}(Gespeichert){% endif %}</option>
+                                        <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>📍 Cam: Oben Links</option>
+                                        <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>📍 Cam: Oben Rechts</option>
+                                        <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>📍 Cam: Unten Links</option>
+                                        <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>📍 Cam: Unten Rechts</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
                                     <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
                                     <input type="number" value="{{ s.min_clip_views }}" min="1" max="10000"
                                            onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
@@ -2731,7 +2791,10 @@ HTML_DASHBOARD = """
                 <button onclick="closeCropModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded transition">
                     Abbrechen
                 </button>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="if (window.saveAsDefaultStreamerLayout) window.saveAsDefaultStreamerLayout();" class="px-3.5 py-2 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 font-bold text-xs rounded transition flex items-center gap-1.5 shadow" title="Speichert diesen Zuschnitt als Standard-Layout für alle zukünftigen Clips dieses Streamers">
+                        <span>⭐</span> <span>Als Standard für Streamer merken</span>
+                    </button>
                     <button onclick="saveCropCoordinates(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded transition">
                         Nur Speichern
                     </button>
@@ -3787,6 +3850,18 @@ def update_streamer_route():
         return jsonify({"success": True, "message": f"Streamer {name} aktualisiert"})
     return jsonify({"success": False, "error": "Streamer nicht gefunden"}), 404
 
+@app.route("/api/streamers/<name>/layout", methods=["POST"])
+def set_streamer_layout_route(name):
+    clean_name = name.strip().lower()
+    data = request.get_json(silent=True) or request.form
+    layout = data.get("layout", "custom")
+    custom_crops = data.get("custom_crops")
+    
+    if update_streamer(clean_name, layout=layout, custom_crops=custom_crops):
+        status_manager.log(f"Standard-Layout für Streamer '{clean_name}' auf '{layout}' gesetzt.")
+        return jsonify({"success": True, "message": f"Standard-Layout für {clean_name} aktualisiert"})
+    return jsonify({"success": False, "error": "Streamer nicht gefunden"}), 404
+
 @app.route("/api/streamers/update-all-views", methods=["POST"])
 def update_all_streamers_views_route():
     data = request.get_json(silent=True) or request.form
@@ -3843,14 +3918,28 @@ def get_clip_meta_api(clip_id):
         except Exception:
             pass
 
+    streamer_name = (clip["streamer"] if clip else meta.get("streamer", "")).strip()
+    streamer_crops = None
+    streamer_layout = "auto"
+    if streamer_name:
+        for s in get_streamers():
+            if s.get("name", "").lower() == streamer_name.lower():
+                streamer_layout = s.get("layout", "auto")
+                streamer_crops = s.get("custom_crops")
+                break
+
+    resolved_crops = meta.get("custom_crops") or streamer_crops
+    resolved_layout = meta.get("layout_mode") or streamer_layout
+
     return jsonify({
         "clip_id": clip_id,
-        "streamer": clip["streamer"] if clip else meta.get("streamer", ""),
+        "streamer": streamer_name,
         "title": (clip["ai_title"] or clip["original_title"] if clip else "") or meta.get("title", ""),
         "sticker_text": meta.get("sticker_text", ""),
         "sub_position": meta.get("sub_position", "bottom"),
-        "layout_mode": meta.get("layout_mode", "auto"),
-        "custom_crops": meta.get("custom_crops", None),
+        "layout_mode": resolved_layout,
+        "custom_crops": resolved_crops,
+        "streamer_default_crops": streamer_crops,
         "cam_filter": meta.get("cam_filter", "none"),
         "video_w": vw,
         "video_h": vh,

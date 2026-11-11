@@ -112,9 +112,11 @@ class PipelineOrchestrator:
                 status_manager.set_task("rendering", "Rendere 9:16 Short (NVENC GPU)...", clip_title=orig_title, streamer=streamer)
                 print("  [4/4] Rendere vertikales 9:16 Short (NVENC GPU)...")
                 layout_mode = "auto"
+                custom_crops = None
                 for s in enabled_streamers:
                     if s["name"].lower() == streamer.lower():
                         layout_mode = s.get("layout", "auto")
+                        custom_crops = s.get("custom_crops")
                         break
 
                 sticker_text = metadata.get("title") or orig_title
@@ -125,7 +127,8 @@ class PipelineOrchestrator:
                     ass_subtitle_path=ass_path,
                     header_sticker_text=sticker_text,
                     streamer_name=streamer,
-                    layout_mode=layout_mode
+                    layout_mode=layout_mode,
+                    custom_crops=custom_crops
                 )
 
                 if rendered_path and rendered_path.exists():

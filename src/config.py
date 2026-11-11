@@ -114,7 +114,41 @@ def remove_streamer(name: str) -> bool:
         return True
     return False
 
-def update_streamer(name: str, min_views: Optional[int] = None, max_clips: Optional[int] = None, layout: Optional[str] = None, enabled: Optional[bool] = None) -> bool:
+PRESET_CORNER_CROPS = {
+    "top_left": {
+        "mode": "split",
+        "enabled": True,
+        "cam": {"x_pct": 0.02, "y_pct": 0.03, "w_pct": 0.28, "h_pct": 0.30, "enabled": True},
+        "game": {"x_pct": 0.247, "y_pct": 0.0, "w_pct": 0.506, "h_pct": 1.0, "enabled": True}
+    },
+    "top_right": {
+        "mode": "split",
+        "enabled": True,
+        "cam": {"x_pct": 0.70, "y_pct": 0.03, "w_pct": 0.28, "h_pct": 0.30, "enabled": True},
+        "game": {"x_pct": 0.247, "y_pct": 0.0, "w_pct": 0.506, "h_pct": 1.0, "enabled": True}
+    },
+    "bottom_left": {
+        "mode": "split",
+        "enabled": True,
+        "cam": {"x_pct": 0.02, "y_pct": 0.67, "w_pct": 0.28, "h_pct": 0.30, "enabled": True},
+        "game": {"x_pct": 0.247, "y_pct": 0.0, "w_pct": 0.506, "h_pct": 1.0, "enabled": True}
+    },
+    "bottom_right": {
+        "mode": "split",
+        "enabled": True,
+        "cam": {"x_pct": 0.70, "y_pct": 0.67, "w_pct": 0.28, "h_pct": 0.30, "enabled": True},
+        "game": {"x_pct": 0.247, "y_pct": 0.0, "w_pct": 0.506, "h_pct": 1.0, "enabled": True}
+    }
+}
+
+def update_streamer(
+    name: str, 
+    min_views: Optional[int] = None, 
+    max_clips: Optional[int] = None, 
+    layout: Optional[str] = None, 
+    enabled: Optional[bool] = None,
+    custom_crops: Optional[Any] = None
+) -> bool:
     """Aktualisiert die Einstellungen eines Streamers in config.yaml."""
     clean_name = name.strip().lower()
     cfg = load_config()
@@ -128,8 +162,15 @@ def update_streamer(name: str, min_views: Optional[int] = None, max_clips: Optio
                 s["max_clips_per_run"] = int(max_clips)
             if layout is not None:
                 s["layout"] = str(layout)
+                if str(layout) in PRESET_CORNER_CROPS and custom_crops is None:
+                    s["custom_crops"] = PRESET_CORNER_CROPS[str(layout)]
             if enabled is not None:
                 s["enabled"] = bool(enabled)
+            if custom_crops is not None:
+                if custom_crops == "reset" or custom_crops == {} or custom_crops is False:
+                    s.pop("custom_crops", None)
+                else:
+                    s["custom_crops"] = custom_crops
             found = True
             break
     if found:

@@ -154,9 +154,9 @@ class VideoComposer:
         total_duration = get_video_duration(raw_video_path)
         face_box = None
         
-        # 0.1 Falls custom_crops nicht direkt uebergeben wurde, aber layout_mode custom oder single_916 ist, aus Metadata laden
-        if custom_crops is None and (layout_mode in ("custom", "single_916", "auto")):
-            from src.config import METADATA_OUTPUT_DIR
+        # 0.1 Falls custom_crops nicht direkt uebergeben wurde, aus Metadata oder Streamer-Config laden
+        if custom_crops is None:
+            from src.config import METADATA_OUTPUT_DIR, get_streamers, PRESET_CORNER_CROPS
             meta_f = METADATA_OUTPUT_DIR / f"{clip_id}.json"
             if meta_f.exists():
                 try:
@@ -165,8 +165,33 @@ class VideoComposer:
                         m = json.load(mf)
                         if layout_mode in ("custom", "single_916") or m.get("layout_mode") in ("custom", "single_916"):
                             custom_crops = m.get("custom_crops")
+                        if not custom_crops and m.get("layout_mode") in PRESET_CORNER_CROPS:
+                            custom_crops = PRESET_CORNER_CROPS[m.get("layout_mode")]
                 except Exception:
                     pass
+
+            # Falls immer noch None: Prüfe ob für den Streamer ein vorkonfiguriertes Layout existiert
+            if custom_crops is None and streamer_name:
+                try:
+                    for s in get_streamers():
+                        if s.get("name", "").lower() == streamer_name.lower():
+                            st_layout = s.get("layout", "auto")
+                            if st_layout in PRESET_CORNER_CROPS:
+                                custom_crops = PRESET_CORNER_CROPS[st_layout]
+                                layout_mode = "custom"
+                            elif s.get("custom_crops"):
+                                custom_crops = s.get("custom_crops")
+                                if layout_mode == "auto":
+                                    layout_mode = st_layout or "custom"
+                            elif layout_mode == "auto" and st_layout != "auto":
+                                layout_mode = st_layout
+                            break
+                except Exception:
+                    pass
+
+        if layout_mode in PRESET_CORNER_CROPS and not custom_crops:
+            from src.config import PRESET_CORNER_CROPS
+            custom_crops = PRESET_CORNER_CROPS[layout_mode]
 
         # Prüfen ob Reines 9:16 Vollbild (IRL / Einzelfokus ohne Cam-Split)
         is_single_916 = (layout_mode == "single_916") or (custom_crops and custom_crops.get("mode") == "single_916")

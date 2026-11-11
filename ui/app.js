@@ -522,31 +522,133 @@ function renderStreamers(streamers) {
     const container = document.getElementById('streamer-modal-list');
     if (!container || !streamers) return;
 
-    container.innerHTML = streamers.map(s => `
+    container.innerHTML = streamers.map(s => {
+        const curLayout = s.layout || 'auto';
+        const hasCustom = !!s.custom_crops;
+        return `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/80 border border-slate-700/80 p-3 rounded-lg hover:border-slate-600 transition gap-3">
             <div class="min-w-0">
                 <span class="font-bold text-sm text-amber-400 block truncate">${escapeHtml(s.name)}</span>
                 <span class="text-2xs text-slate-400 font-mono">Twitch</span>
             </div>
-            <div class="flex items-center gap-2.5 flex-wrap">
-                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
-                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
-                    <input type="number" value="${s.min_clip_views || 30}" min="1" max="10000"
-                           onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
-                           class="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+            <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
+                    <select onchange="updateStreamerLayout('${escapeJs(s.name)}', this.value)"
+                            class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-2xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
+                        <option value="auto" ${curLayout === 'auto' ? 'selected' : ''}>🤖 Auto (KI)</option>
+                        <option value="split_cam_top" ${curLayout === 'split_cam_top' ? 'selected' : ''}>📱 Split-Cam (Oben)</option>
+                        <option value="blur_stack" ${curLayout === 'blur_stack' ? 'selected' : ''}>🎬 Keine Cam (Blur)</option>
+                        <option value="single_916" ${curLayout === 'single_916' ? 'selected' : ''}>📐 9:16 Vollbild</option>
+                        <option value="custom" ${curLayout === 'custom' ? 'selected' : ''}>🎯 Eigener Rahmen ${hasCustom ? '(Gespeichert)' : ''}</option>
+                        <option value="top_left" ${curLayout === 'top_left' ? 'selected' : ''}>📍 Cam: Oben Links</option>
+                        <option value="top_right" ${curLayout === 'top_right' ? 'selected' : ''}>📍 Cam: Oben Rechts</option>
+                        <option value="bottom_left" ${curLayout === 'bottom_left' ? 'selected' : ''}>📍 Cam: Unten Links</option>
+                        <option value="bottom_right" ${curLayout === 'bottom_right' ? 'selected' : ''}>📍 Cam: Unten Rechts</option>
+                    </select>
                 </div>
-                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
-                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max Clips:</span>
+                <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
+                    <input type="number" value="${s.min_clip_views || 25}" min="1" max="10000"
+                           onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
+                           class="w-12 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                </div>
+                <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max:</span>
                     <input type="number" value="${s.max_clips_per_run || 2}" min="1" max="10"
                            onchange="updateStreamerMaxClips('${escapeJs(s.name)}', this.value)"
-                           class="w-12 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
+                           class="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
                 </div>
                 <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-lg transition" title="Streamer entfernen">
                     ${SVG_ICONS.trash}
                 </button>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+async function updateStreamerLayout(name, layout) {
+    if (!name || !layout) return;
+    try {
+        await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/layout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout: layout })
+        });
+        showToast(`Layout für ${name} auf '${layout}' aktualisiert!`, 'success');
+        refreshDashboard();
+    } catch (e) {
+        alert('Fehler beim Ändern des Layouts: ' + e);
+    }
+}
+
+async function saveAsDefaultStreamerLayout() {
+    if (!currentCropStreamer) {
+        alert('Kein Streamer für diesen Clip ermittelt.');
+        return;
+    }
+    const vw = videoNativeWidth || 1920;
+    const vh = videoNativeHeight || 1080;
+    
+    let customCropsPayload;
+    let layoutMode = currentCropMode === 'single_916' ? 'single_916' : 'custom';
+    
+    if (currentCropMode === 'single_916') {
+        customCropsPayload = {
+            mode: 'single_916',
+            enabled: true,
+            single: {
+                x_pct: cropState.single.x,
+                y_pct: 0.0,
+                w_pct: cropState.single.w,
+                h_pct: 1.0,
+                x: Math.round(cropState.single.x * vw),
+                y: 0,
+                w: Math.round(cropState.single.w * vw),
+                h: vh
+            }
+        };
+    } else {
+        customCropsPayload = {
+            mode: 'split',
+            enabled: true,
+            cam: {
+                x_pct: cropState.cam.x,
+                y_pct: cropState.cam.y,
+                w_pct: cropState.cam.w,
+                h_pct: cropState.cam.h,
+                x: Math.round(cropState.cam.x * vw),
+                y: Math.round(cropState.cam.y * vh),
+                w: Math.round(cropState.cam.w * vw),
+                h: Math.round(cropState.cam.h * vh),
+                enabled: cropState.cam.enabled
+            },
+            game: {
+                x_pct: cropState.game.x,
+                y_pct: cropState.game.y,
+                w_pct: cropState.game.w,
+                h_pct: cropState.game.h,
+                x: Math.round(cropState.game.x * vw),
+                y: Math.round(cropState.game.y * vh),
+                w: Math.round(cropState.game.w * vw),
+                h: Math.round(cropState.game.h * vh),
+                enabled: true
+            }
+        };
+    }
+    
+    try {
+        await apiFetch('/api/streamers/' + encodeURIComponent(currentCropStreamer) + '/layout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout: layoutMode, custom_crops: customCropsPayload })
+        });
+        showToast(`✓ Standard-Layout für ${currentCropStreamer} gespeichert! Zukünftige Clips werden automatisch so geschnitten.`, 'success');
+        refreshDashboard();
+    } catch (e) {
+        alert('Fehler beim Speichern des Standard-Layouts: ' + e);
+    }
 }
 
 async function updateStreamerMinViews(name, minViews) {
@@ -2604,6 +2706,8 @@ async function downloadRawVideo(clipId, btn, evt) {
         window.loadSettingsIntoForm = loadSettingsIntoForm;
         window.updateStreamerMinViews = updateStreamerMinViews;
         window.updateStreamerMaxClips = updateStreamerMaxClips;
+        window.updateStreamerLayout = updateStreamerLayout;
+        window.saveAsDefaultStreamerLayout = saveAsDefaultStreamerLayout;
         window.applyBulkMinViews = applyBulkMinViews;
         window.filterStudioByStreamer = filterStudioByStreamer;
         window.triggerRun = triggerRun;
