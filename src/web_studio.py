@@ -303,10 +303,26 @@ HTML_DASHBOARD = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clip-Farming Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #f3f4f6; font-weight: 600; }
+        body { 
+            background-color: #090d16; 
+            color: #f1f5f9; 
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        :focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+            *, ::before, ::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        .tab-btn.active { border-bottom-color: #f59e0b; color: #ffffff; font-weight: 600; }
         .tab-content.hidden { display: none !important; }
         #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden, #settings-modal.hidden, #streamer-config-modal.hidden {
             display: none !important;
@@ -319,8 +335,9 @@ HTML_DASHBOARD = """
             visibility: visible !important;
         }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
         #crop-stage-container {
             position: relative;
             width: 100%;
@@ -393,9 +410,15 @@ HTML_DASHBOARD = """
             if (window.__realSaveStreamerConfig) return window.__realSaveStreamerConfig(event);
             if (window.saveStreamerConfig && window.saveStreamerConfig !== saveStreamerConfig) return window.saveStreamerConfig(event);
         }
-        function loadSampleClipDirect(name) {
+        function loadSampleClipDirect(name, btnEl) {
             if (!name) return;
-            if (window.__realLoadSampleClipDirect) return window.__realLoadSampleClipDirect(name);
+            if (window.__realLoadSampleClipDirect) return window.__realLoadSampleClipDirect(name, btnEl);
+            var oldHtml = btnEl ? btnEl.innerHTML : '';
+            if (btnEl) {
+                btnEl.disabled = true;
+                btnEl.classList.add('opacity-70', 'cursor-not-allowed');
+                btnEl.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mr-1"></span><span>Lade Test-Clip...</span>';
+            }
             if (window.showToast) window.showToast('Lade Test-Clip für ' + name + ' von Twitch...', 'info');
             fetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', { method: 'POST' })
                 .then(function(r) { return r.json(); })
@@ -414,6 +437,13 @@ HTML_DASHBOARD = """
                 .catch(function(err) {
                     if (window.showToast) window.showToast('Fehler: ' + err, 'error');
                     else alert('Fehler beim Laden des Test-Clips: ' + err);
+                })
+                .finally(function() {
+                    if (btnEl) {
+                        btnEl.disabled = false;
+                        btnEl.classList.remove('opacity-70', 'cursor-not-allowed');
+                        btnEl.innerHTML = oldHtml;
+                    }
                 });
         }
         window.loadSampleClipDirect = loadSampleClipDirect;
@@ -1624,47 +1654,44 @@ HTML_DASHBOARD = """
             </div>
         </div>
 
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('queue')">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">1. Warteschlange</span>
-                <span class="text-3xl font-black text-amber-400 mt-1 block">{{ counts.harvested }}</span>
-                <span class="text-xs text-slate-500 mt-1 block">Rohdateien gespeichert</span>
+        <!-- Modern Unified Navigation Bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 gap-3">
+            <div class="flex items-center gap-1 text-sm font-medium overflow-x-auto w-full sm:w-auto -mb-px">
+                <button onclick="switchTab('queue')" id="tab-queue-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-amber-500 text-white font-semibold transition whitespace-nowrap">
+                    <span>Warteschlange</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{{ counts.harvested }}</span>
+                </button>
+                <button onclick="switchTab('studio')" id="tab-studio-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <span>Studio & Freigabe</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ counts.ready }}</span>
+                </button>
+                <button onclick="switchTab('planner')" id="tab-planner-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <span>Planer</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ counts.scheduled }}</span>
+                </button>
+                <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <span>Konten</span>
+                    <span class="w-2 h-2 rounded-full {% if account_status.youtube.is_connected or account_status.tiktok.is_connected %}bg-emerald-400{% else %}bg-slate-600{% endif %}"></span>
+                </button>
+                <button onclick="switchTab('streamers')" id="tab-streamers-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span>Streamer</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono" id="tab-count-streamers">{{ streamers|length }}</span>
+                </button>
             </div>
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('studio')">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">2. Studio & Freigabe</span>
-                <span class="text-3xl font-black text-amber-400 mt-1 block">{{ counts.ready }}</span>
-                <span class="text-xs text-slate-500 mt-1 block">9:16 Shorts bereit</span>
-            </div>
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('planner')">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">3. Veröffentlichungs-Plan</span>
-                <div class="flex items-baseline gap-2 mt-1">
-                    <span class="text-3xl font-black text-sky-400">{{ counts.scheduled }}</span>
-                    <span class="text-sm font-bold text-emerald-400">/ {{ counts.published }} online</span>
-                </div>
-                <span class="text-xs text-slate-500 mt-1 block">Zeitgesteuerte Veröffentlichung</span>
-            </div>
-            <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-lg cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('accounts')">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">4. Konten-Status</span>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="text-sm font-bold {% if account_status.youtube.is_connected %}text-emerald-400{% else %}text-slate-500{% endif %}">YT: {% if account_status.youtube.is_connected %}✓{% else %}✗{% endif %}</span>
-                    <span class="text-slate-600">•</span>
-                    <span class="text-sm font-bold {% if account_status.tiktok.is_connected %}text-emerald-400{% else %}text-slate-500{% endif %}">TikTok: {% if account_status.tiktok.is_connected %}✓{% else %}✗{% endif %}</span>
-                </div>
-                <span class="text-xs text-slate-500 mt-1 block">Klicken zum Verknüpfen</span>
+
+            <!-- Compact Drawer Ticker -->
+            <div class="flex items-center gap-2 pb-2 sm:pb-0 text-xs">
+                <button type="button" onclick="toggleLogs()" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5 font-mono">
+                    <span id="log-count" class="text-slate-400">{{ initial_logs|length }} Logs</span>
+                    <span id="log-toggle-icon" class="text-[10px] text-slate-500">▼</span>
+                </button>
             </div>
         </div>
 
-        <!-- Live Activity Log Bar (Collapsible) -->
-        <div class="bg-slate-900/60 border border-slate-800/80 rounded-lg p-4">
-            <div class="flex justify-between items-center cursor-pointer" onclick="toggleLogs()">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Live Activity Feed</span>
-                    <span id="log-count" class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">{{ initial_logs|length }} Einträge</span>
-                </div>
-                <span id="log-toggle-icon" class="text-slate-400 text-xs font-medium hover:text-amber-400 transition">▲ Verbergen</span>
-            </div>
-            <div id="log-box" class="mt-3 bg-slate-950 p-4 rounded font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5 border border-slate-800/50">
+        <!-- Collapsible Log Drawer (Hidden by default) -->
+        <div id="log-drawer-container" class="space-y-2">
+            <div id="log-box" class="hidden bg-slate-950 p-3.5 rounded-lg font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800">
                 {% if initial_logs %}
                     {% for log in initial_logs[-40:] %}
                         <div class="text-slate-300 leading-relaxed font-mono">{{ log }}</div>
@@ -1675,102 +1702,77 @@ HTML_DASHBOARD = """
             </div>
         </div>
 
-        <!-- Tabs Navigation -->
-        <div class="flex flex-wrap gap-4 border-b border-slate-800 text-sm font-semibold">
-            <button onclick="switchTab('queue')" id="tab-queue-btn" class="tab-btn pb-3 active flex items-center gap-2">
-                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg> 1. Warteschlange ({{ counts.harvested }})
-            </button>
-            <button onclick="switchTab('studio')" id="tab-studio-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg> 2. Studio & Freigabe ({{ counts.ready }})
-            </button>
-            <button onclick="switchTab('planner')" id="tab-planner-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> 3. Veröffentlichungs-Planer ({{ counts.scheduled }})
-            </button>
-            <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg> 4. Konten verknüpfen
-            </button>
-            <button onclick="switchTab('streamers')" id="tab-streamers-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> 5. Streamer (<span id="tab-count-streamers">{{ streamers|length }}</span>)
-            </button>
-        </div>
-
         <!-- TAB 1: WARTESCHLANGE -->
         <div id="tab-queue" class="tab-content space-y-4">
             <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/70 border-b border-slate-800 gap-3">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/80 border-b border-slate-800 gap-3">
                     <div>
-                        <span class="text-sm font-bold text-slate-200">{{ counts.harvested }} Roh-Clips lokal auf der Festplatte</span>
-                        <span class="text-xs text-slate-400 block">Tipp: Klicke auf eine Zeile, um das Video vor dem Schneiden abzuspielen.</span>
+                        <div class="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                            <span>Warteschlange</span>
+                            <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{{ counts.harvested }} Rohdateien</span>
+                        </div>
+                        <span class="text-xs text-slate-400 mt-0.5 block">Klicke auf eine Zeile für die Videovorschau vor dem Zuschnitt.</span>
                     </div>
                     {% if counts.harvested > 0 %}
                     <div class="flex flex-wrap items-center gap-2.5">
                         {% if older_queue_count > 0 %}
-                        <form action="/queue/delete-older" method="POST" class="inline" onsubmit="return confirm('Wirklich alle {{ older_queue_count }} Roh-Clips von gestern und älter aus der Warteschlange löschen?\n\n(Clips von heute bleiben vollständig erhalten)');">
-                            <button type="submit" class="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 font-bold text-xs rounded shadow-lg shadow-rose-950/40 text-rose-300 hover:text-white flex items-center gap-2 transition active:scale-95" title="Löscht alle {{ older_queue_count }} Roh-Clips von gestern & älter">
-                                <span><svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></span> Gestern & älter löschen ({{ older_queue_count }})
+                        <form action="/queue/delete-older" method="POST" class="inline" onsubmit="return confirm('Wirklich alle {{ older_queue_count }} Roh-Clips von gestern und älter löschen?');">
+                            <button type="submit" class="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 border border-slate-700/80 rounded transition font-medium" title="Löscht alle {{ older_queue_count }} Roh-Clips von gestern & älter">
+                                Gestern & älter löschen ({{ older_queue_count }})
                             </button>
                         </form>
                         {% endif %}
-                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
-                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Alle Warteschlangen-Clips ins Studio übernehmen
+                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Alle ins Studio übernehmen
                         </button>
                     </div>
                     {% endif %}
                 </div>
-
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
-                            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase font-semibold">
-                                <th class="py-3.5 px-4 w-12 text-center whitespace-nowrap">Play</th>
-                                <th class="py-3.5 px-4 whitespace-nowrap">Streamer</th>
-                                <th class="py-3.5 px-4 min-w-[220px]">Titel des Clips (Klicken zum Abspielen)</th>
-                                <th class="py-3.5 px-4 whitespace-nowrap">Erstellt</th>
-                                <th class="py-3.5 px-4 whitespace-nowrap">Views</th>
-                                <th class="py-3.5 px-4 whitespace-nowrap">Dauer</th>
-                                <th class="py-3.5 px-4 whitespace-nowrap">Status</th>
-                                <th class="py-3.5 px-4 text-right whitespace-nowrap">Aktion</th>
+                            <tr class="border-b border-slate-800/80 bg-slate-950/60 text-slate-400 text-xs font-semibold">
+                                <th class="py-3 px-4 w-12 text-center"></th>
+                                <th class="py-3 px-4 whitespace-nowrap">Streamer</th>
+                                <th class="py-3 px-4">Clip</th>
+                                <th class="py-3 px-4 whitespace-nowrap">Dauer & Views</th>
+                                <th class="py-3 px-4 whitespace-nowrap">Erstellt</th>
+                                <th class="py-3 px-4 text-right whitespace-nowrap">Aktion</th>
                             </tr>
                         </thead>
-                        <tbody id="queue-tbody" class="divide-y divide-slate-800/80">
+                        <tbody id="queue-tbody" class="divide-y divide-slate-800/60">
                             {% for clip in queue_clips %}
                             <tr data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.original_title|e }}" data-views="{{ clip.view_count }}" data-duration="{{ '%.0f'|format(clip.duration) }}" data-created-ago="{{ clip.created_ago|e }}" data-created-full="{{ clip.created_full|e }}" onclick="openRawPreviewFromRow(this)"
-                                class="hover:bg-slate-800/60 cursor-pointer transition group">
-                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
-                                    <span class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-amber-500 group-hover:text-zinc-950 flex items-center justify-center text-xs text-white transition shadow">
+                                class="hover:bg-slate-800/40 cursor-pointer transition group">
+                                <td class="py-3 px-4 text-center whitespace-nowrap">
+                                    <div class="w-7 h-7 rounded bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 flex items-center justify-center text-xs transition">
                                         ▶
-                                    </span>
-                                </td>
-                                <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">{{ clip.streamer }}</td>
-                                <td class="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-amber-400 transition">
-                                    <div>{{ clip.original_title }}</div>
-                                    <span class="text-xs text-slate-500 font-normal">Klicken zum Vorschauen</span>
-                                </td>
-                                <td class="py-3.5 px-4 whitespace-nowrap" title="{{ clip.created_full }}">
-                                    <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> {{ clip.created_ago }}
                                     </div>
-                                    {% if clip.created_full %}
-                                    <span class="text-[11px] text-slate-500 block">{{ clip.created_full }}</span>
-                                    {% endif %}
                                 </td>
-                                <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> {{ clip.view_count }}</td>
-                                <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">{{ "%.0f"|format(clip.duration) }}s</td>
-                                <td class="py-3.5 px-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium whitespace-nowrap shadow-sm">
-                                        ✓ Lokal geladen
-                                    </span>
+                                <td class="py-3 px-4 whitespace-nowrap">
+                                    <span class="font-semibold text-slate-200 text-sm block">{{ clip.streamer }}</span>
                                 </td>
-                                <td class="py-3.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
-                                    <div class="flex items-center justify-end gap-2">
+                                <td class="py-3 px-4">
+                                    <div class="font-medium text-slate-100 group-hover:text-amber-400 transition text-sm">{{ clip.original_title }}</div>
+                                </td>
+                                <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">
+                                    <span class="font-mono text-slate-300">{{ "%.0f"|format(clip.duration) }}s</span>
+                                    <span class="text-slate-600 mx-1.5">•</span>
+                                    <span class="font-mono text-slate-300">{{ clip.view_count }} Views</span>
+                                </td>
+                                <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap" title="{{ clip.created_full }}">
+                                    <span>{{ clip.created_ago }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition">
                                         <form action="/process-one/{{ clip.clip_id }}" method="POST" class="inline">
-                                            <button type="submit" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5 shadow-sm whitespace-nowrap">
-                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen
+                                            <button type="submit" class="px-3 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 font-semibold text-xs rounded border border-slate-700/80 hover:border-amber-500 transition shadow-sm">
+                                                In Studio
                                             </button>
                                         </form>
-                                        <form action="/queue/delete/{{ clip.clip_id }}" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
-                                            <button type="submit" class="p-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Clip löschen & dauerhaft ignorieren">
-                                                <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        <form action="/queue/delete/{{ clip.clip_id }}" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen?');">
+                                            <button type="submit" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition" title="Löschen">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
                                         </form>
                                     </div>
@@ -1778,7 +1780,7 @@ HTML_DASHBOARD = """
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="8" class="py-12 text-center text-slate-500">Keine Clips in der Warteschlange.</td>
+                                <td colspan="6" class="py-12 text-center text-slate-500">Keine Clips in der Warteschlange.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -1885,7 +1887,7 @@ HTML_DASHBOARD = """
                         <div class="space-y-3">
                             <!-- Sticker Hook Text -->
                             <div>
-                                <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1 flex justify-between">
+                                <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
                                     <span>TikTok / Shorts Hook</span>
                                     <span class="text-slate-500 font-normal">Mitte</span>
                                 </label>
@@ -1896,7 +1898,7 @@ HTML_DASHBOARD = """
 
                             <!-- Video Title -->
                             <div>
-                                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">
                                     Titel (YouTube / TikTok)
                                 </label>
                                 <input type="text" name="title" value="{{ clip.title }}" 
@@ -1905,7 +1907,7 @@ HTML_DASHBOARD = """
 
                             <!-- Untertitel-Platzierung -->
                             <div>
-                                <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">
                                     Untertitel-Platzierung
                                 </label>
                                 <select name="sub_position" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
@@ -1918,7 +1920,7 @@ HTML_DASHBOARD = """
 
                             <!-- Video-Layout & Aufteilung (Split-Screen vs. Blur vs. IRL 9:16) -->
                             <div>
-                                <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">
                                     Video-Layout & Aufteilung
                                 </label>
                                 <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
@@ -1936,7 +1938,7 @@ HTML_DASHBOARD = """
 
                             <!-- Cam-Filter / Effekte (Snapchat / TikTok Style) -->
                             <div>
-                                <label class="block text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 flex justify-between">
+                                <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
                                     <span>Facecam-Effekt & Warp (MLS 3D)</span>
                                     <span class="text-slate-500 font-normal">Fun-Warp für Facecam</span>
                                 </label>
@@ -1949,7 +1951,7 @@ HTML_DASHBOARD = """
 
                             <!-- Transkribierter Text / Untertitel (hier editierbar) -->
                             <div>
-                                <label class="block text-xs font-semibold text-amber-300 uppercase tracking-wider mb-1 flex justify-between">
+                                <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
                                     <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
                                     <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
                                 </label>
@@ -2367,15 +2369,15 @@ HTML_DASHBOARD = """
         <!-- TAB 5: STREAMER VERWALTEN (FULL PAGE) -->
         <div id="tab-streamers" class="tab-content hidden space-y-6">
             <!-- Header Banner -->
-            <div class="bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 rounded-lg p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 shrink-0">
-                        👥
+                    <div class="w-12 h-12 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400 shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     </div>
                     <div>
                         <div class="flex items-center gap-3">
-                            <h2 class="text-xl font-black text-white">Überwachte Streamer verwalten</h2>
-                            <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            <h2 class="text-lg font-bold text-white">Überwachte Streamer verwalten</h2>
+                            <span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                                 <span id="fullpage-streamer-count">{{ streamers|length }}</span> Kanäle aktiv
                             </span>
                         </div>
@@ -2399,10 +2401,10 @@ HTML_DASHBOARD = """
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
                 <!-- Card 1: Neuen Streamer hinzufügen (7 cols) -->
-                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-xl flex flex-col justify-between">
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-sm flex flex-col justify-between">
                     <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="space-y-4">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                            <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
                                 <span>Neuen Twitch-Streamer hinzufügen</span>
                             </span>
                             <span class="text-2xs text-slate-500">Profilbild wird automatisch von Twitch bezogen</span>
@@ -2424,18 +2426,17 @@ HTML_DASHBOARD = """
                                     class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner">
                             </div>
                         </div>
-                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-md transition shadow-md flex items-center justify-center gap-2">
+                        <button type="submit" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded-md transition shadow-sm flex items-center justify-center gap-2">
                             <span>Streamer hinzufügen & überwachen</span>
                         </button>
                     </form>
                 </div>
 
                 <!-- Card 2: Globale Mindest-Views für alle (5 cols) -->
-                <div class="lg:col-span-5 bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border border-amber-500/30 rounded-lg p-5 shadow-xl flex flex-col justify-between">
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-sm flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-2.5 mb-1.5">
-                            
-                            <span class="text-xs font-bold text-amber-300 uppercase tracking-wider">Mindest-Views für ALLE Streamer</span>
+                            <span class="text-xs font-semibold text-slate-200">Mindest-Views für alle Streamer</span>
                         </div>
                         <p class="text-2xs text-slate-400 leading-relaxed">
                             Überschreibt die Mindestanzahl Views für alle aktuell überwachten Streamer auf einen festen Wert.
@@ -2447,7 +2448,7 @@ HTML_DASHBOARD = """
                             <span class="text-2xs text-slate-400 font-mono">Views:</span>
                             <input type="number" id="bulk-min-views-input-fullpage" value="25" min="1" max="100000" class="w-full bg-transparent text-xs text-amber-300 font-bold text-center focus:outline-none">
                         </div>
-                        <button type="button" onclick="if (window.applyBulkMinViewsFromInput) window.applyBulkMinViewsFromInput('bulk-min-views-input-fullpage'); else applyBulkMinViews();" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-md transition whitespace-nowrap shadow-md">
+                        <button type="button" onclick="if (window.applyBulkMinViewsFromInput) window.applyBulkMinViewsFromInput('bulk-min-views-input-fullpage'); else applyBulkMinViews();" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded-md transition whitespace-nowrap shadow-sm">
                             Für alle setzen
                         </button>
                     </div>
@@ -2458,63 +2459,63 @@ HTML_DASHBOARD = """
             <!-- Streamers Grid (Spacious Full Page Grid) -->
             <div class="space-y-3">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Aktive Kanäle</span>
+                    <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Aktive Kanäle</span>
                     <span id="streamer-filter-count" class="text-2xs text-slate-500 font-mono">{{ streamers|length }} angezeigt</span>
                 </div>
                 
                 <div id="streamer-grid-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {% for s in streamers %}
-                    <div class="streamer-card bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-lg p-4 shadow-xl transition flex flex-col justify-between gap-3.5" data-streamer="{{ s.name|lower }}">
+                    <div class="streamer-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg p-4 shadow-sm transition flex flex-col justify-between gap-3.5" data-streamer="{{ s.name|lower }}">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3 min-w-0">
                                 <div class="relative shrink-0">
                                     <img src="{{ s.avatar_url or 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png' }}" 
                                          alt="{{ s.name }}" 
                                          onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'"
-                                         class="w-12 h-12 rounded-full border-2 border-amber-500/70 object-cover shadow-md bg-slate-950">
-                                    <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
+                                         class="w-12 h-12 rounded-full border border-slate-700 object-cover shadow-sm bg-slate-950">
+                                    <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
                                 </div>
                                 <div class="min-w-0">
-                                    <span class="font-bold text-sm text-white truncate block">{{ s.display_name or s.name }}</span>
+                                    <span class="font-semibold text-sm text-white truncate block">{{ s.display_name or s.name }}</span>
                                     <a href="https://twitch.tv/{{ s.name }}" target="_blank" class="text-2xs text-slate-400 hover:text-slate-200 font-mono flex items-center gap-1 hover:underline">
                                         <span>twitch.tv/{{ s.name }}</span>
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                     </a>
                                     <div class="mt-1">
                                         {% if s.custom_crops %}
-                                        <span class="inline-flex items-center gap-1 text-2xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded">
+                                        <span class="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded">
                                             <span>Eigener Rahmen gespeichert</span>
                                         </span>
                                         {% else %}
-                                        <span class="inline-flex items-center gap-1 text-2xs font-semibold text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded">
+                                        <span class="inline-flex items-center gap-1 text-2xs font-medium text-slate-400 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded">
                                             <span>Layout:</span> {{ s.layout or 'auto' }}
                                         </span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
-                            <button onclick="removeStreamer('{{ s.name }}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Streamer entfernen">
+                            <button onclick="removeStreamer('{{ s.name }}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-md transition shrink-0" title="Streamer entfernen">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </div>
 
                         <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-md border border-slate-800/80 text-xs">
                             <div>
-                                <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
+                                <label class="block text-2xs font-medium text-slate-400 mb-1">Min. Views:</label>
                                 <input type="number" value="{{ s.min_clip_views }}" min="1" max="100000"
                                        onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
-                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none">
+                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
                             </div>
                             <div>
-                                <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Max Clips/Run:</label>
+                                <label class="block text-2xs font-medium text-slate-400 mb-1">Max Clips/Run:</label>
                                 <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
                                        onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
-                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-white font-bold focus:outline-none">
+                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-white font-semibold focus:outline-none">
                             </div>
                             <div class="col-span-2 mt-0.5">
-                                <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Standard Clip-Layout:</label>
+                                <label class="block text-2xs font-medium text-slate-400 mb-1">Standard Clip-Layout:</label>
                                 <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
-                                        class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
+                                        class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
                                     <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>Auto (KI Facecam-Scan)</option>
                                     <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>Split-Screen (Cam oben + Game unten)</option>
                                     <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>Keine Cam (Gameplay mit Blur)</option>
@@ -2529,10 +2530,10 @@ HTML_DASHBOARD = """
                         </div>
 
                         <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
-                            <button type="button" onclick="loadSampleClipDirect('{{ s.name }}')" class="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-md transition flex items-center justify-center gap-1.5 shadow" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                            <button type="button" onclick="loadSampleClipDirect('{{ s.name }}', this)" class="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-semibold text-xs rounded-md transition flex items-center justify-center gap-1.5 shadow-sm" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
                                 <span>Test-Clip & Rahmen einstellen</span>
                             </button>
-                            <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-md transition shrink-0" title="Erweiterte Einstellungen">
+                            <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold rounded-md transition shrink-0" title="Erweiterte Einstellungen">
                                 <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             </button>
                         </div>

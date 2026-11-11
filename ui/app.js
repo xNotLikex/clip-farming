@@ -216,29 +216,35 @@ function renderQueue(clips, olderCount) {
     if (!tbody) return;
     tbody.innerHTML = clips.map(clip => `
         <tr onclick="openRawPreview('${escapeJs(clip.clip_id)}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.original_title)}', '${clip.view_count}', '${Math.round(clip.duration)}', '${escapeJs(clip.created_ago || '')}', '${escapeJs(clip.created_full || '')}')"
-            class="hover:bg-slate-800/40 transition cursor-pointer group">
-            <td class="py-3.5 px-4 font-bold text-amber-400 whitespace-nowrap">${escapeHtml(clip.streamer)}</td>
-            <td class="py-3.5 px-4 font-medium text-slate-200">
-                <div class="line-clamp-2" title="${escapeHtml(clip.original_title)}">${escapeHtml(clip.original_title)}</div>
-            </td>
-            <td class="py-3.5 px-4 whitespace-nowrap" title="${escapeHtml(clip.created_full || '')}">
-                <div class="flex items-center gap-1.5 text-slate-300 font-medium">
-                    ${SVG_ICONS.calendar} ${escapeHtml(clip.created_ago || '-')}
+            class="hover:bg-slate-800/40 cursor-pointer transition group">
+            <td class="py-3 px-4 text-center whitespace-nowrap">
+                <div class="w-7 h-7 rounded bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 flex items-center justify-center text-xs transition">
+                    ▶
                 </div>
-                ${clip.created_full ? `<span class="text-[11px] text-slate-500 block">${escapeHtml(clip.created_full)}</span>` : ''}
             </td>
-            <td class="py-3.5 px-4 text-slate-300 font-semibold whitespace-nowrap">${SVG_ICONS.eye} ${clip.view_count}</td>
-            <td class="py-3.5 px-4 text-slate-400 whitespace-nowrap">${Math.round(clip.duration)}s</td>
-            <td class="py-3.5 px-4 text-right space-x-2 whitespace-nowrap" onclick="event.stopPropagation()">
-                <button onclick="processOneClip('${clip.clip_id}')" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-1.5">
-                    ${SVG_ICONS.scissors} Zuschneiden & Verarbeiten
-                </button>
-                <button onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.original_title)}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs rounded-lg text-slate-200 transition">
-                    ${SVG_ICONS.crop} Visueller Zuschnitt
-                </button>
-                <button onclick="deleteSingleQueueClip('${clip.clip_id}')" class="px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-900/50 font-bold text-xs rounded-lg text-rose-300 hover:text-white transition" title="Löschen">
-                    ${SVG_ICONS.trash}
-                </button>
+            <td class="py-3 px-4 whitespace-nowrap">
+                <span class="font-semibold text-slate-200 text-sm block">${escapeHtml(clip.streamer)}</span>
+            </td>
+            <td class="py-3 px-4">
+                <div class="font-medium text-slate-100 group-hover:text-amber-400 transition text-sm">${escapeHtml(clip.original_title)}</div>
+            </td>
+            <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">
+                <span class="font-mono text-slate-300">${Math.round(clip.duration)}s</span>
+                <span class="text-slate-600 mx-1.5">•</span>
+                <span class="font-mono text-slate-300">${clip.view_count} Views</span>
+            </td>
+            <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap" title="${escapeHtml(clip.created_full || '')}">
+                <span>${escapeHtml(clip.created_ago || '-')}</span>
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition">
+                    <button onclick="processOneClip('${clip.clip_id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 font-semibold text-xs rounded border border-slate-700/80 hover:border-amber-500 transition shadow-sm">
+                        In Studio
+                    </button>
+                    <button onclick="deleteSingleQueueClip('${clip.clip_id}')" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition" title="Löschen">
+                        ${SVG_ICONS.trash}
+                    </button>
+                </div>
             </td>
         </tr>
     `).join('');
@@ -360,25 +366,25 @@ function renderStudio(clips, streamerCounts) {
             <form action="/save/${clip.clip_id}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1 flex justify-between">
+                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
                             <span class="flex items-center gap-1.5">${SVG_ICONS.messageSquare} TikTok / Shorts Sprechblasen-Hook</span>
                             <span class="text-slate-500 font-normal">Mitte</span>
                         </label>
-                        <input type="text" name="sticker_text" value="${escapeHtml(clip.sticker_text || '')}" placeholder="z. B. Was macht er da?!" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        <input type="text" name="sticker_text" value="${escapeHtml(clip.sticker_text || '')}" placeholder="z. B. Was macht er da?!" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                        <label class="block text-xs font-medium text-slate-300 mb-1">
                             Titel (YouTube / TikTok)
                         </label>
-                        <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                        <label class="block text-xs font-medium text-slate-300 mb-1">
                             Untertitel-Platzierung
                         </label>
-                        <select name="sub_position" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        <select name="sub_position" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             <option value="bottom" ${clip.sub_position === 'bottom' ? 'selected' : ''}>Unten (Standard, über Shorts-UI)</option>
                             <option value="center" ${clip.sub_position === 'center' ? 'selected' : ''}>Mitte (Unteres Drittel über Game)</option>
                             <option value="top" ${clip.sub_position === 'top' ? 'selected' : ''}>Oben (Über Facecam)</option>
@@ -387,27 +393,27 @@ function renderStudio(clips, streamerCounts) {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                        <label class="block text-xs font-medium text-slate-300 mb-1">
                             Video-Layout & Aufteilung
                         </label>
-                        <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        <select name="layout_mode" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             <option value="auto" ${clip.layout_mode === 'auto' ? 'selected' : ''}>Automatisch (KI erkennt Facecam)</option>
                             <option value="custom" ${clip.layout_mode === 'custom' ? 'selected' : ''}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
                             <option value="single_916" ${clip.layout_mode === 'single_916' ? 'selected' : ''}>Reines 9:16 Vollbild (IRL / Fullscreen)</option>
                             <option value="split_cam_top" ${clip.layout_mode === 'split_cam_top' ? 'selected' : ''}>Split-Screen (Facecam oben, Gameplay unten)</option>
                             <option value="blur_stack" ${clip.layout_mode === 'blur_stack' ? 'selected' : ''}>Blur-Stack (Hintergrund unscharf)</option>
                         </select>
-                        <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
+                        <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full mt-2 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
                             ${SVG_ICONS.crop} Bildausschnitt anpassen (Split-Cam oder 9:16)
                         </button>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 flex justify-between">
+                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
                             <span>Cam-Filter / Effekt (3D Mesh Deformation)</span>
                             <span class="text-slate-500 font-normal">Fun-Warp für Facecam</span>
                         </label>
-                        <select name="cam_filter" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+                        <select name="cam_filter" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
                             ${Object.entries(CAM_FILTERS).map(([k, label]) => `
                                 <option value="${k}" ${clip.cam_filter === k ? 'selected' : ''}>${escapeHtml(label)}</option>
                             `).join('')}
@@ -419,7 +425,7 @@ function renderStudio(clips, streamerCounts) {
                     <button type="submit" class="flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
                         ${SVG_ICONS.save} Speichern
                     </button>
-                    <button type="button" onclick="scheduleSingleClip('${clip.clip_id}')" class="px-3.5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded shadow-md transition active:scale-95 flex items-center justify-center gap-1.5" title="Im Zeitplan eintragen">
+                    <button type="button" onclick="scheduleSingleClip('${clip.clip_id}')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5" title="Im Zeitplan eintragen">
                         ${SVG_ICONS.calendar} Einplanen
                     </button>
                 </div>
@@ -610,7 +616,7 @@ function renderStreamers(streamers) {
                 </div>
 
                 <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
-                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-semibold text-xs rounded-md transition flex items-center justify-center gap-1.5" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}', this)" class="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-semibold text-xs rounded-md transition flex items-center justify-center gap-1.5" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
                         ${SVG_ICONS.scissors} <span>Test-Clip & Rahmen einstellen</span>
                     </button>
                     <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-md transition shrink-0" title="Erweiterte Einstellungen">
@@ -639,7 +645,7 @@ function renderStreamers(streamers) {
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-semibold rounded-md transition flex items-center gap-1" title="Test-Clip & Rahmen">
+                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-semibold rounded-md transition flex items-center gap-1" title="Test-Clip & Rahmen">
                         ${SVG_ICONS.scissors} <span>Rahmen</span>
                     </button>
                     <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="p-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-md transition" title="Konfigurieren">
@@ -934,9 +940,15 @@ async function loadSampleClipForStreamer() {
     }
 }
 
-async function loadSampleClipDirect(name) {
+async function loadSampleClipDirect(name, btnEl) {
     if (!name) return;
-    showToast(`Lade Test-Clip für ${name} von Twitch herunter...`, 'info');
+    const oldHtml = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.classList.add('opacity-70', 'cursor-not-allowed');
+        btnEl.innerHTML = `<span class="inline-block w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mr-1"></span><span>Lade Test-Clip...</span>`;
+    }
+    showToast(`Lade aktuellen Clip von ${name} von Twitch herunter...`, 'info');
     try {
         const resp = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
             method: 'POST'
@@ -945,16 +957,22 @@ async function loadSampleClipDirect(name) {
         if (data && data.success && data.clip_id) {
             closeStreamerConfigModal();
             closeStreamerModal();
-            showToast(`Test-Clip für ${name} geladen! Cam & Gameplay Rahmen jetzt anpassen und 'Als Standard für Streamer merken' klicken.`, 'success');
+            showToast(`Test-Clip für ${name} geladen! Rahmen jetzt anpassen.`, 'success');
             openCropModal(data.clip_id, name, data.title || ('Standard-Rahmen Vorlage (' + name + ')'));
         } else {
-            const err = (data && data.error) ? data.error : 'Konnte keinen Clip laden.';
+            const err = (data && data.error) ? data.error : 'Konnte keinen Test-Clip laden. Hat der Streamer aktuelle Clips auf Twitch?';
             showToast('Fehler: ' + err, 'error');
             alert('Fehler: ' + err);
         }
     } catch (e) {
         showToast('Fehler beim Laden des Test-Clips: ' + e, 'error');
         alert('Fehler beim Laden des Test-Clips: ' + e);
+    } finally {
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.classList.remove('opacity-70', 'cursor-not-allowed');
+            btnEl.innerHTML = oldHtml;
+        }
     }
 }
 
