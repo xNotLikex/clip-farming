@@ -67,6 +67,12 @@ pub struct StreamerConfig {
     pub min_clip_views: i64,
     pub max_clips_per_run: i64,
     pub layout: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub has_custom_crops: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

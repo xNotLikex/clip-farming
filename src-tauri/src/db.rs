@@ -325,6 +325,16 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
 
     // 6. Streamers from config.yaml
     let config_path = base_dir.join("config").join("config.yaml");
+    let avatar_cache_path = base_dir.join("data").join("streamer_avatars.json");
+    let avatar_cache: std::collections::HashMap<String, serde_json::Value> = if avatar_cache_path.exists() {
+        fs::read_to_string(&avatar_cache_path)
+            .ok()
+            .and_then(|c| serde_json::from_str(&c).ok())
+            .unwrap_or_default()
+    } else {
+        std::collections::HashMap::new()
+    };
+
     let mut streamers = Vec::new();
     if config_path.exists() {
         if let Ok(content) = fs::read_to_string(&config_path) {
@@ -338,6 +348,18 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
                         let max_clips_per_run = item.get("max_clips_per_run").and_then(|v| v.as_i64()).unwrap_or(2);
                         let layout = item.get("layout").and_then(|v| v.as_str()).unwrap_or("auto").to_string();
 
+                        let clean_login = name.to_lowercase();
+                        let av_entry = avatar_cache.get(&clean_login);
+                        let avatar_url = av_entry
+                            .and_then(|v| v.get("avatar_url"))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        let display_name = av_entry
+                            .and_then(|v| v.get("display_name"))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        let has_custom_crops = Some(item.get("custom_crops").is_some());
+
                         streamers.push(StreamerConfig {
                             name,
                             platform,
@@ -345,6 +367,9 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
                             min_clip_views,
                             max_clips_per_run,
                             layout,
+                            avatar_url,
+                            display_name,
+                            has_custom_crops,
                         });
                     }
                 }

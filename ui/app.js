@@ -516,59 +516,135 @@ function renderPublished(publishedClips) {
 }
 
 // ----------------------------------------
-// 5. STREAMER MANAGEMENT MODAL
+// 5. STREAMER MANAGEMENT (FULL PAGE & COMPACT)
 // ----------------------------------------
 function renderStreamers(streamers) {
-    const container = document.getElementById('streamer-modal-list');
-    if (!container || !streamers) return;
+    if (!streamers) return;
 
-    container.innerHTML = streamers.map(s => {
-        const curLayout = s.layout || 'auto';
-        const hasCustom = !!s.custom_crops;
-        return `
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/80 border border-slate-700/80 p-3 rounded-lg hover:border-slate-600 transition gap-3">
-            <div class="min-w-0">
-                <span class="font-bold text-sm text-amber-400 block truncate">${escapeHtml(s.name)}</span>
-                <span class="text-2xs text-slate-400 font-mono">Twitch</span>
+    // Update count badges
+    const tabCount = document.getElementById('tab-count-streamers');
+    if (tabCount) tabCount.innerText = streamers.length;
+    const fpCount = document.getElementById('fullpage-streamer-count');
+    if (fpCount) fpCount.innerText = streamers.length;
+    const filterCount = document.getElementById('streamer-filter-count');
+    if (filterCount) filterCount.innerText = `${streamers.length} angezeigt`;
+
+    const fullGrid = document.getElementById('streamer-grid-list');
+    if (fullGrid) {
+        fullGrid.innerHTML = streamers.map(s => {
+            const curLayout = s.layout || 'auto';
+            const hasCustom = !!s.custom_crops || !!s.has_custom_crops;
+            const avatarUrl = s.avatar_url || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png';
+            const dispName = s.display_name || s.name;
+            return `
+            <div class="streamer-card bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-xl transition flex flex-col justify-between gap-3.5" data-streamer="${escapeHtml(s.name.toLowerCase())}">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="relative shrink-0">
+                            <img src="${escapeHtml(avatarUrl)}" 
+                                 alt="${escapeHtml(s.name)}" 
+                                 onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'"
+                                 class="w-12 h-12 rounded-full border-2 border-amber-500/70 object-cover shadow-md bg-slate-950">
+                            <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
+                        </div>
+                        <div class="min-w-0">
+                            <span class="font-bold text-sm text-white truncate block">${escapeHtml(dispName)}</span>
+                            <a href="https://twitch.tv/${encodeURIComponent(s.name)}" target="_blank" class="text-2xs text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1 hover:underline">
+                                <span>twitch.tv/${escapeHtml(s.name)}</span>
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+                            <div class="mt-1">
+                                ${hasCustom ? `
+                                    <span class="inline-flex items-center gap-1 text-2xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
+                                        <span>🎯</span> Eigener Rahmen gespeichert
+                                    </span>
+                                ` : `
+                                    <span class="inline-flex items-center gap-1 text-2xs font-semibold text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-full">
+                                        <span>🤖</span> Layout: ${escapeHtml(curLayout)}
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Streamer entfernen">
+                        ${SVG_ICONS.trash}
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                    <div>
+                        <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
+                        <input type="number" value="${s.min_clip_views || 25}" min="1" max="100000"
+                               onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
+                               class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Max Clips/Run:</label>
+                        <input type="number" value="${s.max_clips_per_run || 2}" min="1" max="10"
+                               onchange="updateStreamerMaxClips('${escapeJs(s.name)}', this.value)"
+                               class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-white font-bold focus:outline-none">
+                    </div>
+                    <div class="col-span-2 mt-0.5">
+                        <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Standard Clip-Layout:</label>
+                        <select onchange="updateStreamerLayout('${escapeJs(s.name)}', this.value)"
+                                class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
+                            <option value="auto" ${curLayout === 'auto' ? 'selected' : ''}>🤖 Auto (KI Facecam-Scan)</option>
+                            <option value="split_cam_top" ${curLayout === 'split_cam_top' ? 'selected' : ''}>📱 Split-Screen (Cam oben + Game unten)</option>
+                            <option value="blur_stack" ${curLayout === 'blur_stack' ? 'selected' : ''}>🎬 Keine Cam (Gameplay mit Blur)</option>
+                            <option value="single_916" ${curLayout === 'single_916' ? 'selected' : ''}>📐 9:16 Vollbild (IRL)</option>
+                            <option value="custom" ${curLayout === 'custom' ? 'selected' : ''}>🎯 Eigener gespeicherter Rahmen</option>
+                            <option value="top_left" ${curLayout === 'top_left' ? 'selected' : ''}>📍 Cam: Oben Links</option>
+                            <option value="top_right" ${curLayout === 'top_right' ? 'selected' : ''}>📍 Cam: Oben Rechts</option>
+                            <option value="bottom_left" ${curLayout === 'bottom_left' ? 'selected' : ''}>📍 Cam: Unten Links</option>
+                            <option value="bottom_right" ${curLayout === 'bottom_right' ? 'selected' : ''}>📍 Cam: Unten Rechts</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                        <span>🎬</span> <span>Test-Clip & Rahmen einstellen</span>
+                    </button>
+                    <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition shrink-0" title="Erweiterte Einstellungen">
+                        <span>⚙️</span>
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center gap-2 flex-wrap">
-                <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5" title="Streamer-Einstellungen & Rahmen konfigurieren">
-                    <span>⚙️</span> <span>Konfigurieren</span>
-                </button>
-                <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
-                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
-                    <select onchange="updateStreamerLayout('${escapeJs(s.name)}', this.value)"
-                            class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-2xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
-                        <option value="auto" ${curLayout === 'auto' ? 'selected' : ''}>🤖 Auto (KI)</option>
-                        <option value="split_cam_top" ${curLayout === 'split_cam_top' ? 'selected' : ''}>📱 Split-Cam (Oben)</option>
-                        <option value="blur_stack" ${curLayout === 'blur_stack' ? 'selected' : ''}>🎬 Keine Cam (Blur)</option>
-                        <option value="single_916" ${curLayout === 'single_916' ? 'selected' : ''}>📐 9:16 Vollbild</option>
-                        <option value="custom" ${curLayout === 'custom' ? 'selected' : ''}>🎯 Eigener Rahmen ${hasCustom ? '(Gespeichert)' : ''}</option>
-                        <option value="top_left" ${curLayout === 'top_left' ? 'selected' : ''}>📍 Cam: Oben Links</option>
-                        <option value="top_right" ${curLayout === 'top_right' ? 'selected' : ''}>📍 Cam: Oben Rechts</option>
-                        <option value="bottom_left" ${curLayout === 'bottom_left' ? 'selected' : ''}>📍 Cam: Unten Links</option>
-                        <option value="bottom_right" ${curLayout === 'bottom_right' ? 'selected' : ''}>📍 Cam: Unten Rechts</option>
-                    </select>
+            `;
+        }).join('');
+    }
+
+    const container = document.getElementById('streamer-modal-list');
+    if (container) {
+        container.innerHTML = streamers.map(s => {
+            const curLayout = s.layout || 'auto';
+            const hasCustom = !!s.custom_crops || !!s.has_custom_crops;
+            const avatarUrl = s.avatar_url || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png';
+            const dispName = s.display_name || s.name;
+            return `
+            <div class="flex items-center justify-between bg-slate-800/80 border border-slate-700/80 p-3 rounded-xl hover:border-slate-600 transition gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(s.name)}" onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'" class="w-9 h-9 rounded-full border border-amber-500/70 object-cover bg-slate-950 shrink-0">
+                    <div class="min-w-0">
+                        <span class="font-bold text-xs text-amber-400 block truncate">${escapeHtml(dispName)}</span>
+                        <span class="text-2xs text-slate-400 font-mono">Min. ${s.min_clip_views || 25} Views • Max ${s.max_clips_per_run || 2}</span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
-                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
-                    <input type="number" value="${s.min_clip_views || 25}" min="1" max="10000"
-                           onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
-                           class="w-12 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="loadSampleClipDirect('${escapeJs(s.name)}')" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition" title="Test-Clip & Rahmen">
+                        🎬 Rahmen
+                    </button>
+                    <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="p-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-lg transition" title="Konfigurieren">
+                        ⚙️
+                    </button>
+                    <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1 hover:bg-rose-950/50 rounded-lg transition" title="Entfernen">
+                        ${SVG_ICONS.trash}
+                    </button>
                 </div>
-                <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
-                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max:</span>
-                    <input type="number" value="${s.max_clips_per_run || 2}" min="1" max="10"
-                           onchange="updateStreamerMaxClips('${escapeJs(s.name)}', this.value)"
-                           class="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
-                </div>
-                <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-lg transition" title="Streamer entfernen">
-                    ${SVG_ICONS.trash}
-                </button>
             </div>
-        </div>
-        `;
-    }).join('');
+            `;
+        }).join('');
+    }
 }
 
 async function updateStreamerLayout(name, layout) {
@@ -842,6 +918,62 @@ async function loadSampleClipForStreamer() {
             btn.disabled = false;
             btn.classList.remove('opacity-60', 'cursor-not-allowed');
         }
+    }
+}
+
+async function loadSampleClipDirect(name) {
+    if (!name) return;
+    showToast(`Lade Test-Clip für ${name} von Twitch herunter...`, 'info');
+    try {
+        const data = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
+            method: 'POST'
+        });
+        if (data && data.success && data.clip_id) {
+            closeStreamerConfigModal();
+            closeStreamerModal();
+            showToast(`Test-Clip für ${name} geladen! Cam & Gameplay Rahmen jetzt anpassen und 'Als Standard für Streamer merken' klicken.`, 'success');
+            openCropModal(data.clip_id, name, data.title || ('Standard-Rahmen Vorlage (' + name + ')'));
+        } else {
+            alert('Fehler: ' + (data && data.error ? data.error : 'Konnte keinen Clip laden.'));
+        }
+    } catch (e) {
+        alert('Fehler beim Laden des Test-Clips: ' + e);
+    }
+}
+
+function filterStreamersList(searchTerm) {
+    const q = (searchTerm || '').trim().toLowerCase();
+    const cards = document.querySelectorAll('.streamer-card');
+    let count = 0;
+    cards.forEach(card => {
+        const name = card.getAttribute('data-streamer') || '';
+        const match = !q || name.includes(q);
+        card.style.display = match ? 'flex' : 'none';
+        if (match) count++;
+    });
+    const cntEl = document.getElementById('streamer-filter-count');
+    if (cntEl) cntEl.innerText = `${count} angezeigt`;
+}
+
+async function applyBulkMinViewsFromInput(inputId) {
+    const input = document.getElementById(inputId || 'bulk-min-views-input');
+    if (!input) return;
+    const val = parseInt(input.value, 10);
+    if (isNaN(val) || val < 1) {
+        alert('Bitte eine gültige Zahl für Mindest-Views eingeben.');
+        return;
+    }
+    if (!confirm(`Sollen die Mindest-Views für ALLE Streamer auf ${val} gesetzt werden?`)) return;
+    try {
+        await apiFetch('/api/streamers/update-all-views', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_clip_views: val })
+        });
+        showToast(`Mindest-Views für alle Streamer auf ${val} gesetzt!`, 'success');
+        refreshDashboard();
+    } catch (e) {
+        alert('Fehler: ' + e);
     }
 }
 
@@ -2846,6 +2978,9 @@ async function downloadRawVideo(clipId, btn, evt) {
         window.closeStreamerConfigModal = closeStreamerConfigModal;
         window.saveStreamerConfig = saveStreamerConfig;
         window.loadSampleClipForStreamer = loadSampleClipForStreamer;
+        window.loadSampleClipDirect = loadSampleClipDirect;
+        window.filterStreamersList = filterStreamersList;
+        window.applyBulkMinViewsFromInput = applyBulkMinViewsFromInput;
         window.loadStreamerConfigIntoForm = openStreamerConfigModal;
         window.__realSaveStreamerConfig = saveStreamerConfig;
         window.__realLoadSampleClipForStreamer = loadSampleClipForStreamer;

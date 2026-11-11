@@ -13,7 +13,7 @@ from flask import Flask, render_template_string, request, jsonify, send_file, re
 
 from src.config import (
     SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, DATA_DIR, load_config,
-    get_streamers, add_streamer, remove_streamer, update_streamer, update_all_streamers_min_views,
+    get_streamers, get_streamers_with_avatars, add_streamer, remove_streamer, update_streamer, update_all_streamers_min_views,
     get_autopilot_settings, save_autopilot_settings
 )
 from src.database import get_db_connection, update_clip_status
@@ -355,11 +355,10 @@ HTML_DASHBOARD = """
     <script>
         // Immediate Zero-Delay Handlers (execute on initial paint before any async script)
         function openStreamerModal() {
-            var m = document.getElementById('streamer-modal');
-            if (m) {
-                m.classList.remove('hidden');
-                m.classList.add('flex');
-                m.style.setProperty('display', 'flex', 'important');
+            if (typeof switchTab === 'function') {
+                switchTab('streamers');
+            } else if (window.switchTab) {
+                window.switchTab('streamers');
             }
         }
         function closeStreamerModal() {
@@ -1510,7 +1509,7 @@ HTML_DASHBOARD = """
 
             <!-- Quick Action Buttons -->
             <div class="flex flex-wrap items-center gap-3">
-                <button onclick="openStreamerModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
+                <button onclick="switchTab('streamers')" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Streamer verwalten ({{ streamers|length }})
                 </button>
                 <button onclick="openSettingsModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
@@ -1605,6 +1604,9 @@ HTML_DASHBOARD = """
             </button>
             <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
                 <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg> 4. Konten verknüpfen
+            </button>
+            <button onclick="switchTab('streamers')" id="tab-streamers-btn" class="tab-btn pb-3 text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> 5. Streamer (<span id="tab-count-streamers">{{ streamers|length }}</span>)
             </button>
         </div>
 
@@ -2275,6 +2277,184 @@ HTML_DASHBOARD = """
                     {% endif %}
                 </div>
 
+            </div>
+        </div>
+
+        <!-- TAB 5: STREAMER VERWALTEN (FULL PAGE) -->
+        <div id="tab-streamers" class="tab-content hidden space-y-6">
+            <!-- Header Banner -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 shrink-0">
+                        👥
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-xl font-black text-white">Überwachte Streamer verwalten</h2>
+                            <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                <span id="fullpage-streamer-count">{{ streamers|length }}</span> Kanäle aktiv
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1 max-w-2xl">
+                            Passe Mindest-Views und Clip-Limits gezielt an und definiere visuelle Cam- & Gameplay-Zuschnitte. Profilbilder werden automatisch live von Twitch geladen.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Schnellsuche -->
+                <div class="w-full md:w-72">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 text-xs">🔍</span>
+                        <input type="text" id="streamer-search-input" oninput="if (window.filterStreamersList) window.filterStreamersList(this.value);" placeholder="Streamer suchen..." 
+                               class="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Grid: Neuen Streamer hinzufügen & Massen-Einstellungen -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                <!-- Card 1: Neuen Streamer hinzufügen (7 cols) -->
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                    <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                                <span>➕</span> Neuen Twitch-Streamer hinzufügen
+                            </span>
+                            <span class="text-2xs text-slate-500">Profilbild wird automatisch von Twitch bezogen</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="sm:col-span-1">
+                                <label class="block text-2xs font-semibold text-slate-300 mb-1">Twitch Kanalname:</label>
+                                <input type="text" name="name" required placeholder="z. B. rewinside, trymacs..." 
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold shadow-inner">
+                            </div>
+                            <div>
+                                <label class="block text-2xs font-semibold text-slate-300 mb-1">Min. Views:</label>
+                                <input type="number" name="min_views" value="30" min="5" max="100000"
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500 shadow-inner">
+                            </div>
+                            <div>
+                                <label class="block text-2xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
+                                <input type="number" name="max_clips" value="2" min="1" max="10"
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-xl transition shadow-md flex items-center justify-center gap-2">
+                            <span>➕</span> Streamer hinzufügen & überwachen
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Card 2: Globale Mindest-Views für alle (5 cols) -->
+                <div class="lg:col-span-5 bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2.5 mb-1.5">
+                            <span class="text-xl">⚡</span>
+                            <span class="text-xs font-bold text-amber-300 uppercase tracking-wider">Mindest-Views für ALLE Streamer</span>
+                        </div>
+                        <p class="text-2xs text-slate-400 leading-relaxed">
+                            Überschreibt die Mindestanzahl Views für alle aktuell überwachten Streamer auf einen festen Wert.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-3">
+                        <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 flex-1 shadow-inner">
+                            <span class="text-2xs text-slate-400 font-mono">Views:</span>
+                            <input type="number" id="bulk-min-views-input-fullpage" value="25" min="1" max="100000" class="w-full bg-transparent text-xs text-amber-300 font-bold text-center focus:outline-none">
+                        </div>
+                        <button type="button" onclick="if (window.applyBulkMinViewsFromInput) window.applyBulkMinViewsFromInput('bulk-min-views-input-fullpage'); else applyBulkMinViews();" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-xl transition whitespace-nowrap shadow-md">
+                            Für alle setzen
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Streamers Grid (Spacious Full Page Grid) -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Aktive Kanäle</span>
+                    <span id="streamer-filter-count" class="text-2xs text-slate-500 font-mono">{{ streamers|length }} angezeigt</span>
+                </div>
+                
+                <div id="streamer-grid-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for s in streamers %}
+                    <div class="streamer-card bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-xl transition flex flex-col justify-between gap-3.5" data-streamer="{{ s.name|lower }}">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="relative shrink-0">
+                                    <img src="{{ s.avatar_url or 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png' }}" 
+                                         alt="{{ s.name }}" 
+                                         onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'"
+                                         class="w-12 h-12 rounded-full border-2 border-amber-500/70 object-cover shadow-md bg-slate-950">
+                                    <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="font-bold text-sm text-white truncate block">{{ s.display_name or s.name }}</span>
+                                    <a href="https://twitch.tv/{{ s.name }}" target="_blank" class="text-2xs text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1 hover:underline">
+                                        <span>twitch.tv/{{ s.name }}</span>
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    </a>
+                                    <div class="mt-1">
+                                        {% if s.custom_crops %}
+                                        <span class="inline-flex items-center gap-1 text-2xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
+                                            <span>🎯</span> Eigener Rahmen gespeichert
+                                        </span>
+                                        {% else %}
+                                        <span class="inline-flex items-center gap-1 text-2xs font-semibold text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-full">
+                                            <span>🤖</span> Layout: {{ s.layout or 'auto' }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="removeStreamer('{{ s.name }}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Streamer entfernen">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                            <div>
+                                <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
+                                <input type="number" value="{{ s.min_clip_views }}" min="1" max="100000"
+                                       onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
+                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Max Clips/Run:</label>
+                                <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
+                                       onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
+                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-white font-bold focus:outline-none">
+                            </div>
+                            <div class="col-span-2 mt-0.5">
+                                <label class="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">Standard Clip-Layout:</label>
+                                <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
+                                        class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
+                                    <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>🤖 Auto (KI Facecam-Scan)</option>
+                                    <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>📱 Split-Screen (Cam oben + Game unten)</option>
+                                    <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>🎬 Keine Cam (Gameplay mit Blur)</option>
+                                    <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>📐 9:16 Vollbild (IRL)</option>
+                                    <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>🎯 Eigener gespeicherter Rahmen</option>
+                                    <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>📍 Cam: Oben Links</option>
+                                    <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>📍 Cam: Oben Rechts</option>
+                                    <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>📍 Cam: Unten Links</option>
+                                    <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>📍 Cam: Unten Rechts</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                            <button type="button" onclick="loadSampleClipDirect('{{ s.name }}')" class="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                                <span>🎬</span> <span>Test-Clip & Rahmen einstellen</span>
+                            </button>
+                            <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition shrink-0" title="Erweiterte Einstellungen">
+                                <span>⚙️</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 
@@ -3036,7 +3216,7 @@ def get_dashboard_dict():
         streamer_counts[st] = streamer_counts.get(st, 0) + 1
 
     account_status = account_manager.get_status()
-    all_streamers = get_streamers()
+    all_streamers = get_streamers_with_avatars()
     cur_state = status_manager.get_state()
     initial_logs = cur_state.get("logs", [])
     current_status = cur_state.get("status", "idle")

@@ -70,6 +70,94 @@ def save_config(cfg: Dict[str, Any]):
     with open(config_file, "w", encoding="utf-8") as f:
         yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
 
+TWITCH_GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
+TWITCH_GQL_URL = "https://gql.twitch.tv/gql"
+DEFAULT_AVATAR_URL = "https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png"
+
+_AVATAR_CACHE: Dict[str, Dict[str, str]] = {}
+
+def get_streamer_avatars(logins: List[str]) -> Dict[str, Dict[str, str]]:
+    """Holt für die übergebenen Streamer-Logins das offizielle Twitch-Profilbild und den DisplayName."""
+    global _AVATAR_CACHE
+    import json
+    import requests
+
+    cache_file = DATA_DIR / "streamer_avatars.json"
+    if not _AVATAR_CACHE and cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                _AVATAR_CACHE = json.load(f)
+        except Exception:
+            _AVATAR_CACHE = {}
+
+    missing = [l.strip().lower() for l in logins if l and l.strip().lower() not in _AVATAR_CACHE]
+    if missing:
+        try:
+            headers = {"Client-ID": TWITCH_GQL_CLIENT_ID}
+            query = """
+            query($logins: [String!]) {
+                users(logins: $logins) {
+                    login
+                    displayName
+                    profileImageURL(width: 300)
+                }
+            }
+            """
+            resp = requests.post(
+                TWITCH_GQL_URL,
+                json={"query": query, "variables": {"logins": missing}},
+                headers=headers,
+                timeout=5
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {}).get("users", [])
+                for u in (data or []):
+                    if u and u.get("login"):
+                        login = u["login"].lower()
+                        _AVATAR_CACHE[login] = {
+                            "avatar_url": u.get("profileImageURL") or DEFAULT_AVATAR_URL,
+                            "display_name": u.get("displayName") or login
+                        }
+                for m in missing:
+                    if m not in _AVATAR_CACHE:
+                        _AVATAR_CACHE[m] = {
+                            "avatar_url": DEFAULT_AVATAR_URL,
+                            "display_name": m
+                        }
+                try:
+                    cache_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump(_AVATAR_CACHE, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[!] Warnung: Konnte Twitch-Avatare nicht laden: {e}")
+
+    result = {}
+    for l in logins:
+        cl = l.strip().lower() if l else ""
+        if cl:
+            result[cl] = _AVATAR_CACHE.get(cl, {
+                "avatar_url": DEFAULT_AVATAR_URL,
+                "display_name": l
+            })
+    return result
+
+def get_streamers_with_avatars() -> List[Dict[str, Any]]:
+    """Gibt die Liste aller Streamer angereichert mit Twitch-Avatar und DisplayName zurück."""
+    streamers = get_streamers()
+    names = [s.get("name", "") for s in streamers if s.get("name")]
+    avatars = get_streamer_avatars(names)
+    enriched = []
+    for s in streamers:
+        item = dict(s)
+        n = s.get("name", "").strip().lower()
+        av = avatars.get(n, {})
+        item["avatar_url"] = av.get("avatar_url") or DEFAULT_AVATAR_URL
+        item["display_name"] = av.get("display_name") or s.get("name")
+        enriched.append(item)
+    return enriched
+
 def get_streamers() -> List[Dict[str, Any]]:
     """Gibt die Liste aller konfigurierten Streamer zurück."""
     cfg = load_config()
