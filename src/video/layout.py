@@ -277,10 +277,13 @@ class VideoComposer:
 
         # 1. Base Layout Graph aufbauen
         if is_single_916:
+            # M8 Audit-Fix: Sichere Freigabe des VideoCapture-Handles via try/finally
             cap = cv2.VideoCapture(str(raw_video_path))
-            vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1920
-            vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1080
-            cap.release()
+            try:
+                vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1920
+                vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1080
+            finally:
+                cap.release()
 
             single_data = {}
             if custom_crops:
@@ -311,9 +314,11 @@ class VideoComposer:
             game_data = custom_crops.get("game", {})
             
             cap = cv2.VideoCapture(str(raw_video_path))
-            vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1920
-            vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1080
-            cap.release()
+            try:
+                vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1920
+                vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1080
+            finally:
+                cap.release()
 
             has_cam = cam_data.get("enabled", True) and (cam_data.get("w", 0) > 20 or cam_data.get("w_pct", 0) > 0.05)
 
@@ -623,7 +628,5 @@ class VideoComposer:
             with render_lock:
                 if clip_id in active_renders:
                     del active_renders[clip_id]
-
-        return None
 
         return None

@@ -13,12 +13,10 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import subprocess
 import json
+import time
 
-from src.config import RAW_CLIPS_DIR, load_config
+from src.config import RAW_CLIPS_DIR, load_config, TWITCH_GQL_CLIENT_ID, TWITCH_GQL_URL
 from src.database import is_clip_already_processed, save_clip
-
-TWITCH_GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
-TWITCH_GQL_URL = "https://gql.twitch.tv/gql"
 
 class TwitchClipHarvester:
     def __init__(self):
@@ -27,12 +25,14 @@ class TwitchClipHarvester:
         self.client_id = self.twitch_cfg.get("client_id", "").strip()
         self.client_secret = self.twitch_cfg.get("client_secret", "").strip()
         self.access_token = None
+        self.token_expiry = 0
 
     def _get_app_access_token(self) -> Optional[str]:
-        """Holt ein OAuth App Access Token über die offizielle Twitch API."""
+        """Holt ein OAuth App Access Token über die offizielle Twitch API mit automatischem Refresh."""
         if not self.client_id or not self.client_secret:
             return None
-        if self.access_token:
+        # H4 Audit-Fix: Token-Ablauf prüfen und vor Ablauf erneuern
+        if self.access_token and time.time() < self.token_expiry:
             return self.access_token
 
         url = "https://id.twitch.tv/oauth2/token"
@@ -44,7 +44,11 @@ class TwitchClipHarvester:
         try:
             resp = requests.post(url, params=params, timeout=10)
             if resp.status_code == 200:
-                self.access_token = resp.json().get("access_token")
+                data = resp.json()
+                self.access_token = data.get("access_token")
+                expires_in = data.get("expires_in", 3600)
+                # Sicherheitsabstand von 60s vor tatsächlichem Ablauf
+                self.token_expiry = time.time() + max(60, expires_in - 60)
                 return self.access_token
         except Exception as e:
             print(f"[!] Fehler beim Abrufen des Twitch Tokens: {e}")
@@ -112,11 +116,11 @@ class TwitchClipHarvester:
             print(f"[!] GQL-Fehler bei Kanal {channel_name}: {e}")
             return []
 
-    def fetch_clips_helix(self, channel_name: str, hours_back: int = 24) -> List[Dict[str, Any]]:
-        """Holt Clips über die offizielle Twitch Helix API."""
+    def fetch_clips_helix(self, channel_name: str, hours_back: int = 24, time_filter: str = "LAST_DAY") -> List[Dict[str, Any]]:
+        """Holt Clips über die offizielle Twitch Helix API mit dynamischem Zeitfenster."""
         token = self._get_app_access_token()
         if not token:
-            return self.fetch_clips_gql_fallback(channel_name)
+            return self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter)
 
         headers = {
             "Client-ID": self.client_id,
@@ -126,7 +130,7 @@ class TwitchClipHarvester:
         # 1. User ID holen
         user_resp = requests.get(f"https://api.twitch.tv/helix/users?login={channel_name}", headers=headers, timeout=10)
         if user_resp.status_code != 200 or not user_resp.json().get("data"):
-            return self.fetch_clips_gql_fallback(channel_name)
+            return self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter)
         
         user_id = user_resp.json()["data"][0]["id"]
 
@@ -136,8 +140,14 @@ class TwitchClipHarvester:
         if stream_resp.status_code == 200 and stream_resp.json().get("data"):
             started_at_str = stream_resp.json()["data"][0]["started_at"]
         else:
-            # Wenn offline: Zeitfenster der letzten X Stunden
-            dt = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+            # M4 Audit-Fix: Zeitfenster anhand time_filter dynamisch anpassen
+            if time_filter == "LAST_WEEK":
+                calc_hours = 168
+            elif time_filter == "LAST_MONTH":
+                calc_hours = 720
+            else:
+                calc_hours = max(1, hours_back)
+            dt = datetime.now(timezone.utc) - timedelta(hours=calc_hours)
             started_at_str = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # 3. Clips abrufen

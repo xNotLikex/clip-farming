@@ -22,19 +22,26 @@ class VideoTranscriber:
                 self.device = "cpu"
                 self.model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
 
-    def transcribe(self, audio_or_video_path: Path, language: Optional[str] = "de") -> List[Dict[str, Any]]:
+    def transcribe(self, audio_or_video_path: Path, language: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Transkribiert das Video/Audio und liefert Segmente mit exakten Word-Level Timestamps.
+        M10 Audit-Fix: Sprache standardmäßig auf None (Auto-Detection) oder dynamisch wählbar.
         """
         self._load_model()
         segments_data = []
 
+        # Falls language None ist, erkennt Whisper die Sprache automatisch
+        transcribe_kwargs = {
+            "word_timestamps": True,
+            "vad_filter": True,
+            "vad_parameters": dict(min_silence_duration_ms=500)
+        }
+        if language:
+            transcribe_kwargs["language"] = language
+
         segments, info = self.model.transcribe(
             str(audio_or_video_path),
-            language=language,
-            word_timestamps=True,
-            vad_filter=True, # Filtert Pausen & Rauschen heraus
-            vad_parameters=dict(min_silence_duration_ms=500)
+            **transcribe_kwargs
         )
 
         for seg in segments:

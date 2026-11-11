@@ -56,34 +56,42 @@ Antworte NUR mit einem validen JSON-Objekt im folgenden Format (ohne Markdown Ba
 }}
 """
 
-        try:
-            if self.provider == "gemini":
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-                payload = {
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 500}
-                }
-                resp = requests.post(url, json=payload, timeout=15)
-                if resp.status_code == 200:
-                    text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    if text.startswith("```"):
-                        text = text.split("```")[1]
-                        if text.startswith("json"):
-                            text = text[4:]
-                    data = json.loads(text.strip())
-                    return data
-            elif self.provider == "openai":
-                url = "https://api.openai.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {self.api_key}"}
-                payload = {
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "response_format": {"type": "json_object"}
-                }
-                resp = requests.post(url, json=payload, headers=headers, timeout=15)
-                if resp.status_code == 200:
-                    return json.loads(resp.json()["choices"][0]["message"]["content"])
-        except Exception as e:
-            print(f"[!] Fehler bei der LLM-Generierung ({e}). Nutze Fallback...")
+        # M12 Audit-Fix: Automatischer Retry bei Netzwerk- oder API-Timeouts
+        for attempt in range(2):
+            try:
+                if self.provider == "gemini":
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 500}
+                    }
+                    resp = requests.post(url, json=payload, timeout=15)
+                    if resp.status_code == 200:
+                        candidates = resp.json().get("candidates", [])
+                        if candidates and "content" in candidates[0]:
+                            parts = candidates[0]["content"].get("parts", [])
+                            if parts and "text" in parts[0]:
+                                text = parts[0]["text"].strip()
+                                if text.startswith("```"):
+                                    text = text.split("```")[1]
+                                    if text.startswith("json"):
+                                        text = text[4:]
+                                return json.loads(text.strip())
+                elif self.provider == "openai":
+                    url = "https://api.openai.com/v1/chat/completions"
+                    headers = {"Authorization": f"Bearer {self.api_key}"}
+                    payload = {
+                        "model": getattr(self, "model", None) or "gpt-4o-mini",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "response_format": {"type": "json_object"}
+                    }
+                    resp = requests.post(url, json=payload, headers=headers, timeout=15)
+                    if resp.status_code == 200:
+                        return json.loads(resp.json()["choices"][0]["message"]["content"])
+            except Exception as e:
+                if attempt == 0:
+                    time.sleep(1.0)
+                    continue
+                print(f"[!] Warnung: LLM Metadaten-Generierung fehlgeschlagen ({e}). Nutze Fallback-Template.")
 
         return self._generate_fallback(original_title, streamer)
