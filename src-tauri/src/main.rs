@@ -21,11 +21,44 @@ fn clear_webview_cache() {
     }
 }
 
+fn kill_stale_backend() {
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = Command::new("powershell")
+            .args(["-NoProfile", "-Command", "Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+        std::thread::sleep(Duration::from_millis(400));
+    }
+}
+
+fn is_backend_version_current() -> bool {
+    let expected = env!("CARGO_PKG_VERSION");
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", "try { (Invoke-RestMethod -Uri 'http://127.0.0.1:5000/api/version' -TimeoutSec 1).version } catch { '' }"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        if let Ok(out) = output {
+            let ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            return ver == expected;
+        }
+    }
+    false
+}
+
 fn ensure_backend_running() {
-    // Check if worker port 5000 is already active
+    // Check if worker port 5000 is already active and matches current app version
     if let Ok(addr) = "127.0.0.1:5000".parse::<SocketAddr>() {
         if TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok() {
-            return; // Worker already running!
+            if is_backend_version_current() {
+                return; // Worker already running and up-to-date!
+            }
+            // Outdated or zombie backend running on port 5000 -> terminate it cleanly
+            kill_stale_backend();
         }
     }
 

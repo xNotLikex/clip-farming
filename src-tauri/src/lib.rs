@@ -16,6 +16,18 @@ pub fn run() {
             // Python Web Studio in the background, and navigates when ready.
             Ok(())
         })
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    let _ = std::process::Command::new("powershell")
+                        .args(["-NoProfile", "-Command", "Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"])
+                        .creation_flags(0x08000000)
+                        .spawn();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_dashboard_data,
             commands::get_app_version,

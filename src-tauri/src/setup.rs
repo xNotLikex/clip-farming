@@ -263,7 +263,41 @@ pub async fn launch_studio_after_setup(window: WebviewWindow) -> Result<bool, St
 
     // Check if port 5000 is open
     let addr: SocketAddr = "127.0.0.1:5000".parse().unwrap();
-    let is_running = TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok();
+    let mut is_running = TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok();
+
+    if is_running {
+        // Verify that running backend is current
+        let is_current = {
+            #[cfg(windows)]
+            {
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let output = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", "try { (Invoke-RestMethod -Uri 'http://127.0.0.1:5000/api/version' -TimeoutSec 1).version } catch { '' }"])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output();
+                if let Ok(out) = output {
+                    String::from_utf8_lossy(&out.stdout).trim() == env!("CARGO_PKG_VERSION")
+                } else {
+                    false
+                }
+            }
+            #[cfg(not(windows))]
+            true
+        };
+
+        if !is_current {
+            #[cfg(windows)]
+            {
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let _ = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", "Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .status();
+                std::thread::sleep(Duration::from_millis(400));
+            }
+            is_running = false;
+        }
+    }
 
     if !is_running {
         let py_path = if app_dir.join("runtime\\python.exe").exists() {
