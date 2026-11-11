@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 import sys
 import yaml
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Absolute Project Root (Portable - relative to this file)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -113,6 +113,87 @@ def remove_streamer(name: str) -> bool:
         save_config(cfg)
         return True
     return False
+
+def update_streamer(name: str, min_views: Optional[int] = None, max_clips: Optional[int] = None, layout: Optional[str] = None, enabled: Optional[bool] = None) -> bool:
+    """Aktualisiert die Einstellungen eines Streamers in config.yaml."""
+    clean_name = name.strip().lower()
+    cfg = load_config()
+    streamers = cfg.get("streamers", [])
+    found = False
+    for s in streamers:
+        if s.get("name", "").lower() == clean_name:
+            if min_views is not None:
+                s["min_clip_views"] = int(min_views)
+            if max_clips is not None:
+                s["max_clips_per_run"] = int(max_clips)
+            if layout is not None:
+                s["layout"] = str(layout)
+            if enabled is not None:
+                s["enabled"] = bool(enabled)
+            found = True
+            break
+    if found:
+        save_config(cfg)
+        return True
+    return False
+
+def update_all_streamers_min_views(min_views: int) -> int:
+    """Setzt die Mindest-Views für alle Streamer in config.yaml auf denselben Wert."""
+    val = max(1, int(min_views))
+    cfg = load_config()
+    streamers = cfg.get("streamers", [])
+    count = 0
+    for s in streamers:
+        s["min_clip_views"] = val
+        count += 1
+    save_config(cfg)
+    return count
+
+def get_autopilot_settings() -> Dict[str, Any]:
+    """Gibt die aktuellen Autopilot- und Prüfintervall-Einstellungen zurück."""
+    cfg = load_config()
+    autopilot = cfg.get("autopilot", {})
+    return {
+        "enabled": autopilot.get("enabled", True),
+        "interval_minutes": int(autopilot.get("interval_minutes", 30)),
+        "time_filter": autopilot.get("time_filter", cfg.get("twitch", {}).get("time_filter", "LAST_DAY")),
+        "fallback_to_week": autopilot.get("fallback_to_week", True),
+        "auto_render": autopilot.get("auto_render", False),
+        "hardware_encoder": cfg.get("video", {}).get("hardware_encoder", "auto"),
+        "whisper_model": cfg.get("video", {}).get("whisper_model", "small"),
+    }
+
+def save_autopilot_settings(settings: Dict[str, Any]) -> bool:
+    """Speichert Autopilot- und Prüfintervall-Einstellungen in config.yaml."""
+    cfg = load_config()
+    if "autopilot" not in cfg:
+        cfg["autopilot"] = {}
+    
+    if "enabled" in settings:
+        cfg["autopilot"]["enabled"] = bool(settings["enabled"])
+    if "interval_minutes" in settings:
+        cfg["autopilot"]["interval_minutes"] = max(1, int(settings["interval_minutes"]))
+    if "time_filter" in settings:
+        tf = str(settings["time_filter"]).strip().upper()
+        if tf in ["LAST_DAY", "LAST_WEEK", "LAST_MONTH"]:
+            cfg["autopilot"]["time_filter"] = tf
+            if "twitch" in cfg:
+                cfg["twitch"]["time_filter"] = tf
+    if "fallback_to_week" in settings:
+        cfg["autopilot"]["fallback_to_week"] = bool(settings["fallback_to_week"])
+    if "auto_render" in settings:
+        cfg["autopilot"]["auto_render"] = bool(settings["auto_render"])
+    if "hardware_encoder" in settings:
+        if "video" not in cfg:
+            cfg["video"] = {}
+        cfg["video"]["hardware_encoder"] = str(settings["hardware_encoder"]).strip().lower()
+    if "whisper_model" in settings:
+        if "video" not in cfg:
+            cfg["video"] = {}
+        cfg["video"]["whisper_model"] = str(settings["whisper_model"]).strip().lower()
+
+    save_config(cfg)
+    return True
 
 # Initialize directories on import
 ensure_directories()

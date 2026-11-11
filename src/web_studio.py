@@ -13,7 +13,8 @@ from flask import Flask, render_template_string, request, jsonify, send_file, re
 
 from src.config import (
     SHORTS_OUTPUT_DIR, RAW_CLIPS_DIR, METADATA_OUTPUT_DIR, DATA_DIR, load_config,
-    get_streamers, add_streamer, remove_streamer
+    get_streamers, add_streamer, remove_streamer, update_streamer, update_all_streamers_min_views,
+    get_autopilot_settings, save_autopilot_settings
 )
 from src.database import get_db_connection, update_clip_status
 from src.video.layout import VideoComposer, cancel_active_render
@@ -299,12 +300,12 @@ HTML_DASHBOARD = """
         body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #f3f4f6; font-weight: 600; }
         .tab-content.hidden { display: none !important; }
-        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden {
+        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden, #settings-modal.hidden {
             display: none !important;
             pointer-events: none !important;
             visibility: hidden !important;
         }
-        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden) {
+        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden), #settings-modal:not(.hidden) {
             display: flex !important;
             pointer-events: auto !important;
             visibility: visible !important;
@@ -355,6 +356,23 @@ HTML_DASHBOARD = """
         }
         function closeStreamerModal() {
             var m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function openSettingsModal() {
+            var m = document.getElementById('settings-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+                if (window.loadSettingsIntoForm) window.loadSettingsIntoForm();
+            }
+        }
+        function closeSettingsModal() {
+            var m = document.getElementById('settings-modal');
             if (m) {
                 m.classList.add('hidden');
                 m.classList.remove('flex');
@@ -1422,6 +1440,9 @@ HTML_DASHBOARD = """
                 <button onclick="openStreamerModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Streamer verwalten ({{ streamers|length }})
                 </button>
+                <button onclick="openSettingsModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> ⚙️ Einstellungen
+                </button>
                 <button onclick="triggerRun()" id="btn-trigger" class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm">
                     <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen
                 </button>
@@ -2266,6 +2287,26 @@ HTML_DASHBOARD = """
                     </button>
                 </form>
 
+                <!-- Massen-Einstellung für alle Streamer -->
+                <div class="bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 border border-amber-500/30 rounded-lg p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xl">⚡</span>
+                        <div>
+                            <span class="text-xs font-bold text-amber-300 block">Mindest-Views für ALLE Streamer setzen</span>
+                            <span class="text-2xs text-slate-400">Überschreibt die Mindest-Views für alle derzeit aktiven Streamer mit einem Klick</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded px-2 py-1">
+                            <span class="text-2xs text-slate-400 font-mono">Views:</span>
+                            <input type="number" id="bulk-min-views-input" value="25" min="1" max="10000" class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                        </div>
+                        <button type="button" onclick="applyBulkMinViews()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded transition whitespace-nowrap shadow-sm">
+                            Für alle übernehmen
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Aktive Streamer Liste -->
                 <div class="space-y-2">
                     <div class="flex justify-between items-center">
@@ -2274,16 +2315,28 @@ HTML_DASHBOARD = """
                     </div>
                     <div id="streamer-modal-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
                         {% for s in streamers %}
-                        <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded hover:border-slate-600 transition">
-                            <div>
-                                <span class="text-xs font-bold text-white block">{{ s.name }}</span>
-                                <span class="text-2xs text-slate-400 font-mono">Min. {{ s.min_clip_views }} Views • Max {{ s.max_clips_per_run }} Clips</span>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/80 border border-slate-700/80 p-3 rounded-lg hover:border-slate-600 transition gap-3">
+                            <div class="min-w-0">
+                                <span class="font-bold text-sm text-amber-400 block truncate">{{ s.name }}</span>
+                                <span class="text-2xs text-slate-400 font-mono">Twitch</span>
                             </div>
-                            <form action="/api/streamers/remove/{{ s.name }}" method="POST" onsubmit="return confirm('Streamer {{ s.name }} wirklich entfernen?');">
-                                <button type="submit" class="p-1 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Streamer aus Überwachung entfernen">
-                                    <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            <div class="flex items-center gap-2.5 flex-wrap">
+                                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
+                                    <input type="number" value="{{ s.min_clip_views }}" min="1" max="10000"
+                                           onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
+                                           class="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                                </div>
+                                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max Clips:</span>
+                                    <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
+                                           onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
+                                           class="w-12 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
+                                </div>
+                                <button onclick="removeStreamer('{{ s.name }}')" class="p-1 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Streamer aus Überwachung entfernen">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 </button>
-                            </form>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
@@ -2292,7 +2345,120 @@ HTML_DASHBOARD = """
         </div>
     </div>
 
-        <!-- POP-UP MODAL: Update Assistent -->
+    <!-- POP-UP MODAL: Einstellungen & Autopilot -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeSettingsModal();">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl">⚙️</span>
+                    <div>
+                        <h3 class="text-base font-bold text-white">System & Autopilot Einstellungen</h3>
+                        <p class="text-2xs text-slate-400">Prüfintervalle, Clip-Filter und Hardware anpassen</p>
+                    </div>
+                </div>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <form id="settings-form" onsubmit="saveSettingsFromForm(event)" class="p-5 overflow-y-auto space-y-5">
+                <!-- Autopilot Intervall Sektion -->
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">🤖 Automatischer Autopilot</span>
+                            <span class="text-2xs text-slate-400">Sucht im Hintergrund selbstständig nach neuen Clips</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="autopilot_enabled" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+
+                    <!-- Prüfintervall -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Prüf-Intervall der automatischen Prüfung:</label>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 15" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">15 Min</button>
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 30" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">30 Min (Empf.)</button>
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 60" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">1 Stunde</button>
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 120" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">2 Stunden</button>
+                        </div>
+                        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+                            <span class="text-xs text-slate-400">Genaues Intervall:</span>
+                            <input type="number" id="setting-interval" name="interval_minutes" value="30" min="5" max="1440" class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-amber-300 font-bold text-center">
+                            <span class="text-xs text-slate-400">Minuten</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zeitfenster & Fallback Sektion -->
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-3.5">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">🔍 Clip-Suche & Zeitfenster</span>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Standard-Zeitfenster auf Twitch:</label>
+                        <select name="time_filter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 font-medium">
+                            <option value="LAST_DAY">Letzte 24 Stunden (LAST_DAY) - Frischeste Clips</option>
+                            <option value="LAST_WEEK">Letzte 7 Tage (LAST_WEEK) - Große Auswahl</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-start gap-3 pt-1">
+                        <input type="checkbox" id="setting-fallback" name="fallback_to_week" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4" checked>
+                        <label for="setting-fallback" class="text-xs text-slate-300 cursor-pointer">
+                            <span class="font-bold text-white block">Intelligenter Wochen-Fallback (Empfohlen)</span>
+                            <span class="text-slate-400 block text-2xs mt-0.5">Falls in den letzten 24h keine neuen Clips die Mindest-Views erreichen, automatisch die besten Clips der Woche nachladen.</span>
+                        </label>
+                    </div>
+
+                    <div class="flex items-start gap-3 pt-1 border-t border-slate-800/80">
+                        <input type="checkbox" id="setting-autorender" name="auto_render" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4">
+                        <label for="setting-autorender" class="text-xs text-slate-300 cursor-pointer">
+                            <span class="font-bold text-white block">Vollautomatisches Rendering</span>
+                            <span class="text-slate-400 block text-2xs mt-0.5">Neu gefundene Clips sofort transkribieren & schneiden, statt sie nur in der Warteschlange abzulegen.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Hardware & Video-Encoder Sektion -->
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-3">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">⚡ Hardware & Engine</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Video-Encoder:</label>
+                            <select name="hardware_encoder" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500">
+                                <option value="auto">Automatische Erkennung (Empfohlen)</option>
+                                <option value="nvenc">NVIDIA NVENC (RTX/GTX)</option>
+                                <option value="amf">AMD AMF (Radeon)</option>
+                                <option value="qsv">Intel QuickSync (QSV)</option>
+                                <option value="cpu">Software / CPU (libx264)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Whisper KI-Modell:</label>
+                            <select name="whisper_model" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500">
+                                <option value="small">Small (Empfohlen - Beste Balance)</option>
+                                <option value="base">Base (Schneller)</option>
+                                <option value="tiny">Tiny (Ultraschnell)</option>
+                                <option value="medium">Medium (Höchste Genauigkeit)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                        <span>💾</span> <span>Einstellungen speichern</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Update Assistent -->
     <div id="update-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4 select-none" style="display: none !important;">
         <div class="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-start justify-between mb-4 pb-3 border-b border-slate-800">
@@ -2751,9 +2917,8 @@ def api_dashboard():
 def get_status():
     return jsonify(status_manager.get_state())
 
-@app.route("/api/run", methods=["POST"])
-def trigger_run_api():
-    """Startet das Suchen & Herunterladen auf Twitch."""
+def execute_harvest_job() -> bool:
+    """Startet das Suchen & Herunterladen auf Twitch im Hintergrund."""
     if not status_manager.get_state().get("is_running", False):
         status_manager.set_task("harvesting", "Scanne Twitch-Streamer nach neuen Clips...")
         
@@ -2770,20 +2935,19 @@ def trigger_run_api():
                 status_manager.set_task("error", f"Fehler beim Clip-Scannen: {e}")
             finally:
                 status_manager.set_task("idle", "Twitch-Scan beendet. Clips in der Warteschlange gespeichert.")
+                try:
+                    settings = get_autopilot_settings()
+                    if settings.get("auto_render", False):
+                        execute_process_all_job()
+                except Exception:
+                    pass
 
         thread = threading.Thread(target=run_harvest_background, daemon=True)
         thread.start()
-        return jsonify({"success": True, "message": "Harvesting gestartet"})
-    return jsonify({"success": False, "message": "Pipeline läuft bereits"})
+        return True
+    return False
 
-@app.route("/process-one/<clip_id>", methods=["POST"])
-def process_one_clip_route(clip_id):
-    """Übernimmt einen Clip aus der Warteschlange ins Studio."""
-    process_single_clip(clip_id)
-    return redirect(url_for("index"))
-
-@app.route("/api/process-all", methods=["POST"])
-def process_all_api():
+def execute_process_all_job() -> bool:
     """Schneidet alle Clips in der Warteschlange im Hintergrund."""
     if not status_manager.get_state().get("is_running", False):
         status_manager.set_task("processing", "Starte Schneidevorgang für alle Clips...")
@@ -2805,6 +2969,51 @@ def process_all_api():
 
         thread = threading.Thread(target=run_all_worker, daemon=True)
         thread.start()
+        return True
+    return False
+
+def autopilot_background_worker():
+    """Prüft periodisch im Hintergrund nach neuen Clips gemäß konfiguriertem Intervall."""
+    time.sleep(10)
+    last_check_timestamp = time.time()
+    while True:
+        try:
+            time.sleep(15)
+            settings = get_autopilot_settings()
+            if not settings.get("enabled", True):
+                continue
+            
+            interval_minutes = max(1, int(settings.get("interval_minutes", 30)))
+            interval_seconds = interval_minutes * 60
+            
+            if time.time() - last_check_timestamp >= interval_seconds:
+                if not status_manager.get_state().get("is_running", False):
+                    last_check_timestamp = time.time()
+                    status_manager.log(f"🤖 Autopilot: Starte zyklische Prüfung (alle {interval_minutes} Min)...")
+                    execute_harvest_job()
+        except Exception:
+            time.sleep(20)
+
+autopilot_thread = threading.Thread(target=autopilot_background_worker, daemon=True)
+autopilot_thread.start()
+
+@app.route("/api/run", methods=["POST"])
+def trigger_run_api():
+    """Startet das Suchen & Herunterladen auf Twitch."""
+    if execute_harvest_job():
+        return jsonify({"success": True, "message": "Harvesting gestartet"})
+    return jsonify({"success": False, "message": "Pipeline läuft bereits"})
+
+@app.route("/process-one/<clip_id>", methods=["POST"])
+def process_one_clip_route(clip_id):
+    """Übernimmt einen Clip aus der Warteschlange ins Studio."""
+    process_single_clip(clip_id)
+    return redirect(url_for("index"))
+
+@app.route("/api/process-all", methods=["POST"])
+def process_all_api():
+    """Schneidet alle Clips in der Warteschlange im Hintergrund."""
+    if execute_process_all_job():
         return jsonify({"success": True, "message": "Schneidevorgang gestartet"})
     return jsonify({"success": False, "message": "Pipeline ist bereits beschäftigt"})
 
@@ -3562,6 +3771,45 @@ def remove_streamer_route(name):
     if remove_streamer(name):
         status_manager.log(f"Streamer '{name}' aus der Überwachungsliste entfernt.")
     return redirect(url_for("index"))
+
+@app.route("/api/streamers/update", methods=["POST"])
+def update_streamer_route():
+    data = request.get_json(silent=True) or request.form
+    name = data.get("name", "").strip().lower()
+    min_views = data.get("min_clip_views")
+    max_clips = data.get("max_clips_per_run")
+    layout = data.get("layout")
+    if not name:
+        return jsonify({"success": False, "error": "Name fehlt"}), 400
+    
+    if update_streamer(name, min_views=min_views, max_clips=max_clips, layout=layout):
+        status_manager.log(f"Streamer '{name}' Einstellungen aktualisiert (Min. Views: {min_views}, Max Clips: {max_clips}).")
+        return jsonify({"success": True, "message": f"Streamer {name} aktualisiert"})
+    return jsonify({"success": False, "error": "Streamer nicht gefunden"}), 404
+
+@app.route("/api/streamers/update-all-views", methods=["POST"])
+def update_all_streamers_views_route():
+    data = request.get_json(silent=True) or request.form
+    min_views = data.get("min_clip_views")
+    if min_views is None:
+        return jsonify({"success": False, "error": "Mindest-Views fehlen"}), 400
+    try:
+        count = update_all_streamers_min_views(int(min_views))
+        status_manager.log(f"Mindest-Views für alle {count} Streamer auf {min_views} gesetzt.")
+        return jsonify({"success": True, "count": count, "message": f"Mindest-Views für alle {count} Streamer auf {min_views} gesetzt."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/settings", methods=["GET", "POST"])
+def settings_route():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form.to_dict()
+        ok = save_autopilot_settings(data)
+        if ok:
+            status_manager.log("System- und Autopilot-Einstellungen wurden gespeichert.")
+            return jsonify({"success": True, "message": "Einstellungen gespeichert."})
+        return jsonify({"success": False, "error": "Konnte Einstellungen nicht speichern"}), 500
+    return jsonify(get_autopilot_settings())
 
 # ==================== VISUELLER ZUSCHNITT (CROP) ENDPOINTS ====================
 

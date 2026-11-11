@@ -216,17 +216,29 @@ class TwitchClipHarvester:
         if self.client_id and self.client_secret:
             all_clips = self.fetch_clips_helix(channel_name, hours_back=hours_back)
         else:
-            all_clips = self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter)
-
-        if not all_clips:
-            print(f"[-] Keine Clips für {channel_name} gefunden.")
-            return []
+            all_clips = self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter, limit=50)
 
         # 2. Filtern: Noch nicht verarbeitet und mind. min_views
         unprocessed = [
             c for c in all_clips 
             if not is_clip_already_processed(c["clip_id"]) and c["view_count"] >= min_views
         ]
+
+        # 2b. Intelligenter Wochen-Fallback: Falls heute nicht genug Clips gefunden wurden
+        fallback_enabled = self.config.get("autopilot", {}).get("fallback_to_week", True)
+        if len(unprocessed) < max_clips and time_filter == "LAST_DAY" and fallback_enabled and not (self.client_id and self.client_secret):
+            print(f"  [i] Nur {len(unprocessed)}/{max_clips} Clips in 24h für {channel_name} qualifiziert. Prüfe beste Clips der Woche...")
+            week_clips = self.fetch_clips_gql_fallback(channel_name, time_filter="LAST_WEEK", limit=50)
+            existing_ids = {c["clip_id"] for c in unprocessed}
+            week_candidates = [
+                c for c in week_clips
+                if c["clip_id"] not in existing_ids and not is_clip_already_processed(c["clip_id"]) and c["view_count"] >= min_views
+            ]
+            unprocessed.extend(week_candidates)
+
+        if not unprocessed:
+            print(f"[-] Keine neuen qualifizierten Clips für {channel_name} gefunden.")
+            return []
 
         # 3. Sortieren nach Beliebtheit (Views) und Top-N auswählen
         unprocessed.sort(key=lambda x: x["view_count"], reverse=True)

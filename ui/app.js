@@ -523,17 +523,148 @@ function renderStreamers(streamers) {
     if (!container || !streamers) return;
 
     container.innerHTML = streamers.map(s => `
-        <div class="flex justify-between items-center bg-slate-800/80 border border-slate-700/80 px-3.5 py-2.5 rounded hover:border-slate-600 transition">
-            <div class="flex items-center gap-3">
-                <span class="font-bold text-sm text-amber-400">${escapeHtml(s.name)}</span>
-                <span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-md font-mono">Min. ${s.min_clip_views} Views</span>
-                <span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-md font-mono">Max. ${s.max_clips_per_run} Clips</span>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/80 border border-slate-700/80 p-3 rounded-lg hover:border-slate-600 transition gap-3">
+            <div class="min-w-0">
+                <span class="font-bold text-sm text-amber-400 block truncate">${escapeHtml(s.name)}</span>
+                <span class="text-2xs text-slate-400 font-mono">Twitch</span>
             </div>
-            <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-lg transition" title="Entfernen">
-                ${SVG_ICONS.trash}
-            </button>
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
+                    <input type="number" value="${s.min_clip_views || 30}" min="1" max="10000"
+                           onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
+                           class="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                </div>
+                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max Clips:</span>
+                    <input type="number" value="${s.max_clips_per_run || 2}" min="1" max="10"
+                           onchange="updateStreamerMaxClips('${escapeJs(s.name)}', this.value)"
+                           class="w-12 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
+                </div>
+                <button onclick="removeStreamer('${escapeJs(s.name)}')" class="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-lg transition" title="Streamer entfernen">
+                    ${SVG_ICONS.trash}
+                </button>
+            </div>
         </div>
     `).join('');
+}
+
+async function updateStreamerMinViews(name, minViews) {
+    const val = parseInt(minViews, 10);
+    if (isNaN(val) || val < 1) return;
+    try {
+        await apiFetch('/api/streamers/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, min_clip_views: val })
+        });
+        showToast(`Mindest-Views für ${name} auf ${val} geändert!`, 'success');
+    } catch (e) {
+        alert('Fehler beim Aktualisieren: ' + e);
+    }
+}
+
+async function updateStreamerMaxClips(name, maxClips) {
+    const val = parseInt(maxClips, 10);
+    if (isNaN(val) || val < 1) return;
+    try {
+        await apiFetch('/api/streamers/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, max_clips_per_run: val })
+        });
+        showToast(`Max Clips für ${name} auf ${val} geändert!`, 'success');
+    } catch (e) {
+        alert('Fehler beim Aktualisieren: ' + e);
+    }
+}
+
+async function applyBulkMinViews() {
+    const input = document.getElementById('bulk-min-views-input');
+    if (!input) return;
+    const val = parseInt(input.value, 10);
+    if (isNaN(val) || val < 1) {
+        alert('Bitte eine gültige Zahl für Mindest-Views eingeben.');
+        return;
+    }
+    if (!confirm(`Sollen die Mindest-Views für ALLE Streamer auf ${val} gesetzt werden?`)) return;
+    try {
+        const res = await apiFetch('/api/streamers/update-all-views', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_clip_views: val })
+        });
+        showToast(`Mindest-Views für alle Streamer auf ${val} gesetzt!`, 'success');
+        refreshDashboard();
+    } catch (e) {
+        alert('Fehler: ' + e);
+    }
+}
+
+function openSettingsModal() {
+    const m = document.getElementById('settings-modal');
+    if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        m.style.setProperty('display', 'flex', 'important');
+        loadSettingsIntoForm();
+    }
+}
+
+function closeSettingsModal() {
+    const m = document.getElementById('settings-modal');
+    if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+        m.style.setProperty('display', 'none', 'important');
+    }
+}
+
+async function loadSettingsIntoForm() {
+    try {
+        const s = await apiFetch('/api/settings');
+        if (!s) return;
+        const form = document.getElementById('settings-form');
+        if (!form) return;
+        
+        if (form.elements['autopilot_enabled']) form.elements['autopilot_enabled'].checked = !!s.enabled;
+        if (form.elements['interval_minutes']) form.elements['interval_minutes'].value = s.interval_minutes || 30;
+        if (form.elements['time_filter']) form.elements['time_filter'].value = s.time_filter || 'LAST_DAY';
+        if (form.elements['fallback_to_week']) form.elements['fallback_to_week'].checked = s.fallback_to_week !== false;
+        if (form.elements['auto_render']) form.elements['auto_render'].checked = !!s.auto_render;
+        if (form.elements['hardware_encoder']) form.elements['hardware_encoder'].value = s.hardware_encoder || 'auto';
+        if (form.elements['whisper_model']) form.elements['whisper_model'].value = s.whisper_model || 'small';
+    } catch (e) {
+        console.error('Fehler beim Laden der Einstellungen:', e);
+    }
+}
+
+async function saveSettingsFromForm(e) {
+    if (e) e.preventDefault();
+    const form = document.getElementById('settings-form');
+    if (!form) return;
+    
+    const payload = {
+        enabled: form.elements['autopilot_enabled'] ? form.elements['autopilot_enabled'].checked : true,
+        interval_minutes: parseInt(form.elements['interval_minutes'].value, 10) || 30,
+        time_filter: form.elements['time_filter'] ? form.elements['time_filter'].value : 'LAST_DAY',
+        fallback_to_week: form.elements['fallback_to_week'] ? form.elements['fallback_to_week'].checked : true,
+        auto_render: form.elements['auto_render'] ? form.elements['auto_render'].checked : false,
+        hardware_encoder: form.elements['hardware_encoder'] ? form.elements['hardware_encoder'].value : 'auto',
+        whisper_model: form.elements['whisper_model'] ? form.elements['whisper_model'].value : 'small'
+    };
+    
+    try {
+        await apiFetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        showToast('Einstellungen erfolgreich gespeichert!', 'success');
+        closeSettingsModal();
+    } catch (err) {
+        alert('Fehler beim Speichern der Einstellungen: ' + err);
+    }
 }
 
 async function removeStreamer(name) {
@@ -2467,6 +2598,13 @@ async function downloadRawVideo(clipId, btn, evt) {
         window.__realOpenRawPreview = openRawPreview;
         window.openStreamerModal = openStreamerModal;
         window.closeStreamerModal = closeStreamerModal;
+        window.openSettingsModal = openSettingsModal;
+        window.closeSettingsModal = closeSettingsModal;
+        window.saveSettingsFromForm = saveSettingsFromForm;
+        window.loadSettingsIntoForm = loadSettingsIntoForm;
+        window.updateStreamerMinViews = updateStreamerMinViews;
+        window.updateStreamerMaxClips = updateStreamerMaxClips;
+        window.applyBulkMinViews = applyBulkMinViews;
         window.filterStudioByStreamer = filterStudioByStreamer;
         window.triggerRun = triggerRun;
         window.__realTriggerRun = triggerRun;
