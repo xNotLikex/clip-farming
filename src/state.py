@@ -28,6 +28,21 @@ DEFAULT_STATE = {
 class StatusManager:
     def __init__(self):
         self._ensure_file()
+        # Beim Backend-Start sicherstellen, dass keine Zombie-Locks aus vorherigen Abstürzen/Beenden aktiv sind
+        with _STATE_LOCK:
+            try:
+                state = self.get_state()
+                if state.get("is_running", False):
+                    state["is_running"] = False
+                    state["status"] = "idle"
+                    state["current_task"] = "Bereit zum Start"
+                    state["progress_percent"] = 0
+                    state["eta_seconds"] = None
+                    state["speed"] = None
+                    with open(STATE_FILE, "w", encoding="utf-8") as f:
+                        json.dump(state, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
 
     def _ensure_file(self):
         with _STATE_LOCK:
@@ -60,7 +75,8 @@ class StatusManager:
             state = self.get_state()
             state["status"] = status
             state["current_task"] = task_desc
-            state["is_running"] = (status != "idle")
+            # is_running darf NUR bei tatsächlich aktiven Hintergrund-Jobs True sein (nicht bei idle oder error)
+            state["is_running"] = status in ("harvesting", "processing", "rendering")
             if clip_title:
                 state["current_clip"] = clip_title
             if streamer:

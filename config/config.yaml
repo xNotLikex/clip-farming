@@ -4,7 +4,21 @@ streamers:
   enabled: true
   min_clip_views: 25
   max_clips_per_run: 2
-  layout: auto
+  layout: custom
+  custom_crops:
+    mode: split
+    cam:
+      x_pct: 0.7395676270254263
+      y_pct: 0.033695611297055394
+      w_pct: 0.21875
+      h_pct: 0.25925925925925924
+      enabled: true
+    game:
+      x_pct: 0.18584761179506704
+      y_pct: 0
+      w_pct: 0.51
+      h_pct: 1
+      enabled: true
 - name: trymacs
   platform: twitch
   enabled: true
@@ -36,19 +50,61 @@ streamers:
   enabled: true
   min_clip_views: 25
   max_clips_per_run: 2
-  layout: auto
+  layout: custom
+  custom_crops:
+    mode: split
+    cam:
+      x_pct: 0.7836290561407961
+      y_pct: 0.06975217178744689
+      w_pct: 0.21637094385920383
+      h_pct: 0.2564396371664638
+      enabled: true
+    game:
+      x_pct: 0.2643685746922198
+      y_pct: 0
+      w_pct: 0.51
+      h_pct: 1
+      enabled: true
 - name: zarbex
   platform: twitch
   enabled: true
   min_clip_views: 25
   max_clips_per_run: 2
-  layout: auto
+  layout: custom
+  custom_crops:
+    mode: split
+    cam:
+      x_pct: 0.7836290561407961
+      y_pct: 0.06734534240908578
+      w_pct: 0.21637094385920383
+      h_pct: 0.2564396371664638
+      enabled: true
+    game:
+      x_pct: 0.2643685746922198
+      y_pct: 0
+      w_pct: 0.51
+      h_pct: 1
+      enabled: true
 - name: bastighg
   platform: twitch
   enabled: true
   min_clip_views: 25
   max_clips_per_run: 2
-  layout: auto
+  layout: custom
+  custom_crops:
+    mode: split
+    cam:
+      x_pct: 0.030910860092228192
+      y_pct: 0.11788875935466887
+      w_pct: 0.14583333333333334
+      h_pct: 0.1728395061728395
+      enabled: true
+    game:
+      x_pct: 0.27249143292295974
+      y_pct: 0
+      w_pct: 0.51
+      h_pct: 1
+      enabled: true
 - name: krokoboss
   platform: twitch
   enabled: true
