@@ -1,4 +1,5 @@
 from pathlib import Path
+import gc
 from typing import List, Dict, Any, Optional
 from src.config import load_config
 
@@ -21,6 +22,20 @@ class VideoTranscriber:
                 print(f"[!] Warnung: CUDA nicht verfuegbar oder Fehler ({e}). Wechsle zu CPU...")
                 self.device = "cpu"
                 self.model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
+
+    def unload_model(self):
+        """Gibt das Whisper-Modell und GPU-VRAM vollständig frei."""
+        if self.model is not None:
+            del self.model
+            self.model = None
+            gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            print("[*] Whisper VRAM erfolgreich freigegeben.")
 
     def transcribe(self, audio_or_video_path: Path, language: Optional[str] = None) -> List[Dict[str, Any]]:
         """

@@ -3064,7 +3064,34 @@ async function downloadRawVideo(clipId, btn, evt) {
             }
         }
 
-        // Global Form Interceptor for SPA
+        async function exportAllReadyClips(btn) {
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin mr-1"></span><span>Öffne Ordner-Dialog...</span>';
+    }
+    showToast('Zielordner für alle fertigen Shorts auswählen...', 'info');
+    try {
+        const res = await apiFetch('/api/export-all-ready', { method: 'POST' });
+        const data = await res.json();
+        if (data && data.success) {
+            showToast(`✓ ${data.count} Shorts erfolgreich exportiert!`, 'success');
+        } else if (data && data.cancelled) {
+            showToast('Export abgebrochen', 'info');
+        } else {
+            showToast('Fehler: ' + (data?.error || 'Export fehlgeschlagen'), 'error');
+        }
+    } catch (e) {
+        showToast('Fehler beim Stapel-Export: ' + e, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+}
+
+// Global Form Interceptor for SPA
         document.addEventListener('submit', async (e) => {
             const form = e.target;
             if (form && form.tagName === 'FORM') {
@@ -3089,6 +3116,7 @@ async function downloadRawVideo(clipId, btn, evt) {
         });
 
         // Explicitly attach all interactive functions to window
+        window.exportAllReadyClips = exportAllReadyClips;
         window.switchTab = switchTab;
         window.addStreamerFromForm = addStreamerFromForm;
         window.__realOpenCropModal = openCropModal;

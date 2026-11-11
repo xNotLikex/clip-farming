@@ -1824,19 +1824,24 @@ HTML_DASHBOARD = """
                     <span class="text-sm font-bold text-white">{{ counts.ready }} Shorts bereit zur Bearbeitung & Veröffentlichung</span>
                     <span class="text-xs text-slate-400 block">Du kannst jeden Clip einzeln anpassen oder alle gestaffelt im Zeitplan veröffentlichen.</span>
                 </div>
-                <form action="/api/schedule-all" method="POST" class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-slate-400">Intervall:</span>
-                    <select name="interval_minutes" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-2">
-                        <option value="15">alle 15 Min</option>
-                        <option value="30" selected>alle 30 Min</option>
-                        <option value="45">alle 45 Min</option>
-                        <option value="60">jede 1 Stunde</option>
-                        <option value="120">alle 2 Stunden</option>
-                    </select>
-                    <button type="submit" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-semibold text-xs rounded transition flex items-center gap-2">
-                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Alle gestaffelt einplanen
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="exportAllReadyClips(this)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm" title="Alle fertigen Videos in einen gewählten Ordner exportieren">
+                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> Alle fertigen Shorts exportieren
                     </button>
-                </form>
+                    <form action="/api/schedule-all" method="POST" class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-400">Intervall:</span>
+                        <select name="interval_minutes" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-2">
+                            <option value="15">alle 15 Min</option>
+                            <option value="30" selected>alle 30 Min</option>
+                            <option value="45">alle 45 Min</option>
+                            <option value="60">jede 1 Stunde</option>
+                            <option value="120">alle 2 Stunden</option>
+                        </select>
+                        <button type="submit" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-semibold text-xs rounded transition flex items-center gap-2">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Alle gestaffelt einplanen
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
@@ -3761,6 +3766,57 @@ def set_last_export_dir(path: Path):
         last_file.write_text(str(target_dir), encoding="utf-8")
     except Exception:
         pass
+
+@app.route("/api/export-all-ready", methods=["POST"])
+def export_all_ready_clips():
+    """Phase 5: Exportiert alle fertig geschnittenen 9:16 Shorts in einen wählbaren Zielordner."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT clip_id, streamer, ai_title, original_title FROM clips WHERE status = 'ready'")
+        clips = cursor.fetchall()
+
+    if not clips:
+        return jsonify({"success": False, "error": "Keine fertigen Shorts zum Exportieren vorhanden."}), 400
+
+    init_dir = get_last_export_dir()
+    from src.save_dialog import open_save_dialog
+    # Wähle einen Dateinamen als Ordner-Anker
+    selected = open_save_dialog("hier_speichern.mp4", str(init_dir), "Zielordner für alle fertigen Shorts auswählen")
+    if not selected:
+        return jsonify({"success": False, "cancelled": True, "message": "Export abgebrochen"})
+
+    target_dir = Path(selected).parent
+    target_dir.mkdir(parents=True, exist_ok=True)
+    set_last_export_dir(target_dir)
+
+    exported_count = 0
+    for c in clips:
+        cid = c["clip_id"]
+        vpath = SHORTS_OUTPUT_DIR / f"short_{cid}.mp4"
+        if vpath.exists():
+            st = c["streamer"] or "Short"
+            title = c["ai_title"] or c["original_title"] or cid
+            clean_t = "".join(ch for ch in title if ch.isalnum() or ch in (" ", "-", "_")).strip()[:40]
+            dest = target_dir / f"{st}_{clean_t}_{cid[:6]}.mp4"
+            try:
+                shutil.copy2(vpath, dest)
+                exported_count += 1
+            except Exception:
+                pass
+
+    status_manager.log(f"📦 Stapel-Export: {exported_count} fertige Shorts nach '{target_dir.name}' exportiert.")
+    if sys.platform == "win32":
+        try:
+            subprocess.Popen(["explorer.exe", str(target_dir)])
+        except Exception:
+            pass
+
+    return jsonify({
+        "success": True,
+        "count": exported_count,
+        "folder": str(target_dir),
+        "message": f"{exported_count} Shorts erfolgreich exportiert!"
+    })
 
 @app.route("/api/clip/<clip_id>/export-dialog", methods=["POST", "GET"])
 def export_clip_dialog(clip_id):

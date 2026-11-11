@@ -493,7 +493,8 @@ class VideoComposer:
         else:
             filter_complex = f"{base_graph}{sticker_filter};{curr_target}copy[v]"
 
-        audio_filter = "loudnorm=I=-14:TP=-1.5:LRA=11" if self.audio_normalize else "anull"
+        # Phase 5: Erweiterter 2-Pass/Broadcast-Audio-Booster (Dynamische Kompression + EBU R128 Loudness)
+        audio_filter = "acompressor=threshold=-18dB:ratio=3:attack=5:release=50,loudnorm=I=-14:TP=-1.5:LRA=11" if self.audio_normalize else "anull"
         encoder_args = self.encoder_profile["args"]
         codec = self.encoder_profile["codec"]
         speed_factor = 2.5 if "nvenc" in codec else (2.0 if ("amf" in codec or "mf" in codec or "qsv" in codec) else 0.9)
