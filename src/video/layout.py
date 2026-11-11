@@ -539,7 +539,7 @@ class VideoComposer:
                 active_renders[clip_id] = {"proc": proc, "cancelled": False}
 
             current_sec = 0.0
-            speed_factor = 2.5 # Initiale Schätzung für RTX 4070 NVENC
+            # M7 Audit-Fix: Verwende den oben präzise ermittelten speed_factor statt hartem Überschreiben
 
             for line in proc.stdout:
                 with render_lock:

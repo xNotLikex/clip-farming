@@ -111,6 +111,7 @@ let gDashboardData = null;
 // Initial load & periodic refresh
 async function refreshDashboard() {
     try {
+        gLastDashboardRefresh = Date.now();
         let data = null;
         const invoke = getTauriInvoke();
         if (invoke) {
@@ -1128,11 +1129,19 @@ async function addStreamerFromForm(form) {
 // ----------------------------------------
 // INITIALIZATION
 // ----------------------------------------
+// C7 Audit-Fix: Intelligentes Polling statt Kaskaden-Loops
+let gLastDashboardRefresh = 0;
+
 function initDashboard() {
     refreshDashboard();
-    setTimeout(refreshDashboard, 200);
-    setTimeout(refreshDashboard, 1000);
-    setInterval(refreshDashboard, 5000);
+    // Regelmäßiges Hintergrund-Polling nur alle 15 Sekunden statt alle 5s
+    // (Status-Polling alle 1,5s sorgt bereits bei jeder Änderung für sofortige Updates)
+    setInterval(() => {
+        // Nur pollen wenn nicht gerade vor kurzem refreshed wurde
+        if (Date.now() - gLastDashboardRefresh > 12000) {
+            refreshDashboard();
+        }
+    }, 15000);
 }
 
 if (document.readyState === 'loading') {
@@ -2943,7 +2952,19 @@ async function downloadRawVideo(clipId, btn, evt) {
                     return;
                 }
 
+                const pollStart = Date.now();
                 const pollTimer = setInterval(async () => {
+                    // H6 Audit-Fix: Timeout nach 5 Minuten (300.000 ms)
+                    if (Date.now() - pollStart > 300000) {
+                        clearInterval(pollTimer);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                        }
+                        if (box) box.classList.add('hidden');
+                        showToast('TikTok Login-Polling nach 5 Minuten beendet.', 'info');
+                        return;
+                    }
                     try {
                         const sResp = await apiFetch('/api/accounts/tiktok/browser-login/status');
                         const sData = await sResp.json();
@@ -3007,7 +3028,19 @@ async function downloadRawVideo(clipId, btn, evt) {
                 if (text) text.innerText = 'Google-Login im neuen Tab geöffnet! Wähle deinen YouTube-Kanal und klicke auf "Zulassen"...';
 
                 // Status überwachen bis YouTube auf verbunden springt
+                const pollStart = Date.now();
                 const pollTimer = setInterval(async () => {
+                    // H6 Audit-Fix: Timeout nach 5 Minuten (300.000 ms)
+                    if (Date.now() - pollStart > 300000) {
+                        clearInterval(pollTimer);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                        }
+                        if (box) box.classList.add('hidden');
+                        showToast('TikTok Login-Polling nach 5 Minuten beendet.', 'info');
+                        return;
+                    }
                     try {
                         const aResp = await apiFetch('/api/accounts/status');
                         const aData = await aResp.json();

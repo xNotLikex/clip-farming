@@ -1,8 +1,12 @@
 from pathlib import Path
 import os
 import sys
+import threading
 import yaml
 from typing import Dict, Any, List, Optional
+
+# H1 Audit-Fix: Thread-Sicherheit für Lese- und Schreiboperationen auf config.yaml
+_CONFIG_LOCK = threading.RLock()
 
 # Absolute Project Root (Portable - relative to this file)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -61,14 +65,16 @@ def load_config() -> Dict[str, Any]:
     if not config_file.exists():
         raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {config_file}")
     
-    with open(config_file, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    with _CONFIG_LOCK:
+        with open(config_file, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
 
 def save_config(cfg: Dict[str, Any]):
     """Save configuration back to config/config.yaml."""
     config_file = CONFIG_DIR / "config.yaml"
-    with open(config_file, "w", encoding="utf-8") as f:
-        yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+    with _CONFIG_LOCK:
+        with open(config_file, "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
 
 TWITCH_GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 TWITCH_GQL_URL = "https://gql.twitch.tv/gql"

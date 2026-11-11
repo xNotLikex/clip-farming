@@ -51,6 +51,12 @@ def init_db():
         except Exception:
             pass
         
+        # M3 Audit-Fix: Performance-Indizes für schnelle Dashboard- & Queue-Abfragen
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status ON clips(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_streamer ON clips(streamer)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_view_count ON clips(view_count DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status_views ON clips(status, view_count DESC)")
+        
         # Streamer-Tracking Tabelle
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS streamer_checks (

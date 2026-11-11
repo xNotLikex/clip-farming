@@ -3464,60 +3464,65 @@ def api_dashboard():
 def get_status():
     return jsonify(status_manager.get_state())
 
+# H5 Audit-Fix: Atomarer Worker-Lock gegen Doppelklicks & Race-Conditions
+_WORKER_LOCK = threading.Lock()
+
 def execute_harvest_job() -> bool:
     """Startet das Suchen & Herunterladen auf Twitch im Hintergrund."""
-    if not status_manager.get_state().get("is_running", False):
+    with _WORKER_LOCK:
+        if status_manager.get_state().get("is_running", False):
+            return False
         status_manager.set_task("harvesting", "Scanne Twitch-Streamer nach neuen Clips...")
         
-        def run_harvest_background():
+    def run_harvest_background():
+        try:
+            from src.scheduler import PipelineOrchestrator
+            orch = PipelineOrchestrator()
+            streamers = orch.config.get("streamers", [])
+            for s in streamers:
+                if s.get("enabled", True):
+                    status_manager.set_task("harvesting", "Scanne Twitch...", streamer=s.get("name"))
+                    orch.harvester.harvest_channel(s)
+        except Exception as e:
+            status_manager.set_task("error", f"Fehler beim Clip-Scannen: {e}")
+        finally:
+            status_manager.set_task("idle", "Twitch-Scan beendet. Clips in der Warteschlange gespeichert.")
             try:
-                from src.scheduler import PipelineOrchestrator
-                orch = PipelineOrchestrator()
-                streamers = orch.config.get("streamers", [])
-                for s in streamers:
-                    if s.get("enabled", True):
-                        status_manager.set_task("harvesting", "Scanne Twitch...", streamer=s.get("name"))
-                        orch.harvester.harvest_channel(s)
-            except Exception as e:
-                status_manager.set_task("error", f"Fehler beim Clip-Scannen: {e}")
-            finally:
-                status_manager.set_task("idle", "Twitch-Scan beendet. Clips in der Warteschlange gespeichert.")
-                try:
-                    settings = get_autopilot_settings()
-                    if settings.get("auto_render", False):
-                        execute_process_all_job()
-                except Exception:
-                    pass
+                settings = get_autopilot_settings()
+                if settings.get("auto_render", False):
+                    execute_process_all_job()
+            except Exception:
+                pass
 
-        thread = threading.Thread(target=run_harvest_background, daemon=True)
-        thread.start()
-        return True
-    return False
+    thread = threading.Thread(target=run_harvest_background, daemon=True)
+    thread.start()
+    return True
 
 def execute_process_all_job() -> bool:
     """Schneidet alle Clips in der Warteschlange im Hintergrund."""
-    if not status_manager.get_state().get("is_running", False):
+    with _WORKER_LOCK:
+        if status_manager.get_state().get("is_running", False):
+            return False
         status_manager.set_task("processing", "Starte Schneidevorgang für alle Clips...")
         
-        def run_all_worker():
-            try:
-                with get_db_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT clip_id FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
-                    clips = cursor.fetchall()
+    def run_all_worker():
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT clip_id FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
+                clips = cursor.fetchall()
 
-                for idx, c in enumerate(clips, 1):
-                    status_manager.set_task("processing", f"Schneide Clip [{idx}/{len(clips)}]...")
-                    process_single_clip(c["clip_id"])
-            except Exception as e:
-                status_manager.set_task("error", f"Fehler beim Schneidevorgang: {e}")
-            finally:
-                status_manager.set_task("idle", f"Alle Clips fertig ins Studio übertragen.")
+            for idx, c in enumerate(clips, 1):
+                status_manager.set_task("processing", f"Schneide Clip [{idx}/{len(clips)}]...")
+                process_single_clip(c["clip_id"])
+        except Exception as e:
+            status_manager.set_task("error", f"Fehler beim Schneidevorgang: {e}")
+        finally:
+            status_manager.set_task("idle", f"Alle Clips fertig ins Studio übertragen.")
 
-        thread = threading.Thread(target=run_all_worker, daemon=True)
-        thread.start()
-        return True
-    return False
+    thread = threading.Thread(target=run_all_worker, daemon=True)
+    thread.start()
+    return True
 
 def autopilot_background_worker():
     """Prüft periodisch im Hintergrund nach neuen Clips gemäß konfiguriertem Intervall."""
