@@ -532,6 +532,9 @@ function renderStreamers(streamers) {
                 <span class="text-2xs text-slate-400 font-mono">Twitch</span>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="openStreamerConfigModal('${escapeJs(s.name)}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5" title="Streamer-Einstellungen & Rahmen konfigurieren">
+                    <span>⚙️</span> <span>Konfigurieren</span>
+                </button>
                 <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
                     <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
                     <select onchange="updateStreamerLayout('${escapeJs(s.name)}', this.value)"
@@ -700,6 +703,145 @@ async function applyBulkMinViews() {
         refreshDashboard();
     } catch (e) {
         alert('Fehler: ' + e);
+    }
+}
+
+async function openStreamerConfigModal(streamerName) {
+    if (!streamerName) return;
+    const modal = document.getElementById('streamer-config-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.style.setProperty('display', 'flex', 'important');
+    }
+
+    const titleEl = document.getElementById('cfg-modal-streamer-name');
+    if (titleEl) titleEl.innerText = streamerName;
+
+    const hiddenName = document.getElementById('cfg-streamer-hidden-name');
+    if (hiddenName) hiddenName.value = streamerName;
+
+    const customBadge = document.getElementById('cfg-streamer-custom-badge');
+    if (customBadge) {
+        customBadge.classList.add('hidden');
+        customBadge.classList.remove('flex');
+    }
+
+    // Reset sample button state
+    const spinner = document.getElementById('btn-sample-spinner');
+    const btnText = document.getElementById('btn-sample-text');
+    const btn = document.getElementById('btn-load-streamer-sample');
+    if (spinner) spinner.classList.add('hidden');
+    if (btnText) btnText.innerText = '🎬 Test-Clip laden & Rahmen visuell einstellen';
+    if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    }
+
+    try {
+        const data = await apiFetch('/api/streamers/' + encodeURIComponent(streamerName) + '/config');
+        if (data && data.success) {
+            const minViewsInput = document.getElementById('cfg-streamer-min-views');
+            if (minViewsInput) minViewsInput.value = data.min_clip_views || 25;
+
+            const maxClipsInput = document.getElementById('cfg-streamer-max-clips');
+            if (maxClipsInput) maxClipsInput.value = data.max_clips_per_run || 2;
+
+            const layoutSelect = document.getElementById('cfg-streamer-layout');
+            if (layoutSelect) layoutSelect.value = data.layout || 'auto';
+
+            if (customBadge) {
+                if (data.has_custom_crops) {
+                    customBadge.classList.remove('hidden');
+                    customBadge.classList.add('flex');
+                } else {
+                    customBadge.classList.add('hidden');
+                    customBadge.classList.remove('flex');
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Fehler beim Laden der Streamer-Konfiguration:', e);
+    }
+}
+
+function closeStreamerConfigModal() {
+    const modal = document.getElementById('streamer-config-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.style.setProperty('display', 'none', 'important');
+    }
+}
+
+async function saveStreamerConfig(event) {
+    if (event) event.preventDefault();
+    const hiddenName = document.getElementById('cfg-streamer-hidden-name');
+    const name = hiddenName ? hiddenName.value.trim() : '';
+    if (!name) return;
+
+    const minViews = parseInt(document.getElementById('cfg-streamer-min-views').value, 10) || 25;
+    const maxClips = parseInt(document.getElementById('cfg-streamer-max-clips').value, 10) || 2;
+    const layout = document.getElementById('cfg-streamer-layout').value || 'auto';
+
+    try {
+        await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                min_clip_views: minViews,
+                max_clips_per_run: maxClips,
+                layout: layout
+            })
+        });
+        showToast(`✓ Konfiguration für ${name} gespeichert!`, 'success');
+        closeStreamerConfigModal();
+        refreshDashboard();
+    } catch (e) {
+        alert('Fehler beim Speichern: ' + e);
+    }
+}
+
+async function loadSampleClipForStreamer() {
+    const hiddenName = document.getElementById('cfg-streamer-hidden-name');
+    const name = hiddenName ? hiddenName.value.trim() : '';
+    if (!name) {
+        alert('Kein Streamer ausgewählt.');
+        return;
+    }
+
+    const spinner = document.getElementById('btn-sample-spinner');
+    const btnText = document.getElementById('btn-sample-text');
+    const btn = document.getElementById('btn-load-streamer-sample');
+
+    if (spinner) spinner.classList.remove('hidden');
+    if (btnText) btnText.innerText = 'Lade Test-Clip von Twitch herunter...';
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+
+    try {
+        const data = await apiFetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', {
+            method: 'POST'
+        });
+        if (data && data.success && data.clip_id) {
+            closeStreamerConfigModal();
+            closeStreamerModal();
+            showToast(`Test-Clip für ${name} bereit! Rahmen anpassen und 'Als Standard für Streamer merken' klicken.`, 'info');
+            openCropModal(data.clip_id, name, data.title || ('Test-Clip Vorlage (' + name + ')'));
+        } else {
+            alert('Fehler: ' + (data && data.error ? data.error : 'Konnte keinen Clip laden.'));
+        }
+    } catch (e) {
+        alert('Fehler beim Laden des Test-Clips: ' + e);
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
+        if (btnText) btnText.innerText = '🎬 Test-Clip laden & Rahmen visuell einstellen';
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
     }
 }
 
@@ -2700,6 +2842,14 @@ async function downloadRawVideo(clipId, btn, evt) {
         window.__realOpenRawPreview = openRawPreview;
         window.openStreamerModal = openStreamerModal;
         window.closeStreamerModal = closeStreamerModal;
+        window.openStreamerConfigModal = openStreamerConfigModal;
+        window.closeStreamerConfigModal = closeStreamerConfigModal;
+        window.saveStreamerConfig = saveStreamerConfig;
+        window.loadSampleClipForStreamer = loadSampleClipForStreamer;
+        window.loadStreamerConfigIntoForm = openStreamerConfigModal;
+        window.__realSaveStreamerConfig = saveStreamerConfig;
+        window.__realLoadSampleClipForStreamer = loadSampleClipForStreamer;
+        window.__realOpenStreamerConfigModal = openStreamerConfigModal;
         window.openSettingsModal = openSettingsModal;
         window.closeSettingsModal = closeSettingsModal;
         window.saveSettingsFromForm = saveSettingsFromForm;

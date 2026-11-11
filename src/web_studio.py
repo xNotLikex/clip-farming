@@ -308,12 +308,12 @@ HTML_DASHBOARD = """
         body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #f3f4f6; font-weight: 600; }
         .tab-content.hidden { display: none !important; }
-        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden, #settings-modal.hidden {
+        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden, #settings-modal.hidden, #streamer-config-modal.hidden {
             display: none !important;
             pointer-events: none !important;
             visibility: hidden !important;
         }
-        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden), #settings-modal:not(.hidden) {
+        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden), #settings-modal:not(.hidden), #streamer-config-modal:not(.hidden) {
             display: flex !important;
             pointer-events: auto !important;
             visibility: visible !important;
@@ -369,6 +369,34 @@ HTML_DASHBOARD = """
                 m.classList.remove('flex');
                 m.style.setProperty('display', 'none', 'important');
             }
+        }
+        function openStreamerConfigModal(streamerName) {
+            if (window.__realOpenStreamerConfigModal) {
+                return window.__realOpenStreamerConfigModal(streamerName);
+            }
+            var m = document.getElementById('streamer-config-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+                if (window.loadStreamerConfigIntoForm) window.loadStreamerConfigIntoForm(streamerName);
+            }
+        }
+        function closeStreamerConfigModal() {
+            var m = document.getElementById('streamer-config-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function saveStreamerConfig(event) {
+            if (window.__realSaveStreamerConfig) return window.__realSaveStreamerConfig(event);
+            if (window.saveStreamerConfig && window.saveStreamerConfig !== saveStreamerConfig) return window.saveStreamerConfig(event);
+        }
+        function loadSampleClipForStreamer() {
+            if (window.__realLoadSampleClipForStreamer) return window.__realLoadSampleClipForStreamer();
+            if (window.loadSampleClipForStreamer && window.loadSampleClipForStreamer !== loadSampleClipForStreamer) return window.loadSampleClipForStreamer();
         }
         function openSettingsModal() {
             var m = document.getElementById('settings-modal');
@@ -2365,7 +2393,10 @@ HTML_DASHBOARD = """
                                 <span class="font-bold text-sm text-amber-400 block truncate">{{ s.name }}</span>
                                 <span class="text-2xs text-slate-400 font-mono">Twitch</span>
                             </div>
-                            <div class="flex items-center gap-2.5 flex-wrap">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5" title="Streamer-Einstellungen & Rahmen konfigurieren">
+                                    <span>⚙️</span> <span>Konfigurieren</span>
+                                </button>
                                 <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
                                     <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
                                     <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
@@ -2402,6 +2433,83 @@ HTML_DASHBOARD = """
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Streamer Konfiguration & Test-Clip Rahmen -->
+    <div id="streamer-config-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeStreamerConfigModal();">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl">⚙️</span>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>Streamer Konfiguration:</span>
+                            <span id="cfg-modal-streamer-name" class="text-amber-400 font-mono"></span>
+                        </h3>
+                        <p class="text-2xs text-slate-400">Filter, Limits und visuelle Standard-Rahmen anpassen</p>
+                    </div>
+                </div>
+                <button onclick="closeStreamerConfigModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <form id="streamer-config-form" onsubmit="saveStreamerConfig(event)" class="p-5 overflow-y-auto space-y-4">
+                <input type="hidden" id="cfg-streamer-hidden-name" name="name">
+                
+                <!-- Views & Clip Limits -->
+                <div class="grid grid-cols-2 gap-3 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Min. Views Clips:</label>
+                        <input type="number" id="cfg-streamer-min-views" name="min_clip_views" min="1" max="10000" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-bold focus:border-amber-500 focus:outline-none">
+                        <span class="text-2xs text-slate-500 mt-1 block">Clips unter diesem Wert werden übersprungen.</span>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
+                        <input type="number" id="cfg-streamer-max-clips" name="max_clips_per_run" min="1" max="10" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold focus:border-amber-500 focus:outline-none">
+                        <span class="text-2xs text-slate-500 mt-1 block">Maximale Clips pro Durchlauf.</span>
+                    </div>
+                </div>
+
+                <!-- Layout Schnellwahl -->
+                <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <label class="block text-xs font-semibold text-slate-300">Standard Clip-Layout:</label>
+                    <select id="cfg-streamer-layout" name="layout" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
+                        <option value="auto">🤖 Auto (KI Facecam-Scan)</option>
+                        <option value="split_cam_top">📱 Split-Screen (Cam oben + Gameplay unten)</option>
+                        <option value="blur_stack">🎬 Keine Cam (Gameplay mit Blur-Hintergrund)</option>
+                        <option value="single_916">📐 Reines 9:16 Vollbild (IRL)</option>
+                        <option value="custom">🎯 Eigener gespeicherter Rahmen</option>
+                        <option value="top_left">📍 Cam: Oben Links</option>
+                        <option value="top_right">📍 Cam: Oben Rechts</option>
+                        <option value="bottom_left">📍 Cam: Unten Links</option>
+                        <option value="bottom_right">📍 Cam: Unten Rechts</option>
+                    </select>
+                    <div id="cfg-streamer-custom-badge" class="hidden text-2xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1 rounded-md font-mono items-center gap-1.5">
+                        <span>✓</span> <span>Eigener visueller Rahmen für diesen Streamer hinterlegt</span>
+                    </div>
+                </div>
+
+                <!-- Test-Clip & Rahmenkonfiguration -->
+                <div class="bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border border-amber-500/40 p-4 rounded-xl space-y-2.5 shadow-md">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">📐</span>
+                        <div>
+                            <span class="text-xs font-bold text-amber-300 block">Visueller Rahmen-Editor für diesen Streamer</span>
+                            <span class="text-2xs text-slate-400">Lädt automatisch einen Test-Clip des Streamers herunter. Du richtest Cam und Gameplay ein und das Tool merkt sich die Rahmen dauerhaft.</span>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-load-streamer-sample" onclick="loadSampleClipForStreamer()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow">
+                        <span id="btn-sample-spinner" class="hidden animate-spin">⏳</span>
+                        <span id="btn-sample-text">🎬 Test-Clip laden & Rahmen visuell einstellen</span>
+                    </button>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+                    <button type="button" onclick="closeStreamerConfigModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">Abbrechen</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition shadow">💾 Speichern</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -3862,6 +3970,107 @@ def set_streamer_layout_route(name):
         return jsonify({"success": True, "message": f"Standard-Layout für {clean_name} aktualisiert"})
     return jsonify({"success": False, "error": "Streamer nicht gefunden"}), 404
 
+@app.route("/api/streamers/<name>/config", methods=["GET", "POST"])
+def streamer_config_route(name):
+    clean_name = name.strip().lower()
+    streamers = get_streamers()
+    st_cfg = next((s for s in streamers if s.get("name", "").lower() == clean_name), None)
+    if not st_cfg:
+        return jsonify({"success": False, "error": f"Streamer '{clean_name}' nicht gefunden."}), 404
+
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form
+        min_views = data.get("min_clip_views")
+        max_clips = data.get("max_clips_per_run")
+        layout = data.get("layout")
+        custom_crops = data.get("custom_crops")
+        
+        ok = update_streamer(
+            clean_name,
+            min_views=min_views,
+            max_clips=max_clips,
+            layout=layout,
+            custom_crops=custom_crops
+        )
+        if ok:
+            status_manager.log(f"Streamer-Konfiguration für '{clean_name}' gespeichert.")
+            return jsonify({"success": True, "message": f"Konfiguration für {clean_name} gespeichert."})
+        return jsonify({"success": False, "error": "Fehler beim Speichern"}), 500
+
+    return jsonify({
+        "success": True,
+        "name": st_cfg.get("name"),
+        "min_clip_views": st_cfg.get("min_clip_views", 25),
+        "max_clips_per_run": st_cfg.get("max_clips_per_run", 2),
+        "layout": st_cfg.get("layout", "auto"),
+        "has_custom_crops": bool(st_cfg.get("custom_crops")),
+        "custom_crops": st_cfg.get("custom_crops")
+    })
+
+@app.route("/api/streamers/<name>/sample-clip", methods=["GET", "POST"])
+def streamer_sample_clip_route(name):
+    clean_name = name.strip().lower()
+    raw_clips_dir = RAW_CLIPS_DIR
+    raw_clips_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 1. Prüfen ob wir bereits eine lokale Videodatei dieses Streamers haben
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT clip_id, original_title FROM clips WHERE LOWER(streamer) = ? AND raw_path IS NOT NULL ORDER BY rowid DESC LIMIT 1",
+            (clean_name,)
+        )
+        row = cursor.fetchone()
+        if row:
+            c_id = row["clip_id"]
+            local_p = raw_clips_dir / f"{c_id}.mp4"
+            if local_p.exists() and local_p.stat().st_size > 10000:
+                return jsonify({
+                    "success": True,
+                    "clip_id": c_id,
+                    "streamer": clean_name,
+                    "title": row["original_title"] or f"Clip von {clean_name}",
+                    "is_new": False
+                })
+
+    # Prüfen ob bereits ein sample_{name}.mp4 existiert
+    sample_p = raw_clips_dir / f"sample_{clean_name}.mp4"
+    if sample_p.exists() and sample_p.stat().st_size > 10000:
+        return jsonify({
+            "success": True,
+            "clip_id": f"sample_{clean_name}",
+            "streamer": clean_name,
+            "title": f"Test-Clip von {clean_name}",
+            "is_new": False
+        })
+
+    # 2. Von Twitch über GQL einen Clip herunterladen
+    try:
+        from src.harvesters.twitch_clips import TwitchClipHarvester
+        h = TwitchClipHarvester()
+        clips = h.fetch_clips_gql_fallback(clean_name, time_filter="LAST_WEEK", limit=5)
+        if not clips:
+            clips = h.fetch_clips_gql_fallback(clean_name, time_filter="ALL_TIME", limit=5)
+            
+        if not clips:
+            return jsonify({"success": False, "error": f"Keine Clips für {clean_name} auf Twitch gefunden."}), 404
+            
+        top_clip = clips[0]
+        c_id = f"sample_{clean_name}"
+        dl_res = h.download_clip(top_clip["url"], c_id)
+        if not dl_res or not dl_res.exists():
+            return jsonify({"success": False, "error": "Download des Test-Clips fehlgeschlagen."}), 500
+            
+        return jsonify({
+            "success": True,
+            "clip_id": c_id,
+            "streamer": clean_name,
+            "title": top_clip.get("title") or f"Test-Clip von {clean_name}",
+            "is_new": True
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Fehler beim Laden des Test-Clips: {e}"}), 500
+
 @app.route("/api/streamers/update-all-views", methods=["POST"])
 def update_all_streamers_views_route():
     data = request.get_json(silent=True) or request.form
@@ -3919,6 +4128,8 @@ def get_clip_meta_api(clip_id):
             pass
 
     streamer_name = (clip["streamer"] if clip else meta.get("streamer", "")).strip()
+    if not streamer_name and clip_id.startswith("sample_"):
+        streamer_name = clip_id.replace("sample_", "").strip()
     streamer_crops = None
     streamer_layout = "auto"
     if streamer_name:
@@ -3934,7 +4145,7 @@ def get_clip_meta_api(clip_id):
     return jsonify({
         "clip_id": clip_id,
         "streamer": streamer_name,
-        "title": (clip["ai_title"] or clip["original_title"] if clip else "") or meta.get("title", ""),
+        "title": (clip["ai_title"] or clip["original_title"] if clip else "") or meta.get("title", "") or (f"Test-Clip ({streamer_name})" if streamer_name else clip_id),
         "sticker_text": meta.get("sticker_text", ""),
         "sub_position": meta.get("sub_position", "bottom"),
         "layout_mode": resolved_layout,
@@ -4028,6 +4239,11 @@ def save_crop_api(clip_id):
 
     with open(meta_file, "w", encoding="utf-8") as mf:
         json.dump(meta, mf, indent=2, ensure_ascii=False)
+
+    if clip_id.startswith("sample_"):
+        streamer_name = clip_id.replace("sample_", "").strip()
+        if streamer_name:
+            update_streamer(streamer_name, layout=layout_mode, custom_crops=custom_crops)
 
     update_clip_status(clip_id, "ready", ai_title=meta.get("title"))
 
