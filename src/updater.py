@@ -42,13 +42,15 @@ def check_for_updates() -> Dict[str, Any]:
     Gibt Details zurück, wenn eine neue Version bereitsteht.
     """
     url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github.v3+json",
-            "User-Agent": f"Clip-Farming-Studio/{APP_VERSION}"
-        }
-    )
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": f"Clip-Farming-Studio/{APP_VERSION}"
+    }
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    req = urllib.request.Request(url, headers=headers)
 
     try:
         with urllib.request.urlopen(req, timeout=4) as resp:
