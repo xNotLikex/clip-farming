@@ -2,7 +2,7 @@
 ; Erstellt einen vollständigen, autarken Windows-Installer mit eingebetteter Python-Runtime & FFmpeg
 
 #define MyAppName "Clip Farming Studio"
-#define MyAppVersion "0.5.1"
+#define MyAppVersion "0.5.2"
 #define MyAppPublisher "NotLike"
 #define MyAppExeName "clip-farming.exe"
 

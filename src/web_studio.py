@@ -44,6 +44,11 @@ def add_cors_and_security_headers(response):
     response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
     response.headers["Access-Control-Allow-Private-Network"] = "true"
     response.headers["Accept-Ranges"] = "bytes"
+    ctype = (response.content_type or "").lower()
+    if any(t in ctype for t in ("text/html", "application/javascript", "application/json")):
+        response.headers.setdefault("Cache-Control", "no-cache, no-store, must-revalidate")
+        response.headers.setdefault("Pragma", "no-cache")
+        response.headers.setdefault("Expires", "0")
     return response
 
 

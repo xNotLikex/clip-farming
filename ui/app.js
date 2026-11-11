@@ -1,4 +1,5 @@
 
+(function () {
 const SVG_ICONS = {
     scan: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
     scissors: '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg>',
@@ -64,8 +65,6 @@ async function apiFetch(url, options = {}) {
     }
     return fetch(getBackendUrl(url), options);
 }
-
-const isTauri = typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.__TAURI_INTERNALS__ !== undefined);
 
 // Cam filters catalogue
 const CAM_FILTERS = {'none': 'Kein Filter (Original Facecam)', 'triangle': '3D Dreimacs Pyramide (Prismen-Kopf)', 'inv_triangle': '3D Trichter-Kopf (Megastirn, spitzes Kinn)', 'diamond': '3D Diamant-Kopf (Kristall-Facette)', 'cube': '3D Block-Kopf (Voxel / Steve)', 'gigachad': '3D Gigachad (Breiter Meme-Kiefer)', 'alien': '3D Megamind / Alien (Riesen-Kuppelkopf)', 'hamster': '3D Hamsterbacken (Prall aufgeblasen)', 'pinocchio': '3D Pinocchio (Lange Nase)', 'big_eyes': '3D Glubschaugen (Anime / Manga)', 'tiny_face': '3D Schrumpf-Gesicht (Charlie Kirk Meme)', 'big_mouth': '3D Riesenmund (Scream / Opernsänger)', 'hourglass': '3D Sanduhr (Wespentaille im Gesicht)', 'fisheye': '3D Glaskugel-Bulge (Linsen-Zoom)', 'swirl': '3D Strudel / Wirbel (Vortex-Twist)', 'wave': '3D Wackelpudding (Wobble-Welle)', 'mirror_left': 'Doppel-Links (Alien-Symmetrie)', 'mirror_right': 'Doppel-Rechts (Alien-Symmetrie)', 'stretch_vert': 'Bleistift-Kopf (Langgezogen)', 'squish_wide': 'Wide Meme (Pfannkuchen-Kopf)'};
@@ -1177,14 +1176,14 @@ if (document.readyState === 'loading') {
 
         function filterStudioByStreamer(streamerName) {
             document.querySelectorAll('.streamer-pill').forEach(btn => {
-                btn.classList.remove('active', 'bg-amber-500 text-zinc-950', 'text-white');
+                btn.classList.remove('active', 'bg-amber-500', 'text-zinc-950', 'text-white');
                 btn.classList.add('bg-slate-800', 'text-slate-300');
             });
             
             const activePill = document.getElementById('pill-' + streamerName);
             if (activePill) {
                 activePill.classList.remove('bg-slate-800', 'text-slate-300');
-                activePill.classList.add('active', 'bg-amber-500 text-zinc-950', 'text-white');
+                activePill.classList.add('active', 'bg-amber-500', 'text-zinc-950');
             }
 
             document.querySelectorAll('.studio-clip-card').forEach(card => {
@@ -3422,6 +3421,7 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.searchManualStreamerClips = searchManualStreamerClips;
         window.closeManualSearchResults = closeManualSearchResults;
         window.importTwitchClipToStudio = importTwitchClipToStudio;
+        window.escapeJs = escapeJs;
 
         window.addEventListener('error', (e) => {
             console.error('GLOBAL JS ERROR:', e.message, e.filename, e.lineno);
@@ -3431,4 +3431,4 @@ async function importTwitchClipToStudio(index, mode, btn) {
 
         setInterval(updateStatus, 1500);
         updateStatus();
-    
+})();
