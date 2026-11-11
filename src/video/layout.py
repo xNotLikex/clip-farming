@@ -1,3 +1,4 @@
+import json
 import cv2
 import numpy as np
 import subprocess
@@ -5,7 +6,14 @@ import threading
 import time
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, Callable
-from src.config import SHORTS_OUTPUT_DIR, load_config
+from src.config import (
+    SHORTS_OUTPUT_DIR,
+    RAW_CLIPS_DIR,
+    METADATA_OUTPUT_DIR,
+    load_config,
+    get_streamers,
+    PRESET_CORNER_CROPS
+)
 from src.video.sticker import create_tiktok_sticker
 from src.video.gpu import get_best_video_encoder
 
@@ -156,11 +164,9 @@ class VideoComposer:
         
         # 0.1 Falls custom_crops nicht direkt uebergeben wurde, aus Metadata oder Streamer-Config laden
         if custom_crops is None:
-            from src.config import METADATA_OUTPUT_DIR, get_streamers, PRESET_CORNER_CROPS
             meta_f = METADATA_OUTPUT_DIR / f"{clip_id}.json"
             if meta_f.exists():
                 try:
-                    import json
                     with open(meta_f, "r", encoding="utf-8") as mf:
                         m = json.load(mf)
                         if layout_mode in ("custom", "single_916") or m.get("layout_mode") in ("custom", "single_916"):
@@ -190,7 +196,6 @@ class VideoComposer:
                     pass
 
         if layout_mode in PRESET_CORNER_CROPS and not custom_crops:
-            from src.config import PRESET_CORNER_CROPS
             custom_crops = PRESET_CORNER_CROPS[layout_mode]
 
         # Prüfen ob Reines 9:16 Vollbild (IRL / Einzelfokus ohne Cam-Split)
@@ -202,11 +207,9 @@ class VideoComposer:
         temp_cam_file = None
 
         if not cam_filter or cam_filter == "none":
-            from src.config import METADATA_OUTPUT_DIR
             meta_f = METADATA_OUTPUT_DIR / f"{clip_id}.json"
             if meta_f.exists():
                 try:
-                    import json
                     with open(meta_f, "r", encoding="utf-8") as mf:
                         m = json.load(mf)
                         cam_filter = m.get("cam_filter", "none")
@@ -307,7 +310,6 @@ class VideoComposer:
                 if cam_filter and cam_filter != "none":
                     try:
                         from src.video.filters import process_cam_video_3d
-                        from src.config import RAW_CLIPS_DIR
                         temp_cam_file = RAW_CLIPS_DIR / f"temp_3d_{clip_id}.mp4"
                         cam_crop_dict = {"x": cx, "y": cy, "w": cw, "h": ch}
                         print(f"[*] Starte anatomischen 3D-Gesichtsfilter '{cam_filter}' ({cw}x{ch})...")
@@ -373,7 +375,6 @@ class VideoComposer:
                 if cam_filter and cam_filter != "none":
                     try:
                         from src.video.filters import process_cam_video_3d
-                        from src.config import RAW_CLIPS_DIR
                         temp_cam_file = RAW_CLIPS_DIR / f"temp_3d_{clip_id}.mp4"
                         cam_crop_dict = {"x": cam_crop_x, "y": cam_crop_y, "w": cam_crop_w, "h": cam_crop_h}
                         print(f"[*] Starte anatomischen 3D-Gesichtsfilter '{cam_filter}' ({cam_crop_w}x{cam_crop_h})...")

@@ -478,6 +478,10 @@ HTML_DASHBOARD = """
             }
         }
         function switchTab(tabId) {
+            if (!tabId) return;
+            try {
+                localStorage.setItem('clip_farming_active_tab', tabId);
+            } catch(e) {}
             document.querySelectorAll('.tab-content').forEach(function(el) {
                 el.classList.add('hidden');
                 el.style.setProperty('display', 'none', 'important');
@@ -506,6 +510,23 @@ HTML_DASHBOARD = """
                 });
             }
         }
+        (function restoreActiveTabOnLoad() {
+            function applySavedTab() {
+                try {
+                    var urlParams = new URLSearchParams(window.location.search);
+                    var tabFromUrl = urlParams.get('tab') || window.location.hash.replace('#', '');
+                    var savedTab = tabFromUrl || localStorage.getItem('clip_farming_active_tab');
+                    if (savedTab && document.getElementById('tab-' + savedTab)) {
+                        switchTab(savedTab);
+                    }
+                } catch(e) {}
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applySavedTab);
+            } else {
+                applySavedTab();
+            }
+        })();
                 function openRawPreviewFromRow(row) {
             if (!row) return;
             var d = row.dataset;
@@ -3924,16 +3945,16 @@ def save_clip(clip_id):
         if short_file.exists():
             short_file.unlink()
         update_clip_status(clip_id, "deleted")
-        return redirect(url_for("index"))
+        return redirect(url_for("index") + "?tab=studio")
 
     elif action == "publish_now":
         publish_clip_now(clip_id)
-        return redirect(url_for("index"))
+        return redirect(url_for("index") + "?tab=studio")
 
     elif action == "schedule":
         # Einzelnen Clip in Zeitplan einreihen
         schedule_single_clip(clip_id)
-        return redirect(url_for("index"))
+        return redirect(url_for("index") + "?tab=planner")
 
     elif action == "rerender":
         # Wenn der Nutzer nochmals auf Rendern drückt:
@@ -3993,6 +4014,7 @@ def save_clip(clip_id):
                 clip_id=clip_id,
                 ass_subtitle_path=active_sub_path,
                 header_sticker_text=sticker_text,
+                streamer_name=meta.get("streamer", ""),
                 layout_mode=layout_mode,
                 custom_crops=meta.get("custom_crops"),
                 cam_filter=cam_filter,
@@ -4001,7 +4023,9 @@ def save_clip(clip_id):
             status_manager.reset_progress()
             status_manager.set_task("idle", f"Neu-Rendern von '{title}' fertiggestellt.")
 
-    return redirect(url_for("index"))
+        return redirect(url_for("index") + "?tab=studio")
+
+    return redirect(url_for("index") + "?tab=studio")
 
 def schedule_single_clip(clip_id: str, interval_minutes: int = None):
     """Reiht einen Clip in die automatische Veröffentlichungs-Warteschlange ein."""
@@ -4547,6 +4571,7 @@ def save_crop_api(clip_id):
                     clip_id=clip_id,
                     ass_subtitle_path=active_sub_path,
                     header_sticker_text=sticker_text,
+                    streamer_name=meta.get("streamer", ""),
                     layout_mode=layout_mode,
                     custom_crops=custom_crops,
                     cam_filter=meta.get("cam_filter", "none"),

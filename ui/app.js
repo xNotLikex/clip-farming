@@ -1168,6 +1168,10 @@ if (document.readyState === 'loading') {
             }
         }
         function switchTab(tabId) {
+            if (!tabId) return;
+            try {
+                localStorage.setItem('clip_farming_active_tab', tabId);
+            } catch(e) {}
             document.querySelectorAll('.tab-content').forEach(el => {
                 el.classList.add('hidden');
                 el.style.display = 'none';
@@ -1188,6 +1192,23 @@ if (document.readyState === 'loading') {
                 btn.classList.remove('text-slate-400');
             }
         }
+        (function restoreActiveTabOnLoad() {
+            function applySavedTab() {
+                try {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const tabFromUrl = urlParams.get('tab') || window.location.hash.replace('#', '');
+                    const savedTab = tabFromUrl || localStorage.getItem('clip_farming_active_tab');
+                    if (savedTab && document.getElementById('tab-' + savedTab)) {
+                        switchTab(savedTab);
+                    }
+                } catch(e) {}
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applySavedTab);
+            } else {
+                applySavedTab();
+            }
+        })();
 
         let currentPreviewClipId = '';
         let currentPreviewStreamer = '';
@@ -2972,7 +2993,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try {
                         let options = { method };
                         if (method === 'POST') {
-                            options.body = new FormData(form);
+                            options.body = new FormData(form, e.submitter);
                         }
                         await apiFetch(rawAction, options);
                         await refreshDashboard();
