@@ -106,6 +106,14 @@ def get_streamer_avatars(logins: List[str]) -> Dict[str, Dict[str, str]]:
                     login
                     displayName
                     profileImageURL(width: 300)
+                    stream {
+                        id
+                        game {
+                            displayName
+                        }
+                        title
+                        viewersCount
+                    }
                 }
             }
             """
@@ -120,15 +128,28 @@ def get_streamer_avatars(logins: List[str]) -> Dict[str, Dict[str, str]]:
                 for u in (data or []):
                     if u and u.get("login"):
                         login = u["login"].lower()
+                        stream_info = u.get("stream")
+                        is_live = stream_info is not None
+                        game_name = stream_info.get("game", {}).get("displayName") if is_live and stream_info.get("game") else None
+                        stream_title = stream_info.get("title") if is_live else None
+                        viewers = stream_info.get("viewersCount") if is_live else 0
                         _AVATAR_CACHE[login] = {
                             "avatar_url": u.get("profileImageURL") or DEFAULT_AVATAR_URL,
-                            "display_name": u.get("displayName") or login
+                            "display_name": u.get("displayName") or login,
+                            "is_live": is_live,
+                            "game": game_name,
+                            "stream_title": stream_title,
+                            "viewers": viewers
                         }
                 for m in missing:
                     if m not in _AVATAR_CACHE:
                         _AVATAR_CACHE[m] = {
                             "avatar_url": DEFAULT_AVATAR_URL,
-                            "display_name": m
+                            "display_name": m,
+                            "is_live": False,
+                            "game": None,
+                            "stream_title": None,
+                            "viewers": 0
                         }
                 try:
                     cache_file.parent.mkdir(parents=True, exist_ok=True)
@@ -161,6 +182,10 @@ def get_streamers_with_avatars() -> List[Dict[str, Any]]:
         av = avatars.get(n, {})
         item["avatar_url"] = av.get("avatar_url") or DEFAULT_AVATAR_URL
         item["display_name"] = av.get("display_name") or s.get("name")
+        item["is_live"] = av.get("is_live", False)
+        item["game"] = av.get("game")
+        item["stream_title"] = av.get("stream_title")
+        item["viewers"] = av.get("viewers", 0)
         enriched.append(item)
     return enriched
 

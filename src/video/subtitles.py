@@ -138,12 +138,22 @@ class SubtitleGenerator:
         self.outline_width = self.sub_cfg.get("outline_width", 3)
         self.max_words = self.sub_cfg.get("max_words_per_segment", 3)
 
-    def generate_ass(self, segments: List[Dict[str, Any]], output_ass_path: Path, position: str = "bottom"):
+    def generate_ass(self, segments: List[Dict[str, Any]], output_ass_path: Path, position: str = "bottom", style_preset: str = "yellow"):
         """
         Erstellt eine .ass Untertiteldatei im viralen Karaoke-Highlight-Stil.
         Zeigt immer nur 1-3 Wörter und hebt das aktuell gesprochene Wort farblich hervor.
         position: 'bottom' (unten), 'center' (mitte), 'top' (oben)
+        style_preset: 'yellow' (MrBeast Gelb), 'cyan' (Cyber Cyan), 'neon' (Neon-Grün), 'white' (Clean Minimal)
         """
+        # Phase 6: Farb-Presets
+        color_presets = {
+            "yellow": ("&H0000FFFF", "&H00FFFFFF"), # Highlight: Gelb, Normal: Weiß
+            "cyan":   ("&H00FFFF00", "&H00FFFFFF"), # Highlight: Cyan, Normal: Weiß
+            "neon":   ("&H0000FF00", "&H00FFFFFF"), # Highlight: Neon-Grün, Normal: Weiß
+            "white":  ("&H00FFFFFF", "&H00CCCCCC"), # Highlight: Reinweiß, Normal: Hellgrau
+        }
+        hl_color, prim_color = color_presets.get(style_preset.lower(), (self.highlight_color, self.primary_color))
+
         # Alle Wörter chronologisch sammeln
         all_words = []
         for seg in segments:
@@ -179,7 +189,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font},{self.font_size * 2.8},{self.primary_color},&H000000FF,{self.outline_color},&H80000000,-1,0,0,0,100,100,1,0,1,{self.outline_width * 2},2,2,40,40,{margin_v},1
+Style: Default,{font},{self.font_size * 2.8},{prim_color},&H000000FF,{self.outline_color},&H80000000,-1,0,0,0,100,100,1,0,1,{self.outline_width * 2},2,2,40,40,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -203,10 +213,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     text = w["word"].upper()
                     if idx == active_idx:
                         # Aktives Wort in Highlight-Farbe
-                        line_parts.append(f"{{\\c{self.highlight_color}\\b1}}{text}{{\\r}}")
+                        line_parts.append(f"{{\\c{hl_color}\\b1}}{text}{{\\r}}")
                     else:
-                        # Andere Wörter normal weiß
-                        line_parts.append(f"{{\\c{self.primary_color}}}{text}")
+                        # Andere Wörter normal
+                        line_parts.append(f"{{\\c{prim_color}}}{text}")
 
                 display_line = " ".join(line_parts)
                 events.append(f"Dialogue: 0,{start_t},{end_t},Default,,0,0,0,,{display_line}")

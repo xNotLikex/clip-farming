@@ -551,23 +551,32 @@ function renderStreamers(streamers) {
             const hasCustom = !!s.custom_crops || !!s.has_custom_crops;
             const avatarUrl = s.avatar_url || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png';
             const dispName = s.display_name || s.name;
+            const isLive = !!s.is_live;
             return `
-            <div class="streamer-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg p-4 shadow-sm transition flex flex-col justify-between gap-3.5" data-streamer="${escapeHtml(s.name.toLowerCase())}">
+            <div class="streamer-card bg-slate-900 border ${isLive ? 'border-rose-900/60 shadow-rose-950/20' : 'border-slate-800'} hover:border-slate-700 rounded-lg p-4 shadow-sm transition flex flex-col justify-between gap-3.5" data-streamer="${escapeHtml(s.name.toLowerCase())}">
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="relative shrink-0">
                             <img src="${escapeHtml(avatarUrl)}" 
                                  alt="${escapeHtml(s.name)}" 
                                  onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'"
-                                 class="w-11 h-11 rounded-full border border-slate-700 object-cover bg-slate-950">
-                            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
+                                 class="w-11 h-11 rounded-full border ${isLive ? 'border-rose-500' : 'border-slate-700'} object-cover bg-slate-950">
+                            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isLive ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'} border-2 border-slate-900 rounded-full" title="${isLive ? 'Jetzt LIVE auf Twitch!' : 'Überwachung aktiv'}"></span>
                         </div>
                         <div class="min-w-0">
-                            <span class="font-bold text-sm text-white truncate block">${escapeHtml(dispName)}</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-sm text-white truncate block">${escapeHtml(dispName)}</span>
+                                ${isLive ? `
+                                    <span class="px-1.5 py-0.2 bg-rose-950 text-rose-400 border border-rose-800 text-2xs font-extrabold uppercase rounded animate-pulse tracking-wider">LIVE</span>
+                                ` : ''}
+                            </div>
                             <a href="https://twitch.tv/${encodeURIComponent(s.name)}" target="_blank" class="text-2xs text-slate-400 hover:text-slate-200 font-mono flex items-center gap-1 hover:underline">
                                 <span>twitch.tv/${escapeHtml(s.name)}</span>
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             </a>
+                            ${isLive && s.game ? `
+                                <div class="text-2xs text-amber-300 font-medium truncate mt-0.5">🎮 ${escapeHtml(s.game)}</div>
+                            ` : ''}
                             <div class="mt-1">
                                 ${hasCustom ? `
                                     <span class="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">

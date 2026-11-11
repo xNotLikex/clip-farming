@@ -12,16 +12,17 @@ class MetadataGenerator:
         self.api_key = self.ai_cfg.get("api_key", "").strip() or os.getenv("GEMINI_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
         self.model = self.ai_cfg.get("model", "gemini-2.5-flash")
 
-    def _generate_fallback(self, clip_title: str, streamer: str) -> Dict[str, str]:
+    def _generate_fallback(self, clip_title: str, streamer: str, game: Optional[str] = None) -> Dict[str, str]:
         """Offline-Fallback, falls kein LLM API-Key angegeben wurde."""
         title = clip_title.strip()
         if len(title) > 48:
             title = title[:45] + "..."
         
+        game_tag = f"#{game.lower().replace(' ', '')} " if game else ""
         description = (
             f"{title} 😱\n\n"
             f"🎥 Streamer: twitch.tv/{streamer}\n"
-            f"#shorts #twitchdeutschland #gaming #{streamer.lower()} #clips"
+            f"#shorts #twitchdeutschland #gaming {game_tag}#{streamer.lower()} #clips"
         )
         pinned_comment = f"Was hättet ihr an der Stelle von {streamer} gemacht? Schreibt's in die Kommentare! 👇"
 
@@ -29,20 +30,21 @@ class MetadataGenerator:
             "title": title,
             "description": description,
             "pinned_comment": pinned_comment,
-            "tags": f"shorts,twitch,{streamer},gaming,clips"
+            "tags": f"shorts,twitch,{streamer},gaming,clips" + (f",{game}" if game else "")
         }
 
-    def generate(self, original_title: str, streamer: str, transcript: str) -> Dict[str, str]:
+    def generate(self, original_title: str, streamer: str, transcript: str, game: Optional[str] = None) -> Dict[str, str]:
         """
         Generiert per LLM virale Metadaten (Titel, Beschreibung, Pinned Comment).
         """
         if not self.api_key:
-            return self._generate_fallback(original_title, streamer)
+            return self._generate_fallback(original_title, streamer, game=game)
 
+        game_context = f"\nTwitch-Kategorie/Spiel: {game}" if game else ""
         prompt = f"""Du bist ein Experte für virale YouTube Shorts und TikToks im deutschen Gaming/Twitch-Bereich.
 Analysiere folgenden Twitch-Clip und erstelle fesselnde Metadaten:
 
-Streamer: {streamer}
+Streamer: {streamer}{game_context}
 Originaler Clip-Titel: {original_title}
 Transkript des Clips:
 \"\"\"{transcript[:1200]}\"\"\"
