@@ -1970,7 +1970,7 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- Edit Form -->
-                    <form action="/save/{{ clip.clip_id }}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
+                    <form id="form-{{ clip.clip_id }}" action="/save/{{ clip.clip_id }}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
                         <div class="space-y-3">
                             <!-- Sticker Hook Text -->
                             <div>
@@ -4121,6 +4121,10 @@ def save_clip(clip_id):
     meta["cam_filter"] = cam_filter
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
+
+    if action != "delete" and "transcript" in request.form:
+        txt_path = RAW_CLIPS_DIR / f"{clip_id}_transcript.txt"
+        txt_path.write_text(edited_transcript, encoding="utf-8")
 
     update_clip_status(clip_id, "ready", ai_title=title)
 

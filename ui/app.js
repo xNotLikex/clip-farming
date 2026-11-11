@@ -44,7 +44,8 @@ function getTauriInvoke() {
 }
 
 async function apiFetch(url, options = {}) {
-    const invoke = getTauriInvoke();
+    const isFormBody = typeof FormData !== 'undefined' && (options.body instanceof FormData || options.body instanceof URLSearchParams);
+    const invoke = isFormBody ? null : getTauriInvoke();
     if (invoke) {
         try {
             const bodyStr = options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : null;
@@ -108,7 +109,7 @@ async function callBackend(command, args = {}) {
 let gDashboardData = null;
 
 // Initial load & periodic refresh
-async function refreshDashboard() {
+async function refreshDashboard(forceRender = false) {
     try {
         gLastDashboardRefresh = Date.now();
         let data = null;
@@ -126,14 +127,14 @@ async function refreshDashboard() {
         }
         if (data) {
             gDashboardData = data;
-            renderDashboard(data);
+            renderDashboard(data, forceRender);
         }
     } catch (err) {
         console.error('Failed to refresh dashboard data:', err);
     }
 }
 
-function renderDashboard(data) {
+function renderDashboard(data, forceRender = false) {
     // 1. KPI Counts
     if (data.counts) {
         const elH = document.getElementById('kpi-harvested');
@@ -180,7 +181,7 @@ function renderDashboard(data) {
 
     // 4. Render Individual Views
     renderQueue(data.queue_clips, data.older_queue_count);
-    renderStudio(data.ready_clips, data.streamer_counts);
+    renderStudio(data.ready_clips, data.streamer_counts, forceRender);
     renderPlanner(data.scheduled_clips);
     renderPublished(data.published_clips);
     renderStreamers(data.streamers);
@@ -287,10 +288,18 @@ async function deleteOlderQueue() {
 // ----------------------------------------
 // 2. STUDIO & FREIGABE
 // ----------------------------------------
-function renderStudio(clips, streamerCounts) {
+function renderStudio(clips, streamerCounts, forceRender = false) {
     const grid = document.getElementById('studio-grid');
     const emptyState = document.getElementById('studio-empty-state');
     const pillsContainer = document.getElementById('streamer-pills-container');
+
+    // Nutzer tippt gerade in einer Studio-Karte (z. B. Untertiteltext) -> DOM nicht überschreiben
+    if (!forceRender && grid && document.activeElement && grid.contains(document.activeElement)) {
+        const tag = document.activeElement.tagName;
+        if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') {
+            return;
+        }
+    }
 
     // Render Streamer Filter Pills
     if (pillsContainer && streamerCounts) {
@@ -419,15 +428,39 @@ function renderStudio(clips, streamerCounts) {
                             `).join('')}
                         </select>
                     </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
+                            <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
+                            <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
+                        </label>
+                        <textarea name="transcript" rows="4" placeholder="Hier Untertiteltext bearbeiten oder eingeben..."
+                            class="w-full min-h-[96px] bg-slate-950/90 border border-slate-700 hover:border-amber-500/70 focus:border-amber-400 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none transition">${escapeHtml(clip.transcript || '')}</textarea>
+                    </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-800 flex items-center gap-3">
-                    <button type="submit" class="flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
-                        ${SVG_ICONS.save} Speichern
-                    </button>
-                    <button type="button" onclick="scheduleSingleClip('${clip.clip_id}')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5" title="Im Zeitplan eintragen">
-                        ${SVG_ICONS.calendar} Einplanen
-                    </button>
+                <div class="pt-4 border-t border-slate-800 flex flex-col gap-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="submit" name="action" value="save" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5">
+                            ${SVG_ICONS.save} Nur speichern
+                        </button>
+                        <button type="submit" name="action" value="rerender" class="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
+                            ${SVG_ICONS.scan} Speichern & Neu Rendern
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="submit" name="action" value="schedule" class="py-2 px-3 bg-sky-700 hover:bg-sky-600 font-bold text-xs rounded-lg transition text-white flex items-center justify-center gap-1">
+                            ${SVG_ICONS.calendar} Zeitplan
+                        </button>
+                        <button type="submit" name="action" value="publish_now" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs rounded-lg transition text-white flex items-center justify-center gap-1">
+                            ${SVG_ICONS.play} Sofort posten
+                        </button>
+                    </div>
+                    <div class="text-right pt-0.5">
+                        <button type="submit" name="action" value="delete" onclick="return confirm('Clip wirklich löschen?');" class="text-xs text-rose-400 hover:text-rose-300 transition inline-flex items-center gap-1 cursor-pointer">
+                            ${SVG_ICONS.trash} Löschen & Ignorieren
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -3343,18 +3376,48 @@ async function importTwitchClipToStudio(index, mode, btn) {
                 const rawAction = form.getAttribute('action');
                 if (rawAction && !rawAction.startsWith('javascript:')) {
                     e.preventDefault();
-                    const action = getBackendUrl(rawAction);
+                    const actionUrl = rawAction;
                     const method = (form.getAttribute('method') || 'GET').toUpperCase();
+                    const submitVal = e.submitter ? e.submitter.value : '';
+                    const submitBtn = e.submitter || null;
+                    const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.classList.add('opacity-70');
+                    }
+                    if (submitVal === 'rerender') {
+                        const renderCard = document.getElementById('render-progress-card');
+                        if (renderCard) renderCard.classList.remove('hidden');
+                        showToast('Neu-Rendern gestartet (Untertitel & Layout werden aktualisiert)...', 'info');
+                        updateStatus();
+                    }
                     try {
                         let options = { method };
                         if (method === 'POST') {
                             options.body = new FormData(form, e.submitter);
                         }
-                        await apiFetch(rawAction, options);
-                        await refreshDashboard();
+                        await apiFetch(actionUrl, options);
+                        await refreshDashboard(true);
+                        if (submitVal === 'delete') {
+                            showToast('Clip aus Studio gelöscht.', 'info');
+                        } else if (submitVal === 'rerender') {
+                            showToast('Short erfolgreich neu gerendert!', 'success');
+                        } else if (submitVal === 'schedule') {
+                            showToast('Clip im Veröffentlichungs-Zeitplan eingereiht!', 'success');
+                        } else if (submitVal === 'publish_now') {
+                            showToast('Veröffentlichung gestartet!', 'success');
+                        } else if (actionUrl.startsWith('/save/')) {
+                            showToast('Änderungen & Untertiteltext gespeichert!', 'success');
+                        }
                     } catch (err) {
                         console.error('Form submission failed:', err);
                         alert('Aktion fehlgeschlagen: ' + err);
+                    } finally {
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.classList.remove('opacity-70');
+                            if (origBtnHtml) submitBtn.innerHTML = origBtnHtml;
+                        }
                     }
                 }
             }
