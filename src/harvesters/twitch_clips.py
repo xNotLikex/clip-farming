@@ -250,27 +250,36 @@ class TwitchClipHarvester:
         
         user_id = user_resp.json()["data"][0]["id"]
 
-        # 2. Prüfen, ob der Streamer aktuell live ist (um started_at zu nutzen)
+        tf = (time_filter or "LAST_DAY").strip().upper()
+
+        # 2. Zeitfenster für Helix bestimmen (Live-Stream-Start nur bei LAST_DAY nutzen)
         started_at_str = None
-        stream_resp = requests.get(f"https://api.twitch.tv/helix/streams?user_id={user_id}", headers=headers, timeout=10)
-        if stream_resp.status_code == 200 and stream_resp.json().get("data"):
-            started_at_str = stream_resp.json()["data"][0]["started_at"]
+        if tf in ("ALL_TIME", "TRENDING"):
+            # Helix liefert ohne started_at die Top-Clips über den gesamten Zeitraum.
+            started_at_str = None
         else:
-            # M4 Audit-Fix: Zeitfenster anhand time_filter dynamisch anpassen
-            if time_filter == "LAST_WEEK":
-                calc_hours = 168
-            elif time_filter == "LAST_MONTH":
-                calc_hours = 720
-            else:
-                calc_hours = max(1, hours_back)
-            dt = datetime.now(timezone.utc) - timedelta(hours=calc_hours)
-            started_at_str = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if tf == "LAST_DAY":
+                stream_resp = requests.get(f"https://api.twitch.tv/helix/streams?user_id={user_id}", headers=headers, timeout=10)
+                if stream_resp.status_code == 200 and stream_resp.json().get("data"):
+                    started_at_str = stream_resp.json()["data"][0]["started_at"]
+
+            if not started_at_str:
+                if tf == "LAST_WEEK":
+                    calc_hours = 168
+                elif tf == "LAST_MONTH":
+                    calc_hours = 720
+                else:
+                    calc_hours = max(1, hours_back)
+                dt = datetime.now(timezone.utc) - timedelta(hours=calc_hours)
+                started_at_str = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # 3. Clips abrufen
-        clips_url = f"https://api.twitch.tv/helix/clips?broadcaster_id={user_id}&started_at={started_at_str}&first=50"
+        clips_url = f"https://api.twitch.tv/helix/clips?broadcaster_id={user_id}&first=50"
+        if started_at_str:
+            clips_url += f"&started_at={started_at_str}"
         clips_resp = requests.get(clips_url, headers=headers, timeout=10)
         if clips_resp.status_code != 200:
-            return self.fetch_clips_gql_fallback(channel_name)
+            return self.fetch_clips_gql_fallback(channel_name, time_filter=tf)
 
         clips_data = clips_resp.json().get("data", [])
         result = []
@@ -349,7 +358,7 @@ class TwitchClipHarvester:
 
         # 1. Frische Clips abrufen (Helix oder GQL)
         if self.client_id and self.client_secret:
-            all_clips = self.fetch_clips_helix(channel_name, hours_back=hours_back)
+            all_clips = self.fetch_clips_helix(channel_name, hours_back=hours_back, time_filter=time_filter)
         else:
             all_clips = self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter, limit=50)
 
