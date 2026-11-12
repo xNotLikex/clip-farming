@@ -46,6 +46,13 @@ def cancel_active_render(clip_id: str) -> bool:
         print(f"[!] Fehler beim Abbruch von {clip_id}: {e}")
         return False
 
+def escape_ffmpeg_filter_path(path: Path | str) -> str:
+    """Escaped einen Dateipfad sicher für FFmpeg-Filtergraph-Parameter in einfachen Anführungszeichen."""
+    normalized = str(path).replace("\\", "/")
+    # In FFmpeg filter_complex ('...'): ':' muss escaped werden und "'" beendet sonst das Literal.
+    return normalized.replace(":", "\\:").replace("'", "'\\''")
+
+
 def _parse_fps(rate_str: str) -> float:
     """Parst ffprobe r_frame_rate/avg_frame_rate (z.B. '60/1' oder '30000/1001')."""
     if not rate_str or rate_str == "0/0":
@@ -547,7 +554,7 @@ class VideoComposer:
 
         # 3. Untertitel einbinden
         if ass_subtitle_path and ass_subtitle_path.exists():
-            clean_sub_path = str(ass_subtitle_path).replace("\\", "/").replace(":", "\\:")
+            clean_sub_path = escape_ffmpeg_filter_path(ass_subtitle_path)
             filter_complex = f"{base_graph}{sticker_filter};{curr_target}subtitles='{clean_sub_path}'[v]"
         else:
             filter_complex = f"{base_graph}{sticker_filter};{curr_target}copy[v]"

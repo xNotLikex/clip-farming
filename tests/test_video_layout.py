@@ -74,3 +74,10 @@ def test_cancel_active_render_kills_and_waits(monkeypatch):
     assert job["cancelled"] is True
     assert events == ["kill", "wait:5"]
 
+
+def test_escape_ffmpeg_filter_path_handles_windows_special_chars():
+    raw_path = r"C:\Users\Max O'Neil\clips [1].ass"
+    escaped = layout.escape_ffmpeg_filter_path(raw_path)
+    assert escaped == r"C\:/Users/Max O'\''Neil/clips [1].ass"
+
+
