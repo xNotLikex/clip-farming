@@ -23,6 +23,12 @@ from src.video.gpu import get_best_video_encoder
 active_renders: Dict[str, Dict[str, Any]] = {}
 render_lock = threading.Lock()
 
+# Schwellwerte für die automatische Facecam-Erkennung (detect_facecam_overlay)
+FACECAM_CROWD_FACES_PER_FRAME = 3   # >3 Gesichter in einem Frame gelten als Crowd/Event
+FACECAM_MAX_CROWD_FRAMES = 2        # >2 Crowd-Frames -> IRL/Event statt fester Facecam
+FACECAM_MIN_PRESENCE_RATIO = 0.3    # Mindestens 30 % der gesampelten Frames mit Gesicht
+FACECAM_MAX_POSITION_STD_PX = 48.0  # Max. Standardabweichung (px); >48px = Handheld-Kamera
+
 def cancel_active_render(clip_id: str) -> bool:
     """Bricht ein aktuell laufendes Rendering fuer clip_id sofort ab und wartet auf Handle-Freigabe."""
     proc = None
@@ -425,79 +431,102 @@ class VideoComposer:
         self.encoder_profile = get_best_video_encoder(self.hardware_encoder)
         self.audio_normalize = self.video_cfg.get("audio_normalize", True)
 
-    def detect_facecam_overlay(self, video_path: Path, max_samples: int = 18) -> Optional[Tuple[int, int, int, int]]:
+    def detect_facecam_overlay(
+        self,
+        video_path: Path,
+        max_samples: int = 18,
+        clip_id: str | None = None,
+    ) -> tuple[int, int, int, int] | None:
         """
         Intelligente, ultra-schnelle Facecam-Erkennung (< 0.5s):
-        Downscaled Frames fuer Haar-Cascade und misst raeumliche Stabilitaet.
+        Downscaled Frames fuer Haar-Cascade, misst raeumliche Stabilitaet und cached pro Clip.
         """
+        meta_file = (METADATA_OUTPUT_DIR / f"{clip_id}.json") if clip_id else None
+        meta_data: dict[str, Any] = {}
+        if meta_file and meta_file.exists():
+            try:
+                with open(meta_file, encoding="utf-8") as mf:
+                    loaded = json.load(mf)
+                    if isinstance(loaded, dict):
+                        meta_data = loaded
+                if meta_data.get("facecam_checked"):
+                    cached_box = meta_data.get("detected_face_box")
+                    if isinstance(cached_box, (list, tuple)) and len(cached_box) == 4:
+                        return (int(cached_box[0]), int(cached_box[1]), int(cached_box[2]), int(cached_box[3]))
+                    return None
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                meta_data = {}
+
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         cap = cv2.VideoCapture(str(video_path))
-        
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if total_frames <= 0:
+        try:
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if total_frames <= 0:
+                return None
+
+            step = max(1, total_frames // max_samples)
+            frame_faces = []
+            crowd_frames = 0
+            sampled_count = 0
+
+            for f_idx in range(0, total_frames, step):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, f_idx)
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    break
+                sampled_count += 1
+
+                # Ultra-schnelles Downscaling auf 480px Breite für sofortige Erkennung
+                h, w = frame.shape[:2]
+                scale = 480.0 / max(1, w)
+                target_h = int(h * scale)
+                small = cv2.resize(frame, (480, target_h), interpolation=cv2.INTER_LINEAR)
+                gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.15, minNeighbors=4, minSize=(25, 25))
+
+                if len(faces) > FACECAM_CROWD_FACES_PER_FRAME:
+                    crowd_frames += 1
+                elif len(faces) > 0:
+                    for (fx, fy, fw, fh) in faces:
+                        # Zurückskalieren auf Originalauflösung
+                        frame_faces.append((
+                            int(fx / scale),
+                            int(fy / scale),
+                            int(fw / scale),
+                            int(fh / scale),
+                        ))
+        finally:
             cap.release()
-            return None
 
-        step = max(1, total_frames // max_samples)
-        
-        frame_faces = []
-        crowd_frames = 0
-        sampled_count = 0
+        detected: tuple[int, int, int, int] | None = None
+        if (
+            crowd_frames <= FACECAM_MAX_CROWD_FRAMES
+            and len(frame_faces) >= (sampled_count * FACECAM_MIN_PRESENCE_RATIO)
+        ):
+            xs = [f[0] for f in frame_faces]
+            ys = [f[1] for f in frame_faces]
+            std_x = float(np.std(xs))
+            std_y = float(np.std(ys))
+            if std_x <= FACECAM_MAX_POSITION_STD_PX and std_y <= FACECAM_MAX_POSITION_STD_PX:
+                detected = (
+                    int(np.mean(xs)),
+                    int(np.mean(ys)),
+                    int(np.mean([f[2] for f in frame_faces])),
+                    int(np.mean([f[3] for f in frame_faces])),
+                )
 
-        for f_idx in range(0, total_frames, step):
-            cap.set(cv2.CAP_PROP_POS_FRAMES, f_idx)
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                break
-            sampled_count += 1
+        if meta_file is not None:
+            try:
+                meta_file.parent.mkdir(parents=True, exist_ok=True)
+                meta_data["facecam_checked"] = True
+                meta_data["detected_face_box"] = list(detected) if detected is not None else None
+                with open(meta_file, "w", encoding="utf-8") as mf:
+                    json.dump(meta_data, mf, ensure_ascii=False, indent=2)
+            except OSError:
+                pass
 
-            # Ultra-schnelles Downscaling auf 480px Breite für sofortige Erkennung
-            h, w = frame.shape[:2]
-            scale = 480.0 / max(1, w)
-            target_h = int(h * scale)
-            small = cv2.resize(frame, (480, target_h), interpolation=cv2.INTER_LINEAR)
-            gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.15, minNeighbors=4, minSize=(25, 25))
-            
-            if len(faces) > 3:
-                crowd_frames += 1
-            elif len(faces) > 0:
-                for (fx, fy, fw, fh) in faces:
-                    # Zurückskalieren auf Originalauflösung
-                    frame_faces.append((
-                        int(fx / scale),
-                        int(fy / scale),
-                        int(fw / scale),
-                        int(fh / scale)
-                    ))
-
-        cap.release()
-
-        # 1. Wenn viele Crowd-Frames erkannt wurden -> Eindeutig IRL / Gamescom / Event!
-        if crowd_frames > 2:
-            return None
-
-        # 2. Zu wenige Gesichter für eine permanente Facecam
-        if len(frame_faces) < (sampled_count * 0.3):
-            return None
-
-        # 3. Positions-Stabilität (Varianz) prüfen
-        xs = [f[0] for f in frame_faces]
-        ys = [f[1] for f in frame_faces]
-        std_x = np.std(xs)
-        std_y = np.std(ys)
-
-        # Wenn die Kamera wackelt / handheld ist (std > 48px) -> Kein Webcam Overlay!
-        if std_x > 48 or std_y > 48:
-            return None
-
-        avg_x = int(np.mean(xs))
-        avg_y = int(np.mean(ys))
-        avg_w = int(np.mean([f[2] for f in frame_faces]))
-        avg_h = int(np.mean([f[3] for f in frame_faces]))
-
-        return (avg_x, avg_y, avg_w, avg_h)
+        return detected
 
     def render_short(
         self,
@@ -584,9 +613,9 @@ class VideoComposer:
 
         if not is_single_916 and not (custom_crops and custom_crops.get("enabled", True)):
             if layout_mode == "split_cam_top":
-                face_box = self.detect_facecam_overlay(raw_video_path) or (0, 0, 320, 240)
+                face_box = self.detect_facecam_overlay(raw_video_path, clip_id=clip_id) or (0, 0, 320, 240)
             elif layout_mode == "auto":
-                face_box = self.detect_facecam_overlay(raw_video_path)
+                face_box = self.detect_facecam_overlay(raw_video_path, clip_id=clip_id)
 
         cam_crop_dict = compute_cam_crop_for_layout(
             vw, vh, layout_mode=layout_mode, custom_crops=custom_crops, face_box=face_box

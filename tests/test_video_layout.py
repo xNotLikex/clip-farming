@@ -81,3 +81,24 @@ def test_escape_ffmpeg_filter_path_handles_windows_special_chars():
     assert escaped == r"C\:/Users/Max O'\''Neil/clips [1].ass"
 
 
+def test_detect_facecam_overlay_uses_metadata_cache(monkeypatch, tmp_path):
+    meta_dir = tmp_path / "metadata"
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    meta_file = meta_dir / "clip42.json"
+    meta_file.write_text(
+        json.dumps({"facecam_checked": True, "detected_face_box": [10, 20, 120, 90]}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(layout, "METADATA_OUTPUT_DIR", meta_dir)
+    monkeypatch.setattr(
+        layout.cv2,
+        "VideoCapture",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("VideoCapture sollte nicht aufgerufen werden")),
+    )
+
+    composer = layout.VideoComposer.__new__(layout.VideoComposer)
+    assert composer.detect_facecam_overlay(tmp_path / "raw.mp4", clip_id="clip42") == (10, 20, 120, 90)
+
+
+
