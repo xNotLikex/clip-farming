@@ -17,7 +17,7 @@ from src.config import (
     get_streamers, get_streamers_with_avatars, add_streamer, remove_streamer, update_streamer, update_all_streamers_min_views,
     get_autopilot_settings, save_autopilot_settings
 )
-from src.database import get_db_connection, update_clip_status
+from src.database import get_db_connection, init_db, update_clip_status
 from src.video.layout import VideoComposer, cancel_active_render, generate_thumbnail
 from src.video.filters import AVAILABLE_CAM_FILTERS
 from src.uploaders.youtube import YouTubeUploader
@@ -4985,6 +4985,7 @@ def save_crop_api(clip_id):
     return jsonify({"success": True, "message": "Zuschnitt gespeichert"})
 
 def start_studio(port: int = 5000):
+    init_db()
     print("\n" + "="*70)
     print(f"  CLIP-FARMING STUDIO GESTARTET!")
     print(f"  👉 Öffne im Browser: http://localhost:{port}")

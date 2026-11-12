@@ -1,6 +1,6 @@
 import sqlite3
-from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
@@ -27,57 +27,69 @@ def get_db_connection() -> Iterator[sqlite3.Connection]:
     finally:
         conn.close()
 
-def init_db():
-    """Initialisiert die SQLite-Datenbanktabellen."""
+def _migrate_v1(cursor: sqlite3.Cursor) -> None:
+    """Initiales Schema (clips, streamer_checks, Indizes + optionale Legacy-Spalten)."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clips (
+            clip_id TEXT PRIMARY KEY,
+            streamer TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            original_title TEXT,
+            url TEXT NOT NULL,
+            view_count INTEGER DEFAULT 0,
+            duration REAL DEFAULT 0.0,
+            clip_created_at TEXT,
+            harvested_at TEXT,
+            status TEXT DEFAULT 'harvested',
+            raw_path TEXT,
+            rendered_path TEXT,
+            ai_title TEXT,
+            ai_description TEXT,
+            ai_tags TEXT,
+            published_at TEXT,
+            scheduled_publish_at TEXT,
+            is_manually_published INTEGER DEFAULT 0,
+            youtube_video_id TEXT,
+            tiktok_video_id TEXT,
+            error_log TEXT
+        )
+    """)
+    existing_cols = {row[1] for row in cursor.execute("PRAGMA table_info(clips)").fetchall()}
+    if "scheduled_publish_at" not in existing_cols:
+        cursor.execute("ALTER TABLE clips ADD COLUMN scheduled_publish_at TEXT")
+    if "is_manually_published" not in existing_cols:
+        cursor.execute("ALTER TABLE clips ADD COLUMN is_manually_published INTEGER DEFAULT 0")
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status ON clips(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_streamer ON clips(streamer)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_view_count ON clips(view_count DESC)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status_views ON clips(status, view_count DESC)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS streamer_checks (
+            streamer TEXT PRIMARY KEY,
+            last_checked_at TEXT,
+            last_stream_id TEXT,
+            last_stream_start TEXT
+        )
+    """)
+
+
+MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Cursor], None]], ...] = (
+    (1, _migrate_v1),
+)
+
+
+def init_db() -> None:
+    """Initialisiert und migriert die SQLite-Datenbanktabellen per PRAGMA user_version."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        
-        # Clips-Tabelle: Verhindert Duplikate und trackt den Status
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clips (
-                clip_id TEXT PRIMARY KEY,
-                streamer TEXT NOT NULL,
-                platform TEXT NOT NULL,
-                original_title TEXT,
-                url TEXT NOT NULL,
-                view_count INTEGER DEFAULT 0,
-                duration REAL DEFAULT 0.0,
-                clip_created_at TEXT,
-                harvested_at TEXT,
-                status TEXT DEFAULT 'harvested',
-                raw_path TEXT,
-                rendered_path TEXT,
-                ai_title TEXT,
-                ai_description TEXT,
-                ai_tags TEXT,
-                published_at TEXT,
-                scheduled_publish_at TEXT,
-                is_manually_published INTEGER DEFAULT 0,
-                youtube_video_id TEXT,
-                tiktok_video_id TEXT,
-                error_log TEXT
-            )
-        """)
-        with suppress(sqlite3.OperationalError):
-            cursor.execute("ALTER TABLE clips ADD COLUMN scheduled_publish_at TEXT")
-        with suppress(sqlite3.OperationalError):
-            cursor.execute("ALTER TABLE clips ADD COLUMN is_manually_published INTEGER DEFAULT 0")
-        
-        # M3 Audit-Fix: Performance-Indizes für schnelle Dashboard- & Queue-Abfragen
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status ON clips(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_streamer ON clips(streamer)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_view_count ON clips(view_count DESC)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status_views ON clips(status, view_count DESC)")
-        
-        # Streamer-Tracking Tabelle
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS streamer_checks (
-                streamer TEXT PRIMARY KEY,
-                last_checked_at TEXT,
-                last_stream_id TEXT,
-                last_stream_start TEXT
-            )
-        """)
+        current_version = int(cursor.execute("PRAGMA user_version").fetchone()[0])
+        for version, migrate_fn in MIGRATIONS:
+            if current_version < version:
+                migrate_fn(cursor)
+                cursor.execute(f"PRAGMA user_version = {int(version)}")
+                current_version = version
         conn.commit()
 
 def is_clip_already_processed(clip_id: str) -> bool:
@@ -161,6 +173,3 @@ def get_pending_clips(limit: int = 10) -> list[dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM clips WHERE status = 'harvested' ORDER BY view_count DESC LIMIT ?", (limit,))
         return [dict(row) for row in cursor.fetchall()]
-
-# Initialisiere die Datenbank direkt beim Import
-init_db()

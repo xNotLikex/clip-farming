@@ -106,3 +106,34 @@ def test_get_processed_ids_empty_and_chunked(tmp_path, monkeypatch):
     query_ids = [f"unknown-{i}" for i in range(950)] + ["known-0", "known-950", "known-0"]
     assert database.get_processed_ids(query_ids) == {"known-0", "known-950"}
 
+
+def test_init_db_sets_user_version_and_upgrades_legacy_v0(tmp_path, monkeypatch):
+    db_file = tmp_path / "test_migrate.db"
+    monkeypatch.setattr(database, "DB_PATH", db_file)
+
+    # Simuliere Legacy-v0-Datenbank ohne scheduled_publish_at / is_manually_published
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE clips (
+                clip_id TEXT PRIMARY KEY,
+                streamer TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                url TEXT NOT NULL,
+                view_count INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'harvested'
+            )
+            """
+        )
+
+    database.init_db()
+    database.init_db()  # Idempotent
+
+    with database.get_db_connection() as conn:
+        user_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(clips)").fetchall()}
+        assert user_version == 1
+        assert "scheduled_publish_at" in cols
+        assert "is_manually_published" in cols
+
+
