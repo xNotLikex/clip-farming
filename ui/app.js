@@ -3295,10 +3295,15 @@ async function downloadRawVideo(clipId, btn, evt) {
                 }
 
                 const pollStart = Date.now();
+                let consecutiveErrors = 0;
+                const stopPoll = () => {
+                    clearInterval(pollTimer);
+                    window.removeEventListener('beforeunload', stopPoll);
+                };
                 const pollTimer = setInterval(async () => {
                     // H6 Audit-Fix: Timeout nach 5 Minuten (300.000 ms)
                     if (Date.now() - pollStart > 300000) {
-                        clearInterval(pollTimer);
+                        stopPoll();
                         if (btn) {
                             btn.disabled = false;
                             btn.classList.remove('opacity-70', 'cursor-not-allowed');
@@ -3310,10 +3315,11 @@ async function downloadRawVideo(clipId, btn, evt) {
                     try {
                         const sResp = await apiFetch('/api/accounts/tiktok/browser-login/status');
                         const sData = await sResp.json();
+                        consecutiveErrors = 0;
                         if (text && sData.message) text.innerText = sData.message;
 
                         if (!sData.running) {
-                            clearInterval(pollTimer);
+                            stopPoll();
                             if (sData.message && sData.message.includes('Erfolgreich')) {
                                 if (text) text.innerText = 'Erfolgreich verbunden! Aktualisiere Dashboard...';
                                 setTimeout(() => refreshDashboard(), 1200);
@@ -3327,8 +3333,18 @@ async function downloadRawVideo(clipId, btn, evt) {
                         }
                     } catch (err) {
                         console.error('Polling status error:', err);
+                        consecutiveErrors += 1;
+                        if (consecutiveErrors >= 5) {
+                            stopPoll();
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                            }
+                            if (box) box.classList.add('hidden');
+                        }
                     }
                 }, 1500);
+                window.addEventListener('beforeunload', stopPoll, { once: true });
 
             } catch (err) {
                 alert('Fehler beim Starten des Browser-Logins: ' + err);
@@ -3371,30 +3387,46 @@ async function downloadRawVideo(clipId, btn, evt) {
 
                 // Status überwachen bis YouTube auf verbunden springt
                 const pollStart = Date.now();
+                let consecutiveErrors = 0;
+                const stopPoll = () => {
+                    clearInterval(pollTimer);
+                    window.removeEventListener('beforeunload', stopPoll);
+                };
                 const pollTimer = setInterval(async () => {
                     // H6 Audit-Fix: Timeout nach 5 Minuten (300.000 ms)
                     if (Date.now() - pollStart > 300000) {
-                        clearInterval(pollTimer);
+                        stopPoll();
                         if (btn) {
                             btn.disabled = false;
                             btn.classList.remove('opacity-70', 'cursor-not-allowed');
                         }
                         if (box) box.classList.add('hidden');
-                        showToast('TikTok Login-Polling nach 5 Minuten beendet.', 'info');
+                        showToast('YouTube Login-Polling nach 5 Minuten beendet.', 'info');
                         return;
                     }
                     try {
                         const aResp = await apiFetch('/api/accounts/status');
                         const aData = await aResp.json();
+                        consecutiveErrors = 0;
                         if (aData && aData.youtube && aData.youtube.is_connected) {
-                            clearInterval(pollTimer);
+                            stopPoll();
                             if (text) text.innerText = 'YouTube erfolgreich verbunden! Seite wird aktualisiert...';
                             setTimeout(() => refreshDashboard(), 1500);
                         }
                     } catch (err) {
                         console.error('Polling YT status error:', err);
+                        consecutiveErrors += 1;
+                        if (consecutiveErrors >= 5) {
+                            stopPoll();
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                            }
+                            if (box) box.classList.add('hidden');
+                        }
                     }
                 }, 1500);
+                window.addEventListener('beforeunload', stopPoll, { once: true });
 
             } catch (err) {
                 alert('Fehler: ' + err);
@@ -3828,6 +3860,43 @@ async function importTwitchClipToStudio(index, mode, btn) {
 
         console.log('Clip Farming UI Engine initialized. All actions attached.');
 
-        setInterval(updateStatus, 1500);
-        updateStatus();
+        let _statusPollTimer = null;
+        let _statusPollInFlight = false;
+
+        async function pollStatusSafely() {
+            if (document.visibilityState === 'hidden' || _statusPollInFlight) return;
+            _statusPollInFlight = true;
+            try {
+                await updateStatus();
+            } finally {
+                _statusPollInFlight = false;
+            }
+        }
+
+        function startStatusPolling() {
+            if (_statusPollTimer) return;
+            _statusPollTimer = setInterval(pollStatusSafely, 1500);
+        }
+
+        function stopStatusPolling() {
+            if (_statusPollTimer) {
+                clearInterval(_statusPollTimer);
+                _statusPollTimer = null;
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                stopStatusPolling();
+            } else {
+                pollStatusSafely();
+                startStatusPolling();
+            }
+        });
+        window.addEventListener('beforeunload', stopStatusPolling);
+
+        if (document.visibilityState !== 'hidden') {
+            startStatusPolling();
+            pollStatusSafely();
+        }
 })();
