@@ -539,68 +539,15 @@ function buildStudioCardHtml(clip, cardSig) {
             <form id="form-${clip.clip_id}" action="/save/${clip.clip_id}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
-                            <span class="flex items-center gap-1.5">${SVG_ICONS.messageSquare} TikTok / Shorts Sprechblasen-Hook</span>
-                            <span class="text-slate-500 font-normal">Mitte</span>
-                        </label>
-                        <input type="text" name="sticker_text" value="${escapeHtml(clip.sticker_text || '')}" placeholder="z. B. Was macht er da?!" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                    </div>
-
-                    <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">
                             Titel (YouTube / TikTok)
                         </label>
                         <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">
-                            Untertitel-Platzierung
-                        </label>
-                        <select name="sub_position" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                            <option value="bottom" ${clip.sub_position === 'bottom' ? 'selected' : ''}>Unten (Standard, über Shorts-UI)</option>
-                            <option value="center" ${clip.sub_position === 'center' ? 'selected' : ''}>Mitte (Unteres Drittel über Game)</option>
-                            <option value="top" ${clip.sub_position === 'top' ? 'selected' : ''}>Oben (Über Facecam)</option>
-                            <option value="none" ${clip.sub_position === 'none' ? 'selected' : ''}>Keine Untertitel</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">
-                            Video-Layout & Aufteilung
-                        </label>
-                        <select name="layout_mode" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                            <option value="auto" ${clip.layout_mode === 'auto' ? 'selected' : ''}>Automatisch (KI erkennt Facecam)</option>
-                            <option value="custom" ${clip.layout_mode === 'custom' ? 'selected' : ''}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
-                            <option value="single_916" ${clip.layout_mode === 'single_916' ? 'selected' : ''}>Reines 9:16 Vollbild (IRL / Fullscreen)</option>
-                            <option value="split_cam_top" ${clip.layout_mode === 'split_cam_top' ? 'selected' : ''}>Split-Screen (Facecam oben, Gameplay unten)</option>
-                            <option value="blur_stack" ${clip.layout_mode === 'blur_stack' ? 'selected' : ''}>Blur-Stack (Hintergrund unscharf)</option>
-                        </select>
-                        <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full mt-2 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
-                            ${SVG_ICONS.crop} Bildausschnitt anpassen (Split-Cam oder 9:16)
-                        </button>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
-                            <span>Cam-Filter / Effekt (3D Mesh Deformation)</span>
-                            <span class="text-slate-500 font-normal">Fun-Warp für Facecam</span>
-                        </label>
-                        <select name="cam_filter" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
-                            ${Object.entries(CAM_FILTERS).map(([k, label]) => `
-                                <option value="${k}" ${clip.cam_filter === k ? 'selected' : ''}>${escapeHtml(label)}</option>
-                            `).join('')}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
-                            <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
-                            <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
-                        </label>
-                        <textarea name="transcript" rows="4" placeholder="Hier Untertiteltext bearbeiten oder eingeben..."
-                            class="w-full min-h-[96px] bg-slate-950/90 border border-slate-700 hover:border-amber-500/70 focus:border-amber-400 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none transition">${escapeHtml(clip.transcript || '')}</textarea>
-                    </div>
+                    <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded text-xs font-semibold transition flex items-center justify-center gap-2">
+                        ${SVG_ICONS.crop} Clip Editor
+                    </button>
                 </div>
 
                 <div class="pt-4 border-t border-slate-800 flex flex-col gap-2">
@@ -2032,10 +1979,21 @@ async function downloadRawVideo(clipId, btn, evt) {
             const badge = document.getElementById('crop-modal-clip-badge');
             if (badge) badge.innerText = (streamer ? streamer + ': ' : '') + (title ? title.slice(0, 28) : clipId);
 
-            const cardFilterSelect = document.querySelector(`form[action="/save/${clipId}"] select[name="cam_filter"]`);
-            const filterVal = cardFilterSelect ? cardFilterSelect.value : 'none';
+            const cachedClip = (cachedStudioClips || []).find(c => c.clip_id === clipId);
+            const cardTitleEl = document.querySelector(`#form-${clipId} input[name="title"]`);
+            const modalTitleInput = document.getElementById('crop-title-input');
+            const modalStickerInput = document.getElementById('crop-sticker-text-input');
+            const modalSubPosSelect = document.getElementById('crop-sub-position-select');
+            const modalLayoutSelect = document.getElementById('crop-layout-mode-select');
             const modalFilterSelect = document.getElementById('crop-cam-filter-select');
-            if (modalFilterSelect) modalFilterSelect.value = filterVal;
+            const modalTranscriptEl = document.getElementById('crop-transcript-textarea');
+
+            if (modalTitleInput) modalTitleInput.value = (cardTitleEl ? cardTitleEl.value : '') || (cachedClip ? cachedClip.title : '') || title || '';
+            if (modalStickerInput) modalStickerInput.value = (cachedClip && cachedClip.sticker_text) ? cachedClip.sticker_text : '';
+            if (modalSubPosSelect) modalSubPosSelect.value = (cachedClip && cachedClip.sub_position) ? cachedClip.sub_position : 'bottom';
+            if (modalLayoutSelect) modalLayoutSelect.value = (cachedClip && cachedClip.layout_mode) ? cachedClip.layout_mode : 'auto';
+            if (modalFilterSelect) modalFilterSelect.value = (cachedClip && cachedClip.cam_filter) ? cachedClip.cam_filter : 'none';
+            if (modalTranscriptEl) modalTranscriptEl.value = (cachedClip && cachedClip.transcript) ? cachedClip.transcript : '';
 
             const modal = document.getElementById('crop-modal');
             if (modal) {
@@ -2138,9 +2096,24 @@ async function downloadRawVideo(clipId, btn, evt) {
                             cropState.game.y = g.y_pct !== undefined ? g.y_pct : 0.0;
                         }
                     }
-                    if (meta.title) currentCropTitle = meta.title;
+                    if (meta.title) {
+                        currentCropTitle = meta.title;
+                        if (modalTitleInput && !cardTitleEl) modalTitleInput.value = meta.title;
+                    }
+                    if (modalStickerInput && meta.sticker_text !== undefined) {
+                        modalStickerInput.value = meta.sticker_text || '';
+                    }
+                    if (modalSubPosSelect && meta.sub_position) {
+                        modalSubPosSelect.value = meta.sub_position;
+                    }
+                    if (modalLayoutSelect && meta.layout_mode) {
+                        modalLayoutSelect.value = meta.layout_mode;
+                    }
                     if (meta.cam_filter && modalFilterSelect) {
                         modalFilterSelect.value = meta.cam_filter;
+                    }
+                    if (modalTranscriptEl && typeof meta.transcript === 'string') {
+                        modalTranscriptEl.value = meta.transcript;
                     }
                 }
             } catch (e) {
@@ -3175,17 +3148,27 @@ async function downloadRawVideo(clipId, btn, evt) {
             const vw = videoNativeWidth || 1920;
             const vh = videoNativeHeight || 1080;
 
-            let editedTranscript = null;
-            const formEl = document.getElementById('form-' + currentCropClipId);
-            if (formEl) {
-                const txEl = formEl.querySelector('textarea[name="transcript"]');
-                if (txEl) editedTranscript = txEl.value;
+            const modalTitleInput = document.getElementById('crop-title-input');
+            const modalStickerInput = document.getElementById('crop-sticker-text-input');
+            const modalSubPosSelect = document.getElementById('crop-sub-position-select');
+            const modalLayoutSelect = document.getElementById('crop-layout-mode-select');
+            const modalFilterSelect = document.getElementById('crop-cam-filter-select');
+            const modalTranscriptEl = document.getElementById('crop-transcript-textarea');
+
+            let editedTranscript = modalTranscriptEl ? modalTranscriptEl.value : null;
+            if (editedTranscript === null) {
+                const formEl = document.getElementById('form-' + currentCropClipId);
+                if (formEl) {
+                    const txEl = formEl.querySelector('textarea[name="transcript"]');
+                    if (txEl) editedTranscript = txEl.value;
+                }
             }
 
+            const chosenLayout = modalLayoutSelect ? modalLayoutSelect.value : '';
             let payload;
             if (currentCropMode === 'single_916') {
                 payload = {
-                    layout_mode: 'single_916',
+                    layout_mode: chosenLayout && chosenLayout !== 'custom' ? chosenLayout : 'single_916',
                     render_now: renderNow,
                     custom_crops: {
                         mode: 'single_916',
@@ -3204,7 +3187,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                 };
             } else {
                 payload = {
-                    layout_mode: 'custom',
+                    layout_mode: (chosenLayout && chosenLayout !== 'single_916') ? chosenLayout : 'custom',
                     render_now: renderNow,
                     custom_crops: {
                         mode: 'split',
@@ -3235,15 +3218,34 @@ async function downloadRawVideo(clipId, btn, evt) {
                 };
             }
 
+            if (modalTitleInput) {
+                payload.title = modalTitleInput.value.trim();
+                const cardTitleEl = document.querySelector(`#form-${currentCropClipId} input[name="title"]`);
+                if (cardTitleEl) cardTitleEl.value = payload.title;
+            }
+            if (modalStickerInput) {
+                payload.sticker_text = modalStickerInput.value.trim();
+            }
+            if (modalSubPosSelect) {
+                payload.sub_position = modalSubPosSelect.value;
+            }
             if (typeof editedTranscript === 'string') {
                 payload.transcript = editedTranscript;
             }
-
-            const modalFilterSelect = document.getElementById('crop-cam-filter-select');
             if (modalFilterSelect) {
                 payload.cam_filter = modalFilterSelect.value;
-                const cardFilterSelect = document.querySelector(`form[action="/save/${currentCropClipId}"] select[name="cam_filter"]`);
-                if (cardFilterSelect) cardFilterSelect.value = modalFilterSelect.value;
+            }
+
+            if (renderNow) {
+                const videoEl = document.getElementById('studio-video-' + currentCropClipId);
+                if (videoEl) {
+                    try {
+                        videoEl.pause();
+                        videoEl.removeAttribute('src');
+                        videoEl.querySelectorAll('source').forEach(s => s.remove());
+                        videoEl.load();
+                    } catch (e) {}
+                }
             }
 
             try {
@@ -3260,6 +3262,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                         if (renderCard) renderCard.classList.remove('hidden');
                         updateStatus();
                     }
+                    refreshDashboard(true);
                 }
             } catch (e) {
                 alert('Fehler beim Speichern: ' + e);

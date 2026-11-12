@@ -1968,17 +1968,6 @@ HTML_DASHBOARD = """
                     <!-- Edit Form -->
                     <form id="form-{{ clip.clip_id }}" action="/save/{{ clip.clip_id }}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
                         <div class="space-y-3">
-                            <!-- Sticker Hook Text -->
-                            <div>
-                                <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
-                                    <span>TikTok / Shorts Hook</span>
-                                    <span class="text-slate-500 font-normal">Mitte</span>
-                                </label>
-                                <input type="text" name="sticker_text" value="{{ clip.sticker_text }}" 
-                                    placeholder="z. B. Gtastys ki hittet double mace"
-                                    class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                            </div>
-
                             <!-- Video Title -->
                             <div>
                                 <label class="block text-xs font-medium text-slate-300 mb-1">
@@ -1988,75 +1977,24 @@ HTML_DASHBOARD = """
                                     class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
 
-                            <!-- Untertitel-Platzierung -->
-                            <div>
-                                <label class="block text-xs font-medium text-slate-300 mb-1">
-                                    Untertitel-Platzierung
-                                </label>
-                                <select name="sub_position" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                                    <option value="bottom" {% if clip.sub_position == 'bottom' %}selected{% endif %}>Unten (Standard, über Shorts-UI)</option>
-                                    <option value="center" {% if clip.sub_position == 'center' %}selected{% endif %}>Mitte (Unteres Drittel über Game)</option>
-                                    <option value="top" {% if clip.sub_position == 'top' %}selected{% endif %}>Oben (Über Facecam)</option>
-                                    <option value="none" {% if clip.sub_position == 'none' %}selected{% endif %}>Keine Untertitel (z.B. Trymacs bereits im Stream)</option>
-                                </select>
-                            </div>
-
-                            <!-- Video-Layout & Aufteilung (Split-Screen vs. Blur vs. IRL 9:16) -->
-                            <div>
-                                <label class="block text-xs font-medium text-slate-300 mb-1">
-                                    Video-Layout & Aufteilung
-                                </label>
-                                <select name="layout_mode" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                                    <option value="auto" {% if clip.layout_mode == 'auto' %}selected{% endif %}>Automatisch (KI erkennt Facecam vs. IRL)</option>
-                                    <option value="custom" {% if clip.layout_mode == 'custom' %}selected{% endif %}>Benutzerdefiniert (Visuelle Schnittrahmen)</option>
-                                    <option value="single_916" {% if clip.layout_mode == 'single_916' %}selected{% endif %}>Reines 9:16 Vollbild (IRL / Einzelfokus)</option>
-                                    <option value="split_cam_top" {% if clip.layout_mode == 'split_cam_top' %}selected{% endif %}>Split-Screen (Cam oben, Gameplay unten)</option>
-                                    <option value="blur_stack" {% if clip.layout_mode == 'blur_stack' %}selected{% endif %}>Blur-Stack (IRL / Vollbild mit unscharfem Hintergrund)</option>
-                                </select>
-                                <button type="button" data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.title|e }}" onclick="openCropModalFromButton(this)" 
-                                    class="w-full mt-2 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-medium transition flex items-center justify-center gap-2">
-                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Bildausschnitt anpassen (Split-Cam oder 9:16)
-                                </button>
-                            </div>
-
-                            <!-- Cam-Filter / Effekte (Snapchat / TikTok Style) -->
-                            <div>
-                                <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
-                                    <span>Facecam-Effekt & Warp (MLS 3D)</span>
-                                    <span class="text-slate-500 font-normal">Fun-Warp für Facecam</span>
-                                </label>
-                                <select name="cam_filter" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
-                                    {% for f_key, f_label in cam_filters.items() %}
-                                    <option value="{{ f_key }}" {% if clip.cam_filter == f_key %}selected{% endif %}>{{ f_label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <!-- Transkribierter Text / Untertitel (hier editierbar) -->
-                            <div>
-                                <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
-                                    <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
-                                    <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
-                                </label>
-                                <textarea name="transcript" rows="4" placeholder="Hier Untertiteltext bearbeiten oder eingeben..." 
-                                    class="w-full min-h-[96px] bg-slate-950/90 border border-slate-700 hover:border-amber-500/70 focus:border-amber-400 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none transition">{{ clip.transcript }}</textarea>
-                            </div>
+                            <button type="button" data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.title|e }}" onclick="openCropModalFromButton(this)" 
+                                class="w-full py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-semibold transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Clip Editor
+                            </button>
                         </div>
 
                         <!-- Action Buttons -->
                         <div class="pt-4 border-t border-slate-800 flex flex-col gap-2">
-                            <button type="submit" name="action" value="rerender" 
-                                class="w-full py-2 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-2 shadow-sm">
-                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Speichern & Neu Rendern
-                            </button>
-
-                            {% if clip.has_video %}
-                            <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this, event)" 
-                                class="w-full py-2.5 px-4 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-emerald-300 hover:text-white shadow cursor-pointer"
-                                title="Speicherort wählen & HQ Video sichern (Shift-Klick für Downloads-Ordner)">
-                                <span>HQ Video speichern unter... (.mp4)</span>
-                            </button>
-                            {% endif %}
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="submit" name="action" value="save" 
+                                    class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5">
+                                    Nur speichern
+                                </button>
+                                <button type="submit" name="action" value="rerender" 
+                                    class="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Speichern & Neu Rendern
+                                </button>
+                            </div>
 
                             <div class="grid grid-cols-2 gap-2">
                                 <button type="submit" name="action" value="schedule" 
@@ -3024,10 +2962,10 @@ HTML_DASHBOARD = """
                     <svg class="w-6 h-6 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg>
                     <div>
                         <h3 class="text-base font-bold text-white flex items-center gap-2">
-                            <span>Visueller Zuschnitt: Cam & Gameplay Rahmen</span>
+                            <span>Clip Editor</span>
                             <span id="crop-modal-clip-badge" class="text-xs bg-zinc-800 text-amber-400 border border-zinc-700 px-2 py-0.5 rounded font-mono truncate max-w-[200px]">Clip</span>
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Ziehe den <span class="text-emerald-400 font-bold">grünen Rahmen über die Facecam</span> und den <span class="text-sky-400 font-bold">blauen Rahmen über das Gameplay</span>. Die 9:16 Smartphone-Vorschau aktualisiert sich live!</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Bildausschnitt, Layout, Filter, Hook, Titel und Untertitel an einem Ort bearbeiten. Die 9:16 Vorschau aktualisiert sich live!</p>
                     </div>
                 </div>
                 <button onclick="closeCropModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
@@ -3239,6 +3177,53 @@ HTML_DASHBOARD = """
                         <div id="crop-coords-readout" class="text-2xs font-mono text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 truncate">
                             Cam: 480x360 • Game: 972x1080
                         </div>
+                    </div>
+                </div>
+
+                <!-- Clip Editor Settings: Titel, Hook, Layout, Untertitel-Platzierung & Untertiteltext (12 cols) -->
+                <div class="lg:col-span-12 bg-slate-950/70 border border-slate-800 rounded-lg p-4 space-y-3">
+                    <div class="text-xs font-bold uppercase tracking-wider text-amber-400">Clip-Texte, Layout & Untertitel</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Titel (YouTube / TikTok)</label>
+                            <input type="text" id="crop-title-input" placeholder="Clip-Titel..."
+                                class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
+                                <span>TikTok / Shorts Sprechblasen-Hook</span>
+                                <span class="text-slate-500 font-normal">Mitte</span>
+                            </label>
+                            <input type="text" id="crop-sticker-text-input" placeholder="z. B. Was macht er da?!"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Untertitel-Platzierung</label>
+                            <select id="crop-sub-position-select" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                                <option value="bottom">Unten (Standard, über Shorts-UI)</option>
+                                <option value="center">Mitte (Unteres Drittel über Game)</option>
+                                <option value="top">Oben (Über Facecam)</option>
+                                <option value="none">Keine Untertitel</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Video-Layout & Aufteilung</label>
+                            <select id="crop-layout-mode-select" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                                <option value="auto">Automatisch (KI erkennt Facecam)</option>
+                                <option value="custom">Benutzerdefiniert (Visuelle Schnittrahmen)</option>
+                                <option value="single_916">Reines 9:16 Vollbild (IRL / Einzelfokus)</option>
+                                <option value="split_cam_top">Split-Screen (Cam oben, Gameplay unten)</option>
+                                <option value="blur_stack">Blur-Stack (Hintergrund unscharf)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
+                            <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
+                            <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
+                        </label>
+                        <textarea id="crop-transcript-textarea" rows="3" placeholder="Hier Untertiteltext bearbeiten oder eingeben..."
+                            class="w-full min-h-[76px] bg-slate-900 border border-slate-700 hover:border-amber-500/70 focus:border-amber-400 rounded-lg p-2.5 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none transition"></textarea>
                     </div>
                 </div>
 
@@ -4131,13 +4116,6 @@ def save_clip(clip_id):
                 threading.Thread(target=_bg_unlink, args=(short_file,), daemon=True).start()
         return _finish_save("studio")
 
-    sticker_text = request.form.get("sticker_text", "").strip()
-    title = request.form.get("title", "").strip()
-    sub_position = request.form.get("sub_position", "bottom")
-    layout_mode = request.form.get("layout_mode", "auto")
-    cam_filter = request.form.get("cam_filter", "none")
-    edited_transcript = request.form.get("transcript", "").strip()
-
     meta_file = METADATA_OUTPUT_DIR / f"{clip_id}.json"
     meta = {}
     if meta_file.exists():
@@ -4147,6 +4125,21 @@ def save_clip(clip_id):
         except Exception:
             pass
 
+    title = request.form.get("title", meta.get("title", "")).strip()
+    sticker_text = request.form.get("sticker_text", meta.get("sticker_text", "")).strip() if "sticker_text" in request.form else meta.get("sticker_text", "")
+    sub_position = request.form.get("sub_position", meta.get("sub_position", "bottom")) if "sub_position" in request.form else meta.get("sub_position", "bottom")
+    layout_mode = request.form.get("layout_mode", meta.get("layout_mode", "auto")) if "layout_mode" in request.form else meta.get("layout_mode", "auto")
+    cam_filter = request.form.get("cam_filter", meta.get("cam_filter", "none")) if "cam_filter" in request.form else meta.get("cam_filter", "none")
+
+    txt_path = RAW_CLIPS_DIR / f"{clip_id}_transcript.txt"
+    if "transcript" in request.form:
+        edited_transcript = request.form.get("transcript", "").strip()
+        txt_path.write_text(edited_transcript, encoding="utf-8")
+    elif txt_path.exists():
+        edited_transcript = txt_path.read_text(encoding="utf-8", errors="replace").strip()
+    else:
+        edited_transcript = ""
+
     meta["sticker_text"] = sticker_text
     meta["title"] = title
     meta["sub_position"] = sub_position
@@ -4154,10 +4147,6 @@ def save_clip(clip_id):
     meta["cam_filter"] = cam_filter
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
-
-    if "transcript" in request.form:
-        txt_path = RAW_CLIPS_DIR / f"{clip_id}_transcript.txt"
-        txt_path.write_text(edited_transcript, encoding="utf-8")
 
     update_clip_status(clip_id, "ready", ai_title=title)
 
@@ -4764,6 +4753,13 @@ def get_clip_meta_api(clip_id):
 
     resolved_crops = meta.get("custom_crops") or streamer_crops
     resolved_layout = meta.get("layout_mode") or streamer_layout
+    txt_path = RAW_CLIPS_DIR / f"{clip_id}_transcript.txt"
+    transcript_text = ""
+    if txt_path.exists():
+        try:
+            transcript_text = txt_path.read_text(encoding="utf-8", errors="replace").strip()
+        except Exception:
+            pass
 
     return jsonify({
         "clip_id": clip_id,
@@ -4775,6 +4771,7 @@ def get_clip_meta_api(clip_id):
         "custom_crops": resolved_crops,
         "streamer_default_crops": streamer_crops,
         "cam_filter": meta.get("cam_filter", "none"),
+        "transcript": transcript_text,
         "video_w": vw,
         "video_h": vh,
         "duration": duration
@@ -4851,14 +4848,16 @@ def save_crop_api(clip_id):
     if custom_crops:
         meta["custom_crops"] = custom_crops
     
-    if "title" in data and data["title"]:
-        meta["title"] = data["title"]
-    if "sticker_text" in data and data["sticker_text"]:
-        meta["sticker_text"] = data["sticker_text"]
+    if "title" in data and data["title"] is not None:
+        meta["title"] = str(data["title"]).strip()
+    if "sticker_text" in data and data["sticker_text"] is not None:
+        meta["sticker_text"] = str(data["sticker_text"]).strip()
     if "sub_position" in data and data["sub_position"]:
         meta["sub_position"] = data["sub_position"]
     if "cam_filter" in data:
         meta["cam_filter"] = data["cam_filter"]
+    if "transcript" in data and isinstance(data["transcript"], str):
+        (RAW_CLIPS_DIR / f"{clip_id}_transcript.txt").write_text(data["transcript"].strip(), encoding="utf-8")
 
     with open(meta_file, "w", encoding="utf-8") as mf:
         json.dump(meta, mf, indent=2, ensure_ascii=False)
