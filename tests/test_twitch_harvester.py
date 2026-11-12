@@ -100,3 +100,41 @@ def test_harvester_session_has_retry_adapter():
     assert adapter.max_retries.total == 3
     assert 429 in adapter.max_retries.status_forcelist
 
+
+def test_harvest_channel_filters_min_views_max_clips_and_week_fallback(tmp_path):
+    harvester = TwitchClipHarvester()
+    harvester.client_id = ""
+    harvester.client_secret = ""
+
+    day_clips = [
+        {"clip_id": "low", "title": "Low", "url": "https://clips.twitch.tv/low", "view_count": 10},
+        {"clip_id": "ok1", "title": "Ok1", "url": "https://clips.twitch.tv/ok1", "view_count": 200},
+    ]
+    week_clips = [
+        {"clip_id": "ok1", "title": "Ok1", "url": "https://clips.twitch.tv/ok1", "view_count": 200},
+        {"clip_id": "wk1", "title": "Wk1", "url": "https://clips.twitch.tv/wk1", "view_count": 500},
+        {"clip_id": "wk2", "title": "Wk2", "url": "https://clips.twitch.tv/wk2", "view_count": 300},
+    ]
+
+    def fake_gql(channel, time_filter="LAST_DAY", limit=50):
+        return day_clips if time_filter == "LAST_DAY" else week_clips
+
+    saved: list[str] = []
+    with (
+        patch(
+            "src.harvesters.twitch_clips.load_config",
+            return_value={"twitch": {}, "autopilot": {"fallback_to_week": True}},
+        ),
+        patch("src.harvesters.twitch_clips.get_processed_ids", return_value=set()),
+        patch("src.harvesters.twitch_clips.save_clip", side_effect=lambda c: saved.append(c["clip_id"])),
+        patch.object(harvester, "fetch_clips_gql_fallback", side_effect=fake_gql),
+        patch.object(harvester, "download_clip", side_effect=lambda _u, cid: tmp_path / f"{cid}.mp4"),
+    ):
+        res = harvester.harvest_channel(
+            {"name": "trymacs", "min_clip_views": 100, "max_clips_per_run": 2, "time_filter": "LAST_DAY"}
+        )
+
+    assert [c["clip_id"] for c in res] == ["ok1", "wk1"]
+    assert saved == ["ok1", "wk1"]
+
+
