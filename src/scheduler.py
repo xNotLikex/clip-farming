@@ -106,8 +106,9 @@ class PipelineOrchestrator:
                     json.dump(metadata, mf, indent=2, ensure_ascii=False)
 
                 # D. 9:16 Video Rendering (KI Facecam-Check + TikTok Sticker Hook)
-                status_manager.set_task("rendering", "Rendere 9:16 Short (NVENC GPU)...", clip_title=orig_title, streamer=streamer)
-                print("  [4/4] Rendere vertikales 9:16 Short (NVENC GPU)...")
+                encoder_name = self.composer.encoder_profile.get("name", "Hardware/CPU")
+                status_manager.set_task("rendering", f"Rendere 9:16 Short ({encoder_name})...", clip_title=orig_title, streamer=streamer)
+                print(f"  [4/4] Rendere vertikales 9:16 Short ({encoder_name})...")
                 layout_mode = "auto"
                 custom_crops = None
                 for s in enabled_streamers:

@@ -17,7 +17,7 @@ from src.config import (
     PRESET_CORNER_CROPS
 )
 from src.video.sticker import create_tiktok_sticker
-from src.video.gpu import get_best_video_encoder
+from src.video.gpu import ENCODER_PROFILES, get_best_video_encoder
 
 # Globaler Registry-Lock fuer aktive Render-Jobs
 active_renders: Dict[str, Dict[str, Any]] = {}
@@ -661,151 +661,166 @@ class VideoComposer:
 
         # Phase 5: Erweiterter 2-Pass/Broadcast-Audio-Booster (Dynamische Kompression + EBU R128 Loudness)
         audio_filter = "acompressor=threshold=-18dB:ratio=3:attack=5:release=50,loudnorm=I=-14:TP=-1.5:LRA=11" if self.audio_normalize else "anull"
-        encoder_args = self.encoder_profile["args"]
-        codec = self.encoder_profile["codec"]
-        speed_factor = 2.5 if "nvenc" in codec else (2.0 if ("amf" in codec or "mf" in codec or "qsv" in codec) else 0.9)
+        layout_desc = "Reines 9:16 Vollbild (IRL)" if is_single_916 else ("Benutzerdefinierte Rahmen" if custom_crops else ("Split-Cam" if face_box else "Blur-Stack IRL"))
 
-        cmd = [
-            "ffmpeg", "-y",
-            "-progress", "pipe:1",
-            "-nostats",
-            *inputs,
-            "-filter_complex", filter_complex,
-            "-map", "[v]",
-            "-map", "0:a?",
-            "-c:a", "aac", "-b:a", "192k",
-            "-af", audio_filter,
-            *encoder_args,
-            "-pix_fmt", "yuv420p",
-            "-movflags", "+faststart",
-            str(temp_output_file)
-        ]
+        attempt_profiles = [self.encoder_profile]
+        if self.encoder_profile["codec"] != "libx264":
+            for fallback_key in ("mf", "cpu"):
+                fallback_prof = ENCODER_PROFILES[fallback_key]
+                if all(p["codec"] != fallback_prof["codec"] for p in attempt_profiles):
+                    attempt_profiles.append(fallback_prof)
 
         try:
-            layout_desc = "Reines 9:16 Vollbild (IRL)" if is_single_916 else ("Benutzerdefinierte Rahmen" if custom_crops else ("Split-Cam" if face_box else "Blur-Stack IRL"))
-            print(f"[*] Rendere Short fuer Clip {clip_id} ({layout_desc}) mit {self.encoder_profile['name']}...")
-            if on_progress:
-                on_progress(5, int(total_duration / speed_factor), self.encoder_profile["name"])
+            for idx, encoder_profile in enumerate(attempt_profiles):
+                encoder_args = encoder_profile["args"]
+                codec = encoder_profile["codec"]
+                speed_factor = 2.5 if "nvenc" in codec else (2.0 if ("amf" in codec or "mf" in codec or "qsv" in codec) else 0.9)
 
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
-            )
+                if idx > 0:
+                    print(f"[!] Encoder-Fallback fuer Clip {clip_id}: wechsle auf {encoder_profile['name']} ({codec})...")
+                else:
+                    print(f"[*] Rendere Short fuer Clip {clip_id} ({layout_desc}) mit {encoder_profile['name']}...")
 
-            # Hintergrund-Thread zum kontinuierlichen Leeren von stderr (verhindert Pipe-Deadlock!)
-            stderr_lines = []
-            def drain_stderr():
-                try:
-                    for s_line in proc.stderr:
-                        stderr_lines.append(s_line)
-                except Exception:
-                    pass
-            stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
-            stderr_thread.start()
+                if on_progress:
+                    on_progress(5, int(total_duration / speed_factor), encoder_profile["name"])
 
-            with render_lock:
-                active_renders[clip_id] = {"proc": proc, "cancelled": False}
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-progress", "pipe:1",
+                    "-nostats",
+                    *inputs,
+                    "-filter_complex", filter_complex,
+                    "-map", "[v]",
+                    "-map", "0:a?",
+                    "-c:a", "aac", "-b:a", "192k",
+                    "-af", audio_filter,
+                    *encoder_args,
+                    "-pix_fmt", "yuv420p",
+                    "-movflags", "+faststart",
+                    str(temp_output_file)
+                ]
 
-            current_sec = 0.0
-            # M7 Audit-Fix: Verwende den oben präzise ermittelten speed_factor statt hartem Überschreiben
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
 
-            for line in proc.stdout:
+                # Hintergrund-Thread zum kontinuierlichen Leeren von stderr (verhindert Pipe-Deadlock!)
+                stderr_lines = []
+                def drain_stderr():
+                    try:
+                        for s_line in proc.stderr:
+                            stderr_lines.append(s_line)
+                    except Exception:
+                        pass
+                stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
+                stderr_thread.start()
+
                 with render_lock:
-                    if active_renders.get(clip_id, {}).get("cancelled", False):
-                        proc.kill()
-                        break
+                    active_renders[clip_id] = {"proc": proc, "cancelled": False}
 
-                line = line.strip()
-                if not line:
-                    continue
+                current_sec = 0.0
+                # M7 Audit-Fix: Verwende den oben präzise ermittelten speed_factor statt hartem Überschreiben
 
-                if line.startswith("out_time_us="):
-                    try:
-                        us = int(line.split("=")[1])
-                        current_sec = us / 1_000_000.0
-                        pct = min(99, max(5, int((current_sec / max(1.0, total_duration)) * 100)))
-                        rem_sec = max(0.0, total_duration - current_sec)
-                        eta = max(0, int(rem_sec / max(0.5, speed_factor)))
-                        if on_progress:
-                            on_progress(pct, eta, f"{speed_factor:.1f}x")
-                    except Exception:
-                        pass
-                elif line.startswith("speed="):
-                    try:
-                        speed_str = line.split("=")[1].replace("x", "").strip()
-                        speed_factor = float(speed_str)
-                    except Exception:
-                        pass
-                elif line == "progress=end":
-                    if on_progress:
-                        on_progress(100, 0, f"{speed_factor:.1f}x")
+                for line in proc.stdout:
+                    with render_lock:
+                        if active_renders.get(clip_id, {}).get("cancelled", False):
+                            proc.kill()
+                            break
 
-            proc.wait()
-            try:
-                stderr_thread.join(timeout=1.0)
-            except Exception:
-                pass
-            stderr_out = "".join(stderr_lines)
+                    line = line.strip()
+                    if not line:
+                        continue
 
-            with render_lock:
-                was_cancelled = active_renders.get(clip_id, {}).get("cancelled", False)
-                if clip_id in active_renders:
-                    del active_renders[clip_id]
-
-            if was_cancelled:
-                for p in (temp_output_file, sticker_png, temp_cam_file):
-                    if p and p.exists():
+                    if line.startswith("out_time_us="):
                         try:
-                            p.unlink()
+                            us = int(line.split("=")[1])
+                            current_sec = us / 1_000_000.0
+                            pct = min(99, max(5, int((current_sec / max(1.0, total_duration)) * 100)))
+                            rem_sec = max(0.0, total_duration - current_sec)
+                            eta = max(0, int(rem_sec / max(0.5, speed_factor)))
+                            if on_progress:
+                                on_progress(pct, eta, f"{speed_factor:.1f}x")
                         except Exception:
                             pass
-                print(f"[*] Rendering fuer {clip_id} wurde vorzeitig abgebrochen.")
-                return None
+                    elif line.startswith("speed="):
+                        try:
+                            speed_str = line.split("=")[1].replace("x", "").strip()
+                            speed_factor = float(speed_str)
+                        except Exception:
+                            pass
+                    elif line == "progress=end":
+                        if on_progress:
+                            on_progress(100, 0, f"{speed_factor:.1f}x")
 
-            # Aufräumen des temporären PNGs und 3D Cam MP4s
-            if sticker_png and sticker_png.exists():
+                proc.wait()
                 try:
-                    sticker_png.unlink()
+                    stderr_thread.join(timeout=1.0)
                 except Exception:
                     pass
+                stderr_out = "".join(stderr_lines)
 
-            if temp_cam_file and temp_cam_file.exists():
-                try:
-                    temp_cam_file.unlink()
-                except Exception:
-                    pass
+                with render_lock:
+                    was_cancelled = active_renders.get(clip_id, {}).get("cancelled", False)
+                    if clip_id in active_renders:
+                        del active_renders[clip_id]
 
-            if temp_output_file.exists() and temp_output_file.stat().st_size > 1000:
-                replaced = False
-                for _ in range(8):
-                    try:
+                if was_cancelled:
+                    for p in (temp_output_file, sticker_png, temp_cam_file):
+                        if p and p.exists():
+                            try:
+                                p.unlink()
+                            except Exception:
+                                pass
+                    print(f"[*] Rendering fuer {clip_id} wurde vorzeitig abgebrochen.")
+                    return None
+
+                if proc.returncode == 0 and temp_output_file.exists() and temp_output_file.stat().st_size > 1000:
+                    # Aufräumen des temporären PNGs und 3D Cam MP4s
+                    for p in (sticker_png, temp_cam_file):
+                        if p and p.exists():
+                            try:
+                                p.unlink()
+                            except Exception:
+                                pass
+
+                    replaced = False
+                    for _ in range(8):
+                        try:
+                            os.replace(str(temp_output_file), str(output_file))
+                            replaced = True
+                            break
+                        except PermissionError:
+                            time.sleep(0.15)
+                    if not replaced:
                         os.replace(str(temp_output_file), str(output_file))
-                        replaced = True
-                        break
-                    except PermissionError:
-                        time.sleep(0.15)
-                if not replaced:
-                    os.replace(str(temp_output_file), str(output_file))
-                print(f"[+] 9:16 Short fertiggestellt: {output_file.name}")
-                try:
-                    generate_thumbnail(clip_id, force=True)
-                    print(f"[+] Vorschaubild fuer {clip_id} erfolgreich neu generiert.")
-                except Exception as th_err:
-                    print(f"[!] Fehler beim Aktualisieren des Vorschaubilds fuer {clip_id}: {th_err}")
-                if on_progress:
-                    on_progress(100, 0, f"{speed_factor:.1f}x")
-                return output_file
-            else:
+                    print(f"[+] 9:16 Short fertiggestellt: {output_file.name}")
+                    try:
+                        generate_thumbnail(clip_id, force=True)
+                        print(f"[+] Vorschaubild fuer {clip_id} erfolgreich neu generiert.")
+                    except Exception as th_err:
+                        print(f"[!] Fehler beim Aktualisieren des Vorschaubilds fuer {clip_id}: {th_err}")
+                    if on_progress:
+                        on_progress(100, 0, f"{speed_factor:.1f}x")
+                    return output_file
+
                 if temp_output_file.exists():
                     try:
                         temp_output_file.unlink()
                     except Exception:
                         pass
-                print(f"[!] FFmpeg Fehler: {stderr_out[-500:] if stderr_out else 'Unbekannt'}")
+                print(f"[!] FFmpeg Fehler ({encoder_profile['name']}): {stderr_out[-500:] if stderr_out else 'Unbekannt'}")
+
+            for p in (sticker_png, temp_cam_file):
+                if p and p.exists():
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"[!] Exception beim Rendern: {e}")
             with render_lock:

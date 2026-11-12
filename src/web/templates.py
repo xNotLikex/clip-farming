@@ -2205,6 +2205,7 @@ HTML_DASHBOARD = """
                                 <option value="nvenc" {% if settings.hardware_encoder == 'nvenc' %}selected{% endif %}>NVIDIA NVENC (RTX/GTX)</option>
                                 <option value="amf" {% if settings.hardware_encoder == 'amf' %}selected{% endif %}>AMD AMF (Radeon)</option>
                                 <option value="qsv" {% if settings.hardware_encoder == 'qsv' %}selected{% endif %}>Intel QuickSync (QSV)</option>
+                                <option value="mf" {% if settings.hardware_encoder == 'mf' %}selected{% endif %}>Windows Media Foundation (iGPU / Universal)</option>
                                 <option value="cpu" {% if settings.hardware_encoder == 'cpu' %}selected{% endif %}>Software / CPU (libx264)</option>
                             </select>
                         </div>
@@ -2218,6 +2219,7 @@ HTML_DASHBOARD = """
                                 <option value="large-v3" {% if settings.whisper_model in ['large', 'large-v3'] %}selected{% endif %}>Large v3 (Maximale Präzision)</option>
                                 <option value="turbo" {% if settings.whisper_model == 'turbo' %}selected{% endif %}>Turbo (Schnell & Präzise)</option>
                             </select>
+                            <p class="text-[11px] text-slate-400 mt-1">Ohne NVIDIA-GPU (CUDA) läuft Whisper automatisch auf der CPU – dafür wird <span class="text-slate-200 font-medium">Small</span> oder <span class="text-slate-200 font-medium">Base</span> empfohlen.</p>
                         </div>
                     </div>
                 </div>

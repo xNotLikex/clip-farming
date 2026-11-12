@@ -37,89 +37,97 @@ def get_installed_gpus() -> List[Dict[str, Any]]:
             print(f"[!] Fehler bei GPU-Erkennung: {e}")
     return gpus
 
+ENCODER_PROFILES: Dict[str, Dict[str, Any]] = {
+    "nvenc": {
+        "name": "NVIDIA NVENC",
+        "codec": "h264_nvenc",
+        "args": ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23"],
+        "desc": "NVIDIA GeForce / RTX Hardware-Beschleunigung",
+    },
+    "amf": {
+        "name": "AMD AMF",
+        "codec": "h264_amf",
+        "args": ["-c:v", "h264_amf", "-quality", "speed", "-b:v", "6M"],
+        "desc": "AMD Radeon dedizierte GPU & Onboard APU Beschleunigung",
+    },
+    "qsv": {
+        "name": "Intel QuickSync",
+        "codec": "h264_qsv",
+        "args": ["-c:v", "h264_qsv", "-preset", "medium", "-global_quality", "23"],
+        "desc": "Intel Arc & Core iGPU QuickSync",
+    },
+    "mf": {
+        "name": "Windows Media Foundation",
+        "codec": "h264_mf",
+        "args": ["-c:v", "h264_mf", "-b:v", "6M"],
+        "desc": "Universeller Windows Hardware-Encoder (AMD Onboard, Intel & NVIDIA)",
+    },
+    "cpu": {
+        "name": "CPU (Software x264)",
+        "codec": "libx264",
+        "args": ["-c:v", "libx264", "-preset", "fast", "-crf", "22", "-threads", "0"],
+        "desc": "Universeller CPU-Fallback für alle Systeme",
+    },
+}
+
+
 def test_ffmpeg_encoder(encoder_name: str) -> bool:
-    """Prüft mit einem 1-Frame Testvideo, ob ein FFmpeg-Encoder auf der Hardware funktioniert."""
+    """Prüft mit einem kurzen 1080x1920 Testvideo, ob ein FFmpeg-Encoder auf der Hardware funktioniert."""
     ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
     cmd = [
         ffmpeg_bin, "-y",
-        "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=10",
+        "-f", "lavfi", "-i", "testsrc=duration=0.1:size=1080x1920:rate=30",
         "-c:v", encoder_name,
-        "-f", "null", "-"
+        "-pix_fmt", "yuv420p",
+        "-f", "null", "-",
     ]
     try:
-        res = subprocess.run(cmd, capture_output=True, timeout=5)
+        res = subprocess.run(cmd, capture_output=True, timeout=6)
         return res.returncode == 0
     except Exception:
         return False
+
+
+def get_encoder_fallback_chain(preferred: str = "auto") -> List[Dict[str, Any]]:
+    """
+    Liefert die geordnete Encoder-Kette (Primary -> Windows Media Foundation -> CPU)
+    ohne Duplikate.
+    """
+    candidates: List[Dict[str, Any]] = []
+    seen_codecs: set[str] = set()
+
+    def _add(key: str) -> None:
+        prof = ENCODER_PROFILES.get(key)
+        if prof and prof["codec"] not in seen_codecs:
+            candidates.append(prof)
+            seen_codecs.add(prof["codec"])
+
+    if preferred != "auto" and preferred in ENCODER_PROFILES:
+        _add(preferred)
+    else:
+        gpus = get_installed_gpus()
+        if any(g["vendor"] == "nvidia" for g in gpus):
+            _add("nvenc")
+        if any(g["vendor"] == "amd" for g in gpus):
+            _add("amf")
+        if any(g["vendor"] == "intel" for g in gpus):
+            _add("qsv")
+
+    if preferred != "cpu":
+        _add("mf")
+    _add("cpu")
+    return candidates
+
 
 def get_best_video_encoder(preferred: str = "auto") -> Dict[str, Any]:
     """
     Ermittelt den besten funktionierenden Hardware-Encoder.
     Optionen für preferred: 'auto', 'nvenc', 'amf', 'qsv', 'mf', 'cpu'
     """
-    # 1. Definierte Profile für alle Hersteller & Onboard-GPUs
-    ENCODER_PROFILES = {
-        "nvenc": {
-            "name": "NVIDIA NVENC",
-            "codec": "h264_nvenc",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23"],
-            "desc": "NVIDIA GeForce / RTX Hardware-Beschleunigung"
-        },
-        "amf": {
-            "name": "AMD AMF",
-            "codec": "h264_amf",
-            "args": ["-c:v", "h264_amf", "-quality", "speed", "-b:v", "6M"],
-            "desc": "AMD Radeon dedizierte GPU & Onboard APU Beschleunigung"
-        },
-        "qsv": {
-            "name": "Intel QuickSync",
-            "codec": "h264_qsv",
-            "args": ["-c:v", "h264_qsv", "-preset", "medium", "-global_quality", "23"],
-            "desc": "Intel Arc & Core iGPU QuickSync"
-        },
-        "mf": {
-            "name": "Windows Media Foundation",
-            "codec": "h264_mf",
-            "args": ["-c:v", "h264_mf", "-b:v", "6M"],
-            "desc": "Universeller Windows Hardware-Encoder (AMD Onboard, Intel & NVIDIA)"
-        },
-        "cpu": {
-            "name": "CPU (Software x264)",
-            "codec": "libx264",
-            "args": ["-c:v", "libx264", "-preset", "fast", "-crf", "22", "-threads", "0"],
-            "desc": "Universeller CPU-Fallback für alle Systeme"
-        }
-    }
-
-    # Wenn der Nutzer explizit gewählt hat
-    if preferred != "auto" and preferred in ENCODER_PROFILES:
-        prof = ENCODER_PROFILES[preferred]
-        if preferred == "cpu" or test_ffmpeg_encoder(prof["codec"]):
+    for prof in get_encoder_fallback_chain(preferred):
+        if prof["codec"] == "libx264" or test_ffmpeg_encoder(prof["codec"]):
             return prof
 
-    # Automatische Erkennung nach Priorität
-    gpus = get_installed_gpus()
-    has_nvidia = any(g["vendor"] == "nvidia" for g in gpus)
-    has_amd = any(g["vendor"] == "amd" for g in gpus)
-    has_intel = any(g["vendor"] == "intel" for g in gpus)
-
-    # 1. NVIDIA NVENC
-    if has_nvidia and test_ffmpeg_encoder("h264_nvenc"):
-        return ENCODER_PROFILES["nvenc"]
-
-    # 2. AMD AMF
-    if has_amd and test_ffmpeg_encoder("h264_amf"):
-        return ENCODER_PROFILES["amf"]
-
-    # 3. Intel QuickSync
-    if has_intel and test_ffmpeg_encoder("h264_qsv"):
-        return ENCODER_PROFILES["qsv"]
-
-    # 4. Windows Media Foundation (perfekt für Onboard AMD & Intel APUs)
-    if test_ffmpeg_encoder("h264_mf"):
-        return ENCODER_PROFILES["mf"]
-
-    # 5. Fallback auf Multi-Core CPU
     return ENCODER_PROFILES["cpu"]
 
 if __name__ == "__main__":

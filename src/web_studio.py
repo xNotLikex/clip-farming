@@ -174,8 +174,9 @@ def process_single_clip(clip_id: str, sub_position: str = "bottom", sticker_text
         with open(meta_file, "w", encoding="utf-8") as mf:
             json.dump(metadata, mf, indent=2, ensure_ascii=False)
 
-        # 4. 9:16 Rendern (NVENC GPU) mit Live-Fortschritt & ETA
-        status_manager.set_task("rendering", "Rendere 9:16 Short (NVENC GPU)...", clip_title=orig_title, streamer=streamer)
+        # 4. 9:16 Rendern mit aktivem Encoder & Live-Fortschritt/ETA
+        encoder_name = composer.encoder_profile.get("name", "Hardware/CPU")
+        status_manager.set_task("rendering", f"Rendere 9:16 Short ({encoder_name})...", clip_title=orig_title, streamer=streamer)
         sticker_text = sticker_text_override or metadata.get("sticker_text") or metadata.get("title") or orig_title
 
         def on_render_progress(pct: int, eta: int, speed: str):
