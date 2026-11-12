@@ -1,9 +1,15 @@
+import logging
 import os
+import subprocess
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
 import cv2
 import numpy as np
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+
 from src.config import PROJECT_ROOT
+
+logger = logging.getLogger(__name__)
 
 # H3 Audit-Fix: Absoluter Pfad statt relativ zum CWD
 MODELS_DIR = PROJECT_ROOT / "data" / "models"
@@ -484,13 +490,12 @@ def filter_cam_frame_3d(
 
 def process_cam_video_3d(
     raw_video_path: Path,
-    cam_crop: Dict[str, Any],
+    cam_crop: dict[str, Any],
     filter_name: str,
     output_path: Path,
-    on_progress=None
-) -> Optional[Path]:
-    """Schneidet das Cam-Fenster aus dem Rohvideo, wendet den anatomischen 3D-Filter an
-    und rendert das gefilterte Cam-Video mit 70+ FPS."""
+    on_progress=None,
+) -> Path | None:
+    """Schneidet das Cam-Fenster aus dem Rohvideo, wendet den 3D-Filter an und piped direkt in ffmpeg."""
     if not filter_name or filter_name == "none":
         return None
 
@@ -520,19 +525,47 @@ def process_cam_video_3d(
     cx = max(0, min(cx, vw - cw))
     cy = max(0, min(cy, vh - ch))
 
-    cw -= (cw % 2)
-    ch -= (ch % 2)
-    cx -= (cx % 2)
-    cy -= (cy % 2)
+    cw -= cw % 2
+    ch -= ch % 2
+    cx -= cx % 2
+    cy -= cy % 2
 
     detector = get_face_detector(cw, ch)
-    tracker_state = {}
+    tracker_state: dict[str, Any] = {}
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(str(output_path), fourcc, fps, (cw, ch))
-    if not out.isOpened():
-        cap.release()
-        return None
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-pix_fmt",
+        "bgr24",
+        "-s",
+        f"{cw}x{ch}",
+        "-r",
+        f"{fps:.6f}",
+        "-i",
+        "-",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "16",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        str(output_path),
+    ]
+    proc = subprocess.Popen(
+        ffmpeg_cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
 
     frame_idx = 0
     try:
@@ -541,20 +574,49 @@ def process_cam_video_3d(
             if not ret or frame is None:
                 break
 
-            cam_frame = frame[cy:cy+ch, cx:cx+cw]
+            cam_frame = frame[cy : cy + ch, cx : cx + cw]
             if cam_frame.shape[0] != ch or cam_frame.shape[1] != cw:
                 cam_frame = cv2.resize(cam_frame, (cw, ch))
 
-            filtered = filter_cam_frame_3d(cam_frame, filter_name, tracker_state, detector, frame_idx)
-            out.write(filtered)
+            filtered = filter_cam_frame_3d(
+                cam_frame, filter_name, tracker_state, detector, frame_idx
+            )
+            if proc.stdin is not None:
+                proc.stdin.write(np.ascontiguousarray(filtered).tobytes())
 
             frame_idx += 1
             if on_progress and frame_idx % 30 == 0:
                 pct = int((frame_idx / max(1, total_frames)) * 40)
-                on_progress(pct, None, f"3D-Filter '{filter_name}' ({frame_idx}/{total_frames} Frames)...")
-
+                on_progress(
+                    pct,
+                    None,
+                    f"3D-Filter '{filter_name}' ({frame_idx}/{total_frames} Frames)...",
+                )
+    except BrokenPipeError:
+        logger.warning("FFmpeg-Pipe beim 3D-Cam-Filter unerwartet geschlossen.")
     finally:
         cap.release()
-        out.release()
+        if proc.stdin is not None:
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
+        stderr_bytes = b""
+        if proc.stderr is not None:
+            try:
+                stderr_bytes = proc.stderr.read()
+            except OSError:
+                pass
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+            logger.warning("FFmpeg 3D-Cam-Prozess nach Timeout beendet.")
+
+    if proc.returncode != 0:
+        err_msg = stderr_bytes.decode("utf-8", errors="replace")[-300:]
+        logger.warning("FFmpeg 3D-Cam-Filter fehlgeschlagen (rc=%s): %s", proc.returncode, err_msg)
+        return None
 
     return output_path if output_path.exists() else None
