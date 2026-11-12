@@ -24,10 +24,16 @@ bin/
 *.mp3
 
 # Credentials & Secrets (Security!)
-config/youtube_secrets.json
-config/oauth_token.json
+config/*
+!config/config.example.yaml
+config.yaml
+youtube_secrets.json
+oauth_token.json
 *token*.json
 *secret*.json
+*.db
+*.sqlite
+*.sqlite3
 *.env
 
 # Logs & Temporary files

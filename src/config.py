@@ -59,13 +59,16 @@ def ensure_directories():
         folder.mkdir(parents=True, exist_ok=True)
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from config/config.yaml."""
+    """Load configuration from config/config.yaml (auto-bootstraps from config.example.yaml if missing)."""
     ensure_directories()
     config_file = CONFIG_DIR / "config.yaml"
-    if not config_file.exists():
-        raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {config_file}")
-    
+    example_file = CONFIG_DIR / "config.example.yaml"
     with _CONFIG_LOCK:
+        if not config_file.exists() and example_file.exists():
+            import shutil
+            shutil.copy2(example_file, config_file)
+        if not config_file.exists():
+            raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {config_file}")
         with open(config_file, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
 

@@ -50,8 +50,8 @@ Source: "..\src\*"; DestDir: "{app}\src"; Flags: ignoreversion recursesubdirs cr
 ; Benutzeroberfläche
 Source: "..\ui\*"; DestDir: "{app}\ui"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Standardkonfiguration
-Source: "..\config\config.yaml"; DestDir: "{app}\config"; Flags: ignoreversion onlyifdoesntexist
+; Standardkonfiguration (ohne Secrets)
+Source: "..\config\config.example.yaml"; DestDir: "{app}\config"; DestName: "config.yaml"; Flags: ignoreversion onlyifdoesntexist
 
 ; Batch-Starter
 Source: "..\SETUP.bat"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
