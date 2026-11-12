@@ -155,47 +155,67 @@ pub async fn run_automated_setup(app: AppHandle) -> Result<bool, String> {
         });
     }
 
-    #[cfg(windows)]
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-    let mut cmd = Command::new("powershell.exe");
-    cmd.args([
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        &script_path.to_string_lossy(),
-    ])
-    .current_dir(&app_dir)
-    .stdout(Stdio::piped())
-    .stderr(Stdio::piped());
+        let mut cmd = Command::new("powershell.exe");
+        cmd.args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            &script_path.to_string_lossy(),
+        ])
+        .current_dir(&app_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
-    #[cfg(windows)]
-    cmd.creation_flags(CREATE_NO_WINDOW);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = cmd.spawn().map_err(|e| format!("Fehler beim Starten von PowerShell: {}", e))?;
+        let mut child = cmd.spawn().map_err(|e| format!("Fehler beim Starten von PowerShell: {}", e))?;
 
-    if let Some(stdout) = child.stdout.take() {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines().flatten() {
-            let trimmed = line.trim();
-            if let Some(progress_json) = trimmed.strip_prefix("PROGRESS:") {
-                #[derive(Deserialize)]
-                struct RawProgress {
-                    percent: u32,
-                    step: u32,
-                    total_steps: u32,
-                    message: String,
-                    log: Option<String>,
-                }
-                if let Ok(raw) = serde_json::from_str::<RawProgress>(progress_json) {
+        if let Some(stdout) = child.stdout.take() {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                let trimmed = line.trim();
+                if let Some(progress_json) = trimmed.strip_prefix("PROGRESS:") {
+                    #[derive(Deserialize)]
+                    struct RawProgress {
+                        percent: u32,
+                        step: u32,
+                        total_steps: u32,
+                        message: String,
+                        log: Option<String>,
+                    }
+                    if let Ok(raw) = serde_json::from_str::<RawProgress>(progress_json) {
+                        let evt = SetupProgressEvent {
+                            percent: raw.percent,
+                            step: raw.step,
+                            total_steps: raw.total_steps,
+                            message: raw.message,
+                            log: raw.log.unwrap_or_default(),
+                            is_done: raw.percent >= 100,
+                            error: None,
+                        };
+                        {
+                            let mut p = CURRENT_PROGRESS.lock().unwrap();
+                            *p = Some(evt.clone());
+                        }
+                        let _ = app.emit("setup-progress", evt);
+                    }
+                } else if !trimmed.is_empty() {
+                    let current_p = { CURRENT_PROGRESS.lock().unwrap().clone() };
+                    let percent = current_p.as_ref().map(|x| x.percent).unwrap_or(20);
+                    let step = current_p.as_ref().map(|x| x.step).unwrap_or(2);
                     let evt = SetupProgressEvent {
-                        percent: raw.percent,
-                        step: raw.step,
-                        total_steps: raw.total_steps,
-                        message: raw.message,
-                        log: raw.log.unwrap_or_default(),
-                        is_done: raw.percent >= 100,
+                        percent,
+                        step,
+                        total_steps: 5,
+                        message: "Installation läuft...".to_string(),
+                        log: trimmed.to_string(),
+                        is_done: percent >= 100,
                         error: None,
                     };
                     {
@@ -204,57 +224,41 @@ pub async fn run_automated_setup(app: AppHandle) -> Result<bool, String> {
                     }
                     let _ = app.emit("setup-progress", evt);
                 }
-            } else if !trimmed.is_empty() {
-                let current_p = { CURRENT_PROGRESS.lock().unwrap().clone() };
-                let percent = current_p.as_ref().map(|x| x.percent).unwrap_or(20);
-                let step = current_p.as_ref().map(|x| x.step).unwrap_or(2);
-                let evt = SetupProgressEvent {
-                    percent,
-                    step,
-                    total_steps: 5,
-                    message: "Installation läuft...".to_string(),
-                    log: trimmed.to_string(),
-                    is_done: percent >= 100,
-                    error: None,
-                };
-                {
-                    let mut p = CURRENT_PROGRESS.lock().unwrap();
-                    *p = Some(evt.clone());
-                }
-                let _ = app.emit("setup-progress", evt);
             }
         }
-    }
 
-    let status = child.wait().map_err(|e| format!("Fehler beim Warten auf Setup: {}", e))?;
-    let success = status.success();
+        let status = child.wait().map_err(|e| format!("Fehler beim Warten auf Setup: {}", e))?;
+        let success = status.success();
 
-    {
-        let mut p = CURRENT_PROGRESS.lock().unwrap();
-        if success {
-            *p = Some(SetupProgressEvent {
-                percent: 100,
-                step: 5,
-                total_steps: 5,
-                message: "Einrichtung erfolgreich abgeschlossen!".to_string(),
-                log: "Alle Module bereit. Starte Clip-Farming Studio...".to_string(),
-                is_done: true,
-                error: None,
-            });
-        } else {
-            *p = Some(SetupProgressEvent {
-                percent: 0,
-                step: 0,
-                total_steps: 5,
-                message: "Fehler beim Ausführen des Setups".to_string(),
-                log: "PowerShell-Skript wurde mit Fehler beendet.".to_string(),
-                is_done: false,
-                error: Some("Setup abgebrochen".to_string()),
-            });
+        {
+            let mut p = CURRENT_PROGRESS.lock().unwrap();
+            if success {
+                *p = Some(SetupProgressEvent {
+                    percent: 100,
+                    step: 5,
+                    total_steps: 5,
+                    message: "Einrichtung erfolgreich abgeschlossen!".to_string(),
+                    log: "Alle Module bereit. Starte Clip-Farming Studio...".to_string(),
+                    is_done: true,
+                    error: None,
+                });
+            } else {
+                *p = Some(SetupProgressEvent {
+                    percent: 0,
+                    step: 0,
+                    total_steps: 5,
+                    message: "Fehler beim Ausführen des Setups".to_string(),
+                    log: "PowerShell-Skript wurde mit Fehler beendet.".to_string(),
+                    is_done: false,
+                    error: Some("Setup abgebrochen".to_string()),
+                });
+            }
         }
-    }
 
-    Ok(success)
+        Ok(success)
+    })
+    .await
+    .map_err(|e| format!("Setup-Task Fehler: {}", e))?
 }
 
 #[tauri::command]
