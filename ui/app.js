@@ -351,7 +351,7 @@ function buildStudioCardHtml(clip, cardSig) {
     const cacheBust = encodeURIComponent(String(clip.updated_at || '1'));
     const sigAttr = escapeHtml(cardSig || getStudioCardSignature(clip));
     return `
-        <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-700 transition-all duration-300 studio-clip-card ${clip.is_manually_published ? 'opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90' : ''}" id="card-${clip.clip_id}" data-streamer="${escapeHtml(clip.streamer.toLowerCase())}" data-card-sig="${sigAttr}">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-700 transition-all duration-300 studio-clip-card ${clip.is_manually_published ? 'opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90' : ''}" id="card-${clip.clip_id}" data-streamer="${escapeHtml(clip.streamer.toLowerCase())}" data-card-sig="${sigAttr}" data-video-ver="${escapeHtml(cacheBust)}">
             <!-- Header -->
             <div class="flex justify-between items-center bg-slate-950/90 px-4 py-2.5 border-b border-slate-800">
                 <div class="flex items-center gap-2">
@@ -554,17 +554,29 @@ function renderStudio(clips, streamerCounts, forceRender = false) {
         if (existingCard) {
             const busy = isStudioCardBusy(existingCard);
             const sameSig = existingCard.getAttribute('data-card-sig') === cardSig;
-            if (busy || (!forceRender && sameSig)) {
-                // Laufende Video-Wiedergabe oder unveränderte Karte niemals zerstören!
+            const prevVideoVer = existingCard.getAttribute('data-video-ver') || '';
+            const nextVideoVer = encodeURIComponent(String(clip.updated_at || '1'));
+            const videoVersionChanged = prevVideoVer !== nextVideoVer;
+            const vidEl = existingCard.querySelector('video');
+            const isActivelyPlaying = Boolean(vidEl && !vidEl.paused && !vidEl.ended);
+
+            if (sameSig) {
                 return;
             }
-            if (forceRender && sameSig) {
+            if (!forceRender && busy) {
+                // Hintergrund-Refresh: laufende Video-Wiedergabe oder aktives Formular nicht stören
+                return;
+            }
+            if (forceRender && isActivelyPlaying && !videoVersionChanged) {
                 return;
             }
             temp.innerHTML = buildStudioCardHtml(clip, cardSig).trim();
             const newCard = temp.firstElementChild;
             if (newCard) {
                 existingCard.replaceWith(newCard);
+                if (videoVersionChanged) {
+                    try { newCard.querySelector('video')?.load(); } catch (_) {}
+                }
                 domMutated = true;
             }
             return;
@@ -3508,7 +3520,7 @@ async function importTwitchClipToStudio(index, mode, btn) {
                             formData.set(submitBtn.name, submitBtn.value || '');
                         }
                     }
-                    if (submitVal === 'delete') {
+                    if (submitVal === 'delete' || submitVal === 'rerender') {
                         const cardVideo = form.closest('.studio-clip-card')?.querySelector('video');
                         if (cardVideo) {
                             try {

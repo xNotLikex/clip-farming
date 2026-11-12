@@ -1,4 +1,5 @@
 import json
+import os
 import cv2
 import numpy as np
 import subprocess
@@ -216,6 +217,7 @@ class VideoComposer:
         time.sleep(0.15) # Kurzer Moment zum Freigeben von Dateihandles
 
         output_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
+        temp_output_file = SHORTS_OUTPUT_DIR / f"tmp_short_{clip_id}.mp4"
         total_duration = get_video_duration(raw_video_path)
         face_box = None
         
@@ -512,7 +514,7 @@ class VideoComposer:
             *encoder_args,
             "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
-            str(output_file)
+            str(temp_output_file)
         ]
 
         try:
@@ -591,11 +593,12 @@ class VideoComposer:
                     del active_renders[clip_id]
 
             if was_cancelled:
-                if output_file.exists():
-                    try:
-                        output_file.unlink()
-                    except Exception:
-                        pass
+                for p in (temp_output_file, sticker_png, temp_cam_file):
+                    if p and p.exists():
+                        try:
+                            p.unlink()
+                        except Exception:
+                            pass
                 print(f"[*] Rendering fuer {clip_id} wurde vorzeitig abgebrochen.")
                 return None
 
@@ -612,7 +615,17 @@ class VideoComposer:
                 except Exception:
                     pass
 
-            if output_file.exists() and output_file.stat().st_size > 1000:
+            if temp_output_file.exists() and temp_output_file.stat().st_size > 1000:
+                replaced = False
+                for _ in range(8):
+                    try:
+                        os.replace(str(temp_output_file), str(output_file))
+                        replaced = True
+                        break
+                    except PermissionError:
+                        time.sleep(0.15)
+                if not replaced:
+                    os.replace(str(temp_output_file), str(output_file))
                 print(f"[+] 9:16 Short fertiggestellt: {output_file.name}")
                 try:
                     generate_thumbnail(clip_id, force=True)
@@ -623,6 +636,11 @@ class VideoComposer:
                     on_progress(100, 0, f"{speed_factor:.1f}x")
                 return output_file
             else:
+                if temp_output_file.exists():
+                    try:
+                        temp_output_file.unlink()
+                    except Exception:
+                        pass
                 print(f"[!] FFmpeg Fehler: {stderr_out[-500:] if stderr_out else 'Unbekannt'}")
         except Exception as e:
             print(f"[!] Exception beim Rendern: {e}")

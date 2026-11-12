@@ -3372,13 +3372,10 @@ def get_dashboard_dict():
 
         short_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
         thumb_file = DATA_DIR / "thumbnails" / f"{clip_id}.jpg"
-        mtime = 0
-        if thumb_file.exists():
-            mtime = int(thumb_file.stat().st_mtime)
-        elif short_file.exists():
-            mtime = int(short_file.stat().st_mtime)
-        else:
-            mtime = int(time.time())
+        short_mtime = short_file.stat().st_mtime if short_file.exists() else 0.0
+        thumb_mtime = thumb_file.stat().st_mtime if thumb_file.exists() else 0.0
+        latest_mtime = max(short_mtime, thumb_mtime)
+        mtime = int(latest_mtime * 1000) if latest_mtime > 0 else int(time.time() * 1000)
 
         created_ago, created_full = format_relative_time(r["clip_created_at"] or r["harvested_at"])
         ready_clips.append({
@@ -3761,7 +3758,8 @@ def serve_raw_thumbnail(clip_id):
 
     if thumb_path.exists():
         response = send_file(thumb_path, mimetype="image/jpeg")
-        response.headers["Cache-Control"] = "public, max-age=86400"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
         return response
 
     return make_svg_poster("Twitch Rohdatei", clip_id)
@@ -3770,7 +3768,10 @@ def serve_raw_thumbnail(clip_id):
 def serve_video(clip_id):
     video_path = _safe_resolve_clip_path(SHORTS_OUTPUT_DIR, f"short_{clip_id}", ".mp4")
     if video_path and video_path.exists():
-        return send_file(video_path, mimetype="video/mp4", conditional=True)
+        response = send_file(video_path, mimetype="video/mp4", conditional=True)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
     return "Video nicht gefunden", 404
 
 @app.route("/download/short/<clip_id>")
