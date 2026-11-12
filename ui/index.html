@@ -285,7 +285,12 @@
 </head>
 <body>
 
-    <div class="container">
+    <div id="boot-splash" style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; color: #fff;">
+        <span class="spinner" style="width: 32px; height: 32px; margin-bottom: 16px;"></span>
+        <h2 style="font-size: 20px; font-weight: bold;">Starte Clip Farming Studio...</h2>
+    </div>
+
+    <div class="container hidden">
 
         <!-- Header -->
         <div class="header">
@@ -451,9 +456,40 @@
             return null;
         }
 
+        async function launchStudioSafe(invoke) {
+            try {
+                await invoke('launch_studio_after_setup');
+            } catch (err) {
+                const msg = (typeof err === 'string') ? err : (err?.message || String(err));
+                document.body.innerHTML = '';
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;font-family:sans-serif;color:#f1f5f9;max-width:720px;margin:0 auto;';
+                const title = document.createElement('h2');
+                title.style.cssText = 'font-size:20px;font-weight:700;color:#f87171;margin-bottom:12px;';
+                title.textContent = 'Clip Farming Studio konnte nicht gestartet werden';
+                const pre = document.createElement('pre');
+                pre.style.cssText = 'width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;font-size:12px;color:#cbd5e1;white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto;margin-bottom:18px;';
+                pre.textContent = msg;
+                const btn = document.createElement('button');
+                btn.textContent = 'Erneut versuchen';
+                btn.style.cssText = 'padding:10px 20px;border-radius:8px;border:none;background:#f59e0b;color:#080c14;font-weight:700;cursor:pointer;';
+                btn.onclick = () => window.location.reload();
+                wrap.append(title, pre, btn);
+                document.body.appendChild(wrap);
+            }
+        }
+
+        function showSetupContainer() {
+            const splash = document.getElementById('boot-splash');
+            if (splash) splash.remove();
+            const container = document.querySelector('.container');
+            if (container) container.classList.remove('hidden');
+        }
+
         async function init() {
             const invoke = getTauriInvoke();
             if (!invoke) {
+                showSetupContainer();
                 // Browser test mode
                 applySpecs({
                     gpu_name: "NVIDIA GeForce RTX (Automatisch erkannt)",
@@ -469,17 +505,13 @@
                 const info = await invoke('get_setup_info');
                 if (info && info.is_ready) {
                     // Environment is already ready! Redirect to studio!
-                    document.body.innerHTML = `
-                        <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; color: #fff;">
-                            <span class="spinner" style="width: 32px; height: 32px; margin-bottom: 16px;"></span>
-                            <h2 style="font-size: 20px; font-weight: bold;">Starte Clip Farming Studio...</h2>
-                        </div>
-                    `;
-                    await invoke('launch_studio_after_setup');
+                    await launchStudioSafe(invoke);
                     return;
                 }
+                showSetupContainer();
                 applySpecs(info);
             } catch (e) {
+                showSetupContainer();
                 console.error("Fehler beim Abrufen der Setup-Info:", e);
                 document.getElementById('gpu-name').innerText = "Standard Prozessor (CPU)";
             }
@@ -617,7 +649,7 @@
             setTimeout(async () => {
                 const invoke = getTauriInvoke();
                 if (invoke) {
-                    await invoke('launch_studio_after_setup');
+                    await launchStudioSafe(invoke);
                 } else {
                     window.location.href = 'http://127.0.0.1:5000';
                 }

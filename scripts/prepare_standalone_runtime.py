@@ -21,7 +21,7 @@ def prepare_runtime():
 
     # 1. Copy Python binaries & core DLLs
     print("1. Kopiere Python-Binaries und DLLs...")
-    for f in ["python.exe", "pythonw.exe", "python3.dll", "python312.dll"]:
+    for f in ["python.exe", "pythonw.exe", "python3.dll", "python312.dll", "vcruntime140.dll", "vcruntime140_1.dll"]:
         src = BASE_PYTHON / f
         if src.exists():
             shutil.copy2(src, RUNTIME_DIR / f)
@@ -54,8 +54,8 @@ def prepare_runtime():
 
     for item in sp_source.iterdir():
         name = item.name
-        # Skip pycache and dist-info / egg-info
-        if name == "__pycache__" or name.endswith((".dist-info", ".egg-info")):
+        # Skip pycache (keep .dist-info/.egg-info because werkzeug & andere Pakete importlib.metadata.version() nutzen)
+        if name == "__pycache__":
             continue
         
         # Skip the huge 1.95 GB nvidia cuda wheels (we include essential cublas/cudnn separately if desired)
@@ -85,7 +85,10 @@ def prepare_runtime():
     py_exe = RUNTIME_DIR / "python.exe"
     test_cmd = [
         str(py_exe), "-c",
-        "import flask, cv2, ctranslate2, yaml, requests, yt_dlp; print('ALL_IMPORTS_SUCCESSFUL')"
+        "import importlib.metadata, flask, werkzeug.serving, cv2, ctranslate2, yaml, requests, yt_dlp; "
+        "assert importlib.metadata.version('werkzeug'); "
+        "import src.web_studio; "
+        "print('ALL_IMPORTS_SUCCESSFUL')"
     ]
     res = subprocess.run(test_cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
     if "ALL_IMPORTS_SUCCESSFUL" in res.stdout:

@@ -308,31 +308,66 @@ pub async fn launch_studio_after_setup(window: WebviewWindow) -> Result<bool, St
             PathBuf::from("python")
         };
 
+        let data_dir = app_dir.join("data");
+        let _ = std::fs::create_dir_all(&data_dir);
+        let log_path = data_dir.join("backend_startup.log");
+
+        let mut cmd = Command::new(&py_path);
+        cmd.current_dir(&app_dir)
+            .args(["-m", "src.web_studio"]);
+
+        if let Ok(log_file) = std::fs::File::create(&log_path) {
+            if let Ok(err_file) = log_file.try_clone() {
+                cmd.stdout(Stdio::from(log_file));
+                cmd.stderr(Stdio::from(err_file));
+            }
+        }
+
         #[cfg(windows)]
         {
             const CREATE_NO_WINDOW: u32 = 0x08000000;
-            let _ = Command::new(py_path)
-                .current_dir(&app_dir)
-                .args(["-m", "src.web_studio"])
-                .creation_flags(CREATE_NO_WINDOW)
-                .spawn();
+            cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
-        #[cfg(not(windows))]
-        {
-            let _ = Command::new(py_path)
-                .current_dir(&app_dir)
-                .args(["-m", "src.web_studio"])
-                .spawn();
-        }
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("Python-Backend konnte nicht gestartet werden ({:?}): {}", py_path, e))?;
 
-        // Wait up to 15 seconds for Flask to respond
-        for _ in 0..150 {
+        let read_log_tail = || -> String {
+            std::fs::read_to_string(&log_path)
+                .map(|content| {
+                    let lines: Vec<&str> = content.lines().collect();
+                    let start = lines.len().saturating_sub(15);
+                    lines[start..].join("\n")
+                })
+                .unwrap_or_default()
+        };
+
+        // Wait up to 30 seconds for Flask to respond, failing fast if Python exits early
+        let mut backend_ready = false;
+        for _ in 0..300 {
             if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
                 std::thread::sleep(Duration::from_millis(300));
+                backend_ready = true;
                 break;
             }
+            if let Ok(Some(exit_status)) = child.try_wait() {
+                let tail = read_log_tail();
+                return Err(format!(
+                    "Backend wurde unerwartet beendet ({}). Log:\n{}",
+                    exit_status,
+                    if tail.is_empty() { "Keine Log-Ausgabe".to_string() } else { tail }
+                ));
+            }
             std::thread::sleep(Duration::from_millis(100));
+        }
+
+        if !backend_ready {
+            let tail = read_log_tail();
+            return Err(format!(
+                "Backend hat Port 5000 nach 30 Sekunden nicht geöffnet. Log:\n{}",
+                if tail.is_empty() { "Keine Log-Ausgabe".to_string() } else { tail }
+            ));
         }
     }
 
