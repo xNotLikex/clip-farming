@@ -1901,17 +1901,12 @@ HTML_DASHBOARD = """
                 </div>
             </div>
 
-            <!-- Streamer Filter Bar (Sortiert nach Streamer) -->
-            <div id="streamer-pills-container" class="flex flex-wrap items-center gap-2 bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg shadow">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter nach Streamer:</span>
-                <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill active px-3.5 py-1.5 rounded text-xs font-bold bg-amber-500 text-zinc-950 font-semibold transition">
+            <!-- Streamer Filter Bar (Profilbilder & Mehrfachauswahl) -->
+            <div id="streamer-pills-container" class="{% if not ready_clips %}hidden {% endif %}px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-lg flex items-center gap-2.5 flex-wrap shadow">
+                <span class="text-xs font-semibold text-slate-400 mr-1 whitespace-nowrap">Streamer:</span>
+                <button type="button" onclick="clearStudioStreamerFilter()" class="px-2.5 py-1 rounded-full border text-xs font-semibold bg-amber-500 text-slate-950 border-amber-400 shadow-sm transition whitespace-nowrap">
                     Alle ({{ ready_clips|length }})
                 </button>
-                {% for st_name, count in streamer_counts.items() %}
-                <button onclick="filterStudioByStreamer('{{ st_name|lower }}')" id="pill-{{ st_name|lower }}" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-                    {{ st_name }} ({{ count }})
-                </button>
-                {% endfor %}
             </div>
 
             <div id="studio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

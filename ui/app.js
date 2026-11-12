@@ -220,14 +220,29 @@ function clearQueueStreamerFilter() {
     renderQueue(cachedQueueClips, cachedQueueOlderCount);
 }
 
-function renderQueueStreamerFilter(clips) {
-    const bar = document.getElementById('queue-streamer-filter-bar');
-    if (!bar) return;
+function buildStreamerCountsMap(clips) {
+    const counts = new Map();
+    (clips || []).forEach(c => {
+        const rawName = String(c.streamer || '').trim();
+        if (!rawName) return;
+        const key = rawName.toLowerCase();
+        const existing = counts.get(key);
+        if (existing) {
+            existing.count += 1;
+        } else {
+            counts.set(key, { name: rawName, count: 1 });
+        }
+    });
+    return counts;
+}
 
-    if (!clips || clips.length === 0) {
-        selectedQueueStreamers.clear();
-        bar.classList.add('hidden');
-        bar.innerHTML = '';
+function renderStreamerAvatarFilterBar({ barEl, countsMap, totalCount, selectedSet, onToggleFnName, onClearFnName }) {
+    if (!barEl) return;
+
+    if (!countsMap || countsMap.size === 0 || !totalCount) {
+        selectedSet.clear();
+        barEl.classList.add('hidden');
+        barEl.innerHTML = '';
         return;
     }
 
@@ -238,48 +253,30 @@ function renderQueueStreamerFilter(clips) {
         }
     });
 
-    const grouped = new Map();
-    clips.forEach(c => {
-        const rawName = String(c.streamer || '').trim();
-        if (!rawName) return;
-        const key = rawName.toLowerCase();
-        const existing = grouped.get(key);
-        if (existing) {
-            existing.count += 1;
-        } else {
-            const meta = streamerMeta.get(key);
-            grouped.set(key, {
-                key,
-                name: rawName,
-                displayName: (meta && meta.display_name) ? meta.display_name : rawName,
-                avatarUrl: (meta && meta.avatar_url) ? meta.avatar_url : DEFAULT_TWITCH_AVATAR,
-                isLive: !!(meta && meta.is_live),
-                count: 1
-            });
-        }
-    });
-
-    // Entferne evtl. veraltete Selektionen, deren Clips nicht mehr existieren
-    for (const sel of Array.from(selectedQueueStreamers)) {
-        if (!grouped.has(sel)) {
-            selectedQueueStreamers.delete(sel);
+    for (const sel of Array.from(selectedSet)) {
+        if (!countsMap.has(sel)) {
+            selectedSet.delete(sel);
         }
     }
 
-    const entries = Array.from(grouped.values()).sort((a, b) => b.count - a.count || a.displayName.localeCompare(b.displayName));
-    if (entries.length === 0) {
-        bar.classList.add('hidden');
-        bar.innerHTML = '';
-        return;
-    }
+    const entries = Array.from(countsMap.entries()).map(([key, val]) => {
+        const meta = streamerMeta.get(key);
+        return {
+            key,
+            name: val.name,
+            displayName: (meta && meta.display_name) ? meta.display_name : val.name,
+            avatarUrl: (meta && meta.avatar_url) ? meta.avatar_url : DEFAULT_TWITCH_AVATAR,
+            count: val.count
+        };
+    }).sort((a, b) => b.count - a.count || a.displayName.localeCompare(b.displayName));
 
-    const hasFilter = selectedQueueStreamers.size > 0;
+    const hasFilter = selectedSet.size > 0;
     const allActiveClass = !hasFilter
         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
         : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500 hover:text-white';
 
     const avatarsHtml = entries.map(entry => {
-        const isSelected = selectedQueueStreamers.has(entry.key);
+        const isSelected = selectedSet.has(entry.key);
         const btnStateClass = !hasFilter
             ? 'border-slate-700 hover:border-amber-400/80 opacity-95 hover:opacity-100'
             : (isSelected
@@ -287,7 +284,7 @@ function renderQueueStreamerFilter(clips) {
                 : 'border-slate-800 opacity-45 hover:opacity-95 hover:border-slate-600');
         return `
             <button type="button"
-                onclick="toggleQueueStreamerFilter('${escapeJs(entry.key)}')"
+                onclick="${onToggleFnName}('${escapeJs(entry.key)}')"
                 title="${escapeHtml(entry.displayName)} (${entry.count} ${entry.count === 1 ? 'Clip' : 'Clips'})"
                 aria-pressed="${isSelected ? 'true' : 'false'}"
                 class="group relative p-0.5 rounded-full border transition-all duration-150 focus:outline-none ${btnStateClass}">
@@ -301,18 +298,29 @@ function renderQueueStreamerFilter(clips) {
         `;
     }).join('');
 
-    bar.classList.remove('hidden');
-    bar.innerHTML = `
+    barEl.classList.remove('hidden');
+    barEl.innerHTML = `
         <span class="text-xs font-semibold text-slate-400 mr-1 whitespace-nowrap">Streamer:</span>
         <button type="button"
-            onclick="clearQueueStreamerFilter()"
+            onclick="${onClearFnName}()"
             class="px-2.5 py-1 rounded-full border text-xs font-semibold transition whitespace-nowrap ${allActiveClass}">
-            Alle (${clips.length})
+            Alle (${totalCount})
         </button>
         <div class="flex items-center gap-2 flex-wrap">
             ${avatarsHtml}
         </div>
     `;
+}
+
+function renderQueueStreamerFilter(clips) {
+    renderStreamerAvatarFilterBar({
+        barEl: document.getElementById('queue-streamer-filter-bar'),
+        countsMap: buildStreamerCountsMap(clips),
+        totalCount: clips ? clips.length : 0,
+        selectedSet: selectedQueueStreamers,
+        onToggleFnName: 'toggleQueueStreamerFilter',
+        onClearFnName: 'clearQueueStreamerFilter'
+    });
 }
 
 function renderQueue(clips, olderCount) {
@@ -441,7 +449,8 @@ async function deleteOlderQueue() {
 // ----------------------------------------
 // 2. STUDIO & FREIGABE
 // ----------------------------------------
-let gActiveStudioStreamerFilter = 'all';
+let selectedStudioStreamers = new Set();
+let cachedStudioClips = [];
 let gLastStudioPillsSig = '';
 
 function getStudioCardSignature(clip) {
@@ -635,26 +644,21 @@ function renderStudio(clips, streamerCounts, forceRender = false) {
         }
     }
 
-    // Streamer Filter Pills nur bei tatsächlicher Änderung neu aufbauen
-    if (pillsContainer && streamerCounts) {
-        const totalCount = clips ? clips.length : 0;
-        const pillsSig = JSON.stringify({ totalCount, streamerCounts });
+    cachedStudioClips = clips || [];
+
+    // Streamer Filter Avatar Bar nur bei tatsächlicher Änderung neu aufbauen
+    if (pillsContainer) {
+        const totalCount = cachedStudioClips.length;
+        const selectedKey = Array.from(selectedStudioStreamers).sort().join(',');
+        const pillsSig = JSON.stringify({
+            totalCount,
+            streamerCounts: streamerCounts || {},
+            streamersLen: (cachedStreamers || []).length,
+            selectedKey
+        });
         if (forceRender || pillsSig !== gLastStudioPillsSig) {
             gLastStudioPillsSig = pillsSig;
-            let pillsHtml = `
-                <button onclick="filterStudioByStreamer('all')" id="pill-all" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-                    Alle (${totalCount})
-                </button>
-            `;
-            for (const [stName, count] of Object.entries(streamerCounts)) {
-                pillsHtml += `
-                    <button onclick="filterStudioByStreamer('${stName.toLowerCase()}')" id="pill-${stName.toLowerCase()}" class="streamer-pill px-3.5 py-1.5 rounded text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-                        ${stName} (${count})
-                    </button>
-                `;
-            }
-            pillsContainer.innerHTML = pillsHtml;
-            filterStudioByStreamer(gActiveStudioStreamerFilter || 'all');
+            renderStudioStreamerFilter();
         }
     }
 
@@ -723,8 +727,8 @@ function renderStudio(clips, streamerCounts, forceRender = false) {
         domMutated = true;
     });
 
-    if (domMutated && gActiveStudioStreamerFilter && gActiveStudioStreamerFilter !== 'all') {
-        filterStudioByStreamer(gActiveStudioStreamerFilter);
+    if (domMutated && selectedStudioStreamers.size > 0) {
+        applyStudioStreamerFilter();
     }
 }
 
@@ -1468,26 +1472,54 @@ if (document.readyState === 'loading') {
             }
         }
 
-        function filterStudioByStreamer(streamerName) {
-            gActiveStudioStreamerFilter = streamerName || 'all';
-            document.querySelectorAll('.streamer-pill').forEach(btn => {
-                btn.classList.remove('active', 'bg-amber-500', 'text-zinc-950', 'text-white', 'shadow');
-                btn.classList.add('bg-slate-800', 'text-slate-300');
-            });
-            
-            const activePill = document.getElementById('pill-' + gActiveStudioStreamerFilter) || document.getElementById('pill-all');
-            if (activePill) {
-                activePill.classList.remove('bg-slate-800', 'text-slate-300');
-                activePill.classList.add('active', 'bg-amber-500', 'text-zinc-950', 'shadow');
-            }
-
+        function applyStudioStreamerFilter() {
             document.querySelectorAll('.studio-clip-card').forEach(card => {
-                if (gActiveStudioStreamerFilter === 'all' || card.getAttribute('data-streamer') === gActiveStudioStreamerFilter) {
+                const st = (card.getAttribute('data-streamer') || '').toLowerCase();
+                if (selectedStudioStreamers.size === 0 || selectedStudioStreamers.has(st)) {
                     card.classList.remove('hidden');
                 } else {
                     card.classList.add('hidden');
                 }
             });
+        }
+
+        function renderStudioStreamerFilter() {
+            renderStreamerAvatarFilterBar({
+                barEl: document.getElementById('streamer-pills-container'),
+                countsMap: buildStreamerCountsMap(cachedStudioClips),
+                totalCount: cachedStudioClips.length,
+                selectedSet: selectedStudioStreamers,
+                onToggleFnName: 'toggleStudioStreamerFilter',
+                onClearFnName: 'clearStudioStreamerFilter'
+            });
+            applyStudioStreamerFilter();
+        }
+
+        function toggleStudioStreamerFilter(streamerKey) {
+            const key = String(streamerKey || '').trim().toLowerCase();
+            if (!key) return;
+            if (selectedStudioStreamers.has(key)) {
+                selectedStudioStreamers.delete(key);
+            } else {
+                selectedStudioStreamers.add(key);
+            }
+            gLastStudioPillsSig = '';
+            renderStudioStreamerFilter();
+        }
+
+        function clearStudioStreamerFilter() {
+            selectedStudioStreamers.clear();
+            gLastStudioPillsSig = '';
+            renderStudioStreamerFilter();
+        }
+
+        function filterStudioByStreamer(streamerName) {
+            const key = String(streamerName || '').trim().toLowerCase();
+            if (!key || key === 'all') {
+                clearStudioStreamerFilter();
+            } else {
+                toggleStudioStreamerFilter(key);
+            }
         }
 
         async function toggleManualPublished(clipId, isChecked) {
@@ -3747,6 +3779,8 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.saveAsDefaultStreamerLayout = saveAsDefaultStreamerLayout;
         window.applyBulkMinViews = applyBulkMinViews;
         window.filterStudioByStreamer = filterStudioByStreamer;
+        window.toggleStudioStreamerFilter = toggleStudioStreamerFilter;
+        window.clearStudioStreamerFilter = clearStudioStreamerFilter;
         window.toggleQueueStreamerFilter = toggleQueueStreamerFilter;
         window.clearQueueStreamerFilter = clearQueueStreamerFilter;
         window.triggerRun = triggerRun;
