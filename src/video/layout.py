@@ -24,20 +24,27 @@ active_renders: Dict[str, Dict[str, Any]] = {}
 render_lock = threading.Lock()
 
 def cancel_active_render(clip_id: str) -> bool:
-    """Bricht ein aktuell laufendes Rendering fuer clip_id sofort ab."""
+    """Bricht ein aktuell laufendes Rendering fuer clip_id sofort ab und wartet auf Handle-Freigabe."""
+    proc = None
     with render_lock:
         if clip_id in active_renders:
             job = active_renders[clip_id]
             job["cancelled"] = True
-            proc = job.get("proc")
-            if proc and proc.poll() is None:
-                try:
-                    proc.kill()
-                    print(f"[*] Vorheriges Rendering fuer {clip_id} wurde sofort abgebrochen!")
-                    return True
-                except Exception as e:
-                    print(f"[!] Fehler beim Abbruch von {clip_id}: {e}")
-    return False
+            candidate = job.get("proc")
+            if candidate and candidate.poll() is None:
+                proc = candidate
+
+    if proc is None:
+        return False
+
+    try:
+        proc.kill()
+        proc.wait(timeout=5)
+        print(f"[*] Vorheriges Rendering fuer {clip_id} wurde sofort abgebrochen!")
+        return True
+    except (subprocess.SubprocessError, OSError) as e:
+        print(f"[!] Fehler beim Abbruch von {clip_id}: {e}")
+        return False
 
 def _parse_fps(rate_str: str) -> float:
     """Parst ffprobe r_frame_rate/avg_frame_rate (z.B. '60/1' oder '30000/1001')."""
@@ -277,7 +284,6 @@ class VideoComposer:
         """
         # 0. Vorheriges Rendering für den gleichen Clip abbrechen, falls noch aktiv!
         cancel_active_render(clip_id)
-        time.sleep(0.15) # Kurzer Moment zum Freigeben von Dateihandles
 
         output_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
         temp_output_file = SHORTS_OUTPUT_DIR / f"tmp_short_{clip_id}.mp4"

@@ -51,3 +51,26 @@ def test_probe_video_returns_defaults_on_error(monkeypatch):
         "fps": 30.0,
         "has_audio": True,
     }
+
+
+def test_cancel_active_render_kills_and_waits(monkeypatch):
+    events: list[str] = []
+
+    class _FakeProc:
+        def poll(self):
+            return None
+
+        def kill(self):
+            events.append("kill")
+
+        def wait(self, timeout=None):
+            events.append(f"wait:{timeout}")
+            return 0
+
+    job = {"proc": _FakeProc(), "cancelled": False}
+    monkeypatch.setattr(layout, "active_renders", {"c1": job})
+
+    assert layout.cancel_active_render("c1") is True
+    assert job["cancelled"] is True
+    assert events == ["kill", "wait:5"]
+
