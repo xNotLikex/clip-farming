@@ -1,15 +1,31 @@
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any
+
 from src.config import DATA_DIR
 
 DB_PATH = DATA_DIR / "pipeline.db"
 
-def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+
+@contextmanager
+def get_db_connection() -> Iterator[sqlite3.Connection]:
+    """Öffnet eine SQLite-Verbindung mit WAL-Modus, Timeout und sauberem Close."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute("PRAGMA foreign_keys=ON;")
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 def init_db():
     """Initialisiert die SQLite-Datenbanktabellen."""
@@ -42,14 +58,10 @@ def init_db():
                 error_log TEXT
             )
         """)
-        try:
+        with suppress(sqlite3.OperationalError):
             cursor.execute("ALTER TABLE clips ADD COLUMN scheduled_publish_at TEXT")
-        except Exception:
-            pass
-        try:
+        with suppress(sqlite3.OperationalError):
             cursor.execute("ALTER TABLE clips ADD COLUMN is_manually_published INTEGER DEFAULT 0")
-        except Exception:
-            pass
         
         # M3 Audit-Fix: Performance-Indizes für schnelle Dashboard- & Queue-Abfragen
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_status ON clips(status)")
@@ -75,7 +87,7 @@ def is_clip_already_processed(clip_id: str) -> bool:
         cursor.execute("SELECT 1 FROM clips WHERE clip_id = ?", (clip_id,))
         return cursor.fetchone() is not None
 
-def save_clip(clip_data: Dict[str, Any]):
+def save_clip(clip_data: dict[str, Any]):
     """Speichert einen neu gefundenen Clip."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -122,7 +134,7 @@ def update_clip_status(clip_id: str, status: str, **kwargs):
         cursor.execute(query, values)
         conn.commit()
 
-def get_pending_clips(limit: int = 10) -> List[Dict[str, Any]]:
+def get_pending_clips(limit: int = 10) -> list[dict[str, Any]]:
     """Gibt Clips zurück, die noch gerendert werden müssen."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
