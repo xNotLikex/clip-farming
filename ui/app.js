@@ -168,6 +168,7 @@ function renderDashboard(data, forceRender = false) {
 
     // 2. Streamer header count
     if (data.streamers) {
+        cachedStreamers = data.streamers;
         const sh = document.getElementById('header-streamer-count');
         if (sh) sh.innerText = data.streamers.length;
     }
@@ -197,7 +198,127 @@ function renderDashboard(data, forceRender = false) {
 // ----------------------------------------
 // 1. WARTESCHLANGE (QUEUE)
 // ----------------------------------------
+const DEFAULT_TWITCH_AVATAR = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png';
+let selectedQueueStreamers = new Set();
+let cachedQueueClips = [];
+let cachedQueueOlderCount = 0;
+let cachedStreamers = [];
+
+function toggleQueueStreamerFilter(streamerKey) {
+    const key = String(streamerKey || '').trim().toLowerCase();
+    if (!key) return;
+    if (selectedQueueStreamers.has(key)) {
+        selectedQueueStreamers.delete(key);
+    } else {
+        selectedQueueStreamers.add(key);
+    }
+    renderQueue(cachedQueueClips, cachedQueueOlderCount);
+}
+
+function clearQueueStreamerFilter() {
+    selectedQueueStreamers.clear();
+    renderQueue(cachedQueueClips, cachedQueueOlderCount);
+}
+
+function renderQueueStreamerFilter(clips) {
+    const bar = document.getElementById('queue-streamer-filter-bar');
+    if (!bar) return;
+
+    if (!clips || clips.length === 0) {
+        selectedQueueStreamers.clear();
+        bar.classList.add('hidden');
+        bar.innerHTML = '';
+        return;
+    }
+
+    const streamerMeta = new Map();
+    (cachedStreamers || []).forEach(s => {
+        if (s && s.name) {
+            streamerMeta.set(String(s.name).toLowerCase(), s);
+        }
+    });
+
+    const grouped = new Map();
+    clips.forEach(c => {
+        const rawName = String(c.streamer || '').trim();
+        if (!rawName) return;
+        const key = rawName.toLowerCase();
+        const existing = grouped.get(key);
+        if (existing) {
+            existing.count += 1;
+        } else {
+            const meta = streamerMeta.get(key);
+            grouped.set(key, {
+                key,
+                name: rawName,
+                displayName: (meta && meta.display_name) ? meta.display_name : rawName,
+                avatarUrl: (meta && meta.avatar_url) ? meta.avatar_url : DEFAULT_TWITCH_AVATAR,
+                isLive: !!(meta && meta.is_live),
+                count: 1
+            });
+        }
+    });
+
+    // Entferne evtl. veraltete Selektionen, deren Clips nicht mehr existieren
+    for (const sel of Array.from(selectedQueueStreamers)) {
+        if (!grouped.has(sel)) {
+            selectedQueueStreamers.delete(sel);
+        }
+    }
+
+    const entries = Array.from(grouped.values()).sort((a, b) => b.count - a.count || a.displayName.localeCompare(b.displayName));
+    if (entries.length === 0) {
+        bar.classList.add('hidden');
+        bar.innerHTML = '';
+        return;
+    }
+
+    const hasFilter = selectedQueueStreamers.size > 0;
+    const allActiveClass = !hasFilter
+        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+        : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500 hover:text-white';
+
+    const avatarsHtml = entries.map(entry => {
+        const isSelected = selectedQueueStreamers.has(entry.key);
+        const btnStateClass = !hasFilter
+            ? 'border-slate-700 hover:border-amber-400/80 opacity-95 hover:opacity-100'
+            : (isSelected
+                ? 'border-amber-400 ring-2 ring-amber-400/70 bg-amber-500/15 opacity-100 scale-105'
+                : 'border-slate-800 opacity-45 hover:opacity-95 hover:border-slate-600');
+        return `
+            <button type="button"
+                onclick="toggleQueueStreamerFilter('${escapeJs(entry.key)}')"
+                title="${escapeHtml(entry.displayName)} (${entry.count} ${entry.count === 1 ? 'Clip' : 'Clips'})"
+                aria-pressed="${isSelected ? 'true' : 'false'}"
+                class="group relative p-0.5 rounded-full border transition-all duration-150 focus:outline-none ${btnStateClass}">
+                <img src="${escapeHtml(entry.avatarUrl)}"
+                     alt="${escapeHtml(entry.displayName)}"
+                     onerror="this.src='${DEFAULT_TWITCH_AVATAR}'"
+                     class="w-9 h-9 rounded-full object-cover bg-slate-950 block">
+                <span class="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none flex items-center justify-center border ${isSelected ? 'bg-amber-400 text-slate-950 border-slate-950' : 'bg-slate-800 text-slate-200 border-slate-950'}">${entry.count}</span>
+                <span class="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute left-1/2 -translate-x-1/2 -top-8 z-30 px-2 py-1 rounded bg-slate-950 border border-slate-700 text-slate-100 text-[11px] font-semibold whitespace-nowrap shadow-lg">${escapeHtml(entry.displayName)}</span>
+            </button>
+        `;
+    }).join('');
+
+    bar.classList.remove('hidden');
+    bar.innerHTML = `
+        <span class="text-xs font-semibold text-slate-400 mr-1 whitespace-nowrap">Streamer:</span>
+        <button type="button"
+            onclick="clearQueueStreamerFilter()"
+            class="px-2.5 py-1 rounded-full border text-xs font-semibold transition whitespace-nowrap ${allActiveClass}">
+            Alle (${clips.length})
+        </button>
+        <div class="flex items-center gap-2 flex-wrap">
+            ${avatarsHtml}
+        </div>
+    `;
+}
+
 function renderQueue(clips, olderCount) {
+    cachedQueueClips = clips || [];
+    cachedQueueOlderCount = olderCount || 0;
+
     const tbody = document.getElementById('queue-tbody');
     const emptyState = document.getElementById('queue-empty-state');
     const olderBtn = document.getElementById('btn-delete-older');
@@ -214,6 +335,8 @@ function renderQueue(clips, olderCount) {
         }
     }
 
+    renderQueueStreamerFilter(cachedQueueClips);
+
     if (!clips || clips.length === 0) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="py-12 text-center text-slate-500">Keine Clips in der Warteschlange.</td></tr>`;
         if (emptyState) emptyState.classList.remove('hidden');
@@ -221,8 +344,17 @@ function renderQueue(clips, olderCount) {
     }
     if (emptyState) emptyState.classList.add('hidden');
 
+    const visibleClips = selectedQueueStreamers.size > 0
+        ? clips.filter(c => selectedQueueStreamers.has(String(c.streamer || '').trim().toLowerCase()))
+        : clips;
+
     if (!tbody) return;
-    tbody.innerHTML = clips.map(clip => `
+    if (visibleClips.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-slate-500">Keine Clips für die ausgewählten Streamer. <button type="button" onclick="clearQueueStreamerFilter()" class="ml-2 text-amber-400 hover:underline font-semibold">Filter zurücksetzen</button></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = visibleClips.map(clip => `
         <tr onclick="openRawPreview('${escapeJs(clip.clip_id)}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.original_title)}', '${clip.view_count}', '${Math.round(clip.duration)}', '${escapeJs(clip.created_ago || '')}', '${escapeJs(clip.created_full || '')}')"
             class="hover:bg-slate-800/40 cursor-pointer transition group">
             <td class="py-3 px-4 text-center whitespace-nowrap">
@@ -3615,6 +3747,8 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.saveAsDefaultStreamerLayout = saveAsDefaultStreamerLayout;
         window.applyBulkMinViews = applyBulkMinViews;
         window.filterStudioByStreamer = filterStudioByStreamer;
+        window.toggleQueueStreamerFilter = toggleQueueStreamerFilter;
+        window.clearQueueStreamerFilter = clearQueueStreamerFilter;
         window.triggerRun = triggerRun;
         window.__realTriggerRun = triggerRun;
         window.showToast = showToast;

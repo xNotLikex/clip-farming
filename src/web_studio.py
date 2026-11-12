@@ -1763,6 +1763,7 @@ HTML_DASHBOARD = """
                     </div>
                     {% endif %}
                 </div>
+                <div id="queue-streamer-filter-bar" class="hidden px-4 py-2.5 bg-slate-950/40 border-b border-slate-800 flex items-center gap-2.5 flex-wrap"></div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
