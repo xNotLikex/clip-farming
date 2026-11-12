@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from src import scheduler
 
 
-def test_scheduler_marks_rendered_not_published_when_only_tiktok_enabled(tmp_path, monkeypatch):
+def test_scheduler_marks_rendered_clip_ready_without_upload(tmp_path, monkeypatch):
     raw_file = tmp_path / "raw_c1.mp4"
     raw_file.write_bytes(b"raw")
     rendered_file = tmp_path / "short_c1.mp4"
@@ -13,10 +13,6 @@ def test_scheduler_marks_rendered_not_published_when_only_tiktok_enabled(tmp_pat
 
     cfg = {
         "streamers": [{"name": "trymacs", "enabled": True}],
-        "publishing": {
-            "youtube": {"enabled": False},
-            "tiktok": {"enabled": True},
-        },
         "ai": {},
         "video": {},
     }
@@ -59,9 +55,6 @@ def test_scheduler_marks_rendered_not_published_when_only_tiktok_enabled(tmp_pat
     }
     orch.composer = MagicMock()
     orch.composer.render_short.return_value = rendered_file
-    orch.yt_uploader = MagicMock()
-    orch.tt_uploader = MagicMock()
-    orch.tt_uploader.upload_short.return_value = None
 
     orch.run_cycle()
 
@@ -69,5 +62,5 @@ def test_scheduler_marks_rendered_not_published_when_only_tiktok_enabled(tmp_pat
     cid, status, kw = status_updates[0]
     assert cid == "c1"
     assert status == "ready"
-    assert kw["tiktok_video_id"] is None
-    assert "TikTok" in (kw["error_log"] or "")
+    assert kw["rendered_path"] == str(rendered_file)
+    assert kw["ai_title"] == "AI Title"

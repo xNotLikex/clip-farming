@@ -2,6 +2,9 @@
 
 ## [0.5.13] - 2026-11-12
 
+### Entfernt
+- **Upload & Account-Verknüpfung (YouTube / TikTok):** `src/uploaders/` (`youtube.py`, `tiktok.py`, `account_manager.py`, `browser_login.py`), `auto_publisher_worker`, Tabs *Planer* und *Konten* sowie zugehörige API-Routen und Upload-Abhängigkeiten dauerhaft entfernt. Fokus liegt auf Clip-Grabbing, Bearbeitung im Studio und HQ-Export.
+
 ### Behoben (P0)
 - **Secrets-Hygiene (`P0-3`):** `config/config.yaml` aus Git entfernt, `.gitignore` abgesichert, automatisches Bootstrap von `config/config.example.yaml` beim Start.
 - **TikTok-Stub (`P0-1`):** Gefakten TikTok-Erfolg entfernt (`upload_short` gibt `None` zurück), Clips werden ohne echte ID nicht als `published` markiert.

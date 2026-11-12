@@ -1,6 +1,6 @@
 # 🎬 Clip-Farming Studio & Autopilot (Twitch → 9:16 Shorts)
 
-Eine vollautomatische Windows-Desktop-App (**Tauri v2 + Rust** & **Python/Flask-Backend**) zum Finden, Zuschneiden, Untertiteln und Veröffentlichen vertikaler 9:16 Kurzvideos aus Twitch-Clips für **YouTube Shorts** und **TikTok**.
+Eine vollautomatische Windows-Desktop-App (**Tauri v2 + Rust** & **Python/Flask-Backend**) zum Finden, Zuschneiden, Untertiteln und Exportieren vertikaler 9:16 Kurzvideos aus Twitch-Clips (kein automatischer Upload).
 
 ---
 
@@ -30,14 +30,7 @@ Die Anwendung kombiniert eine native Windows-Oberfläche (`clip-farming.exe`) mi
      * **3D-Mesh-Cam-Filter (20 Effekte):** Facecam Fun-Warps wie Pyramide, Trichter-Kopf, Diamant, Voxel-Cube, Gigachad, Megamind/Alien, Hamsterbacken, Pinocchio, Glubschaugen, Schrumpf-Gesicht, Riesenmund, Sanduhr, Glaskugel-Bulge, Vortex-Wirbel, Wackelpudding u. v. m.
    * **Streamer-Filter-Pills**, Status-Markierung (*„Veröffentlicht?“*) und **Löschen & Ignorieren** (entfernt auch aktive Streams & die fertige `.mp4`).
 
-3. **🗓️ Veröffentlichungs-Planer (`Planer`):**
-   * Drip-Feed-Zeitplanung (`Zeitplan`) für fertige Shorts im konfigurierbaren Abstand oder sofortige Veröffentlichung (`Sofort posten`).
-
-4. **🔗 Konten (`Konten`):**
-   * **YouTube Shorts:** OAuth2-Anbindung über `config/youtube_secrets.json` (Token wird in `data/youtube_token.json` abgelegt).
-   * **TikTok:** Aktuell **nicht verfügbar** (direkter Upload ist deaktiviert, bis eine vollwertige TikTok-API-/Upload-Anbindung implementiert ist).
-
-5. **👥 Streamer-Verwaltung (`Streamer`):**
+3. **👥 Streamer-Verwaltung (`Streamer`):**
    * Überwachte Twitch-Kanäle hinzufügen, aktivieren/deaktivieren, Mindest-Views (`min_clip_views`), Clip-Limit (`max_clips_per_run`), Standard-Layout und gespeicherte Crop-Bereiche pro Streamer verwalten.
    * Beispielclip direkt laden, um Schnittrahmen vorab einzustellen.
 
@@ -231,13 +224,12 @@ Der fertige Installer landet anschließend unter `dist/Clip-Farming-Installer.ex
 ## ⚙️ Konfiguration & Secrets
 
 * Beim ersten Start wird `config/config.example.yaml` automatisch nach `config/config.yaml` kopiert (`config/config.yaml`, `data/` und Token-Dateien sind über `.gitignore` ausgeschlossen).
-* Secrets können alternativ über Umgebungsvariablen überschrieben werden: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `GEMINI_API_KEY`, `TIKTOK_SESSION_ID`.
+* Secrets können alternativ über Umgebungsvariablen überschrieben werden: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `GEMINI_API_KEY`.
 
 ---
 
 ## ⚖️ Rechtliches & Hinweise
 
-* **Urheberrecht & Plattformregeln:** Twitch-Clips gehören den jeweiligen Streamern/Rechteinhabern. Vor einer Veröffentlichung auf YouTube Shorts oder TikTok sollten Einverständnis eingeholt und Quellenangaben berücksichtigt werden („Reused Content“-Richtlinien beachten).
+* **Urheberrecht & Plattformregeln:** Twitch-Clips gehören den jeweiligen Streamern/Rechteinhabern. Die App dient ausschließlich zum Herunterladen und Bearbeiten von Clips (kein automatischer Upload zu YouTube oder TikTok).
 * **Twitch-Schnittstellen:** Die offizielle **Twitch Helix API** mit eigenen Client-Credentials ist der empfohlene Weg. Der öffentliche GQL-Fallback (`TWITCH_GQL_CLIENT_ID`) ist eine inoffizielle Schnittstelle **ohne Garantie** und kann sich jederzeit ändern.
-* **TikTok-Status:** Der direkte TikTok-Upload ist derzeit deaktiviert (`Nicht verfügbar`), Clips werden nicht fälschlicherweise als veröffentlicht markiert.
 

@@ -26,10 +26,6 @@ def test_web_studio_smoke_routes(tmp_path, monkeypatch):
     assert resp_status.status_code == 200
     assert "is_running" in resp_status.get_json()
 
-    resp_acc = client.get("/api/accounts/status")
-    assert resp_acc.status_code == 200
-    assert "youtube" in resp_acc.get_json()
-
     resp_settings = client.get("/api/settings")
     assert resp_settings.status_code == 200
 
@@ -40,3 +36,7 @@ def test_web_studio_smoke_routes(tmp_path, monkeypatch):
     resp_root = client.get("/")
     assert resp_root.status_code == 200
     assert b"<!DOCTYPE html>" in resp_root.data
+    assert b"tab-accounts" not in resp_root.data
+    assert b"tab-planner" not in resp_root.data
+
+    assert client.get("/api/accounts/status").status_code == 404

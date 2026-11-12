@@ -70,7 +70,6 @@ def _apply_env_overrides(cfg: dict[str, Any]) -> dict[str, Any]:
         ("TWITCH_CLIENT_ID", ("twitch", "client_id")),
         ("TWITCH_CLIENT_SECRET", ("twitch", "client_secret")),
         ("GEMINI_API_KEY", ("ai", "api_key")),
-        ("TIKTOK_SESSION_ID", ("publishing", "tiktok", "session_id")),
     )
     for env_name, key_path in env_map:
         val = os.environ.get(env_name, "").strip()

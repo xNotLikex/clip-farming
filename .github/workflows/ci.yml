@@ -25,7 +25,7 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check tests src/database.py src/state.py src/logging_config.py src/uploaders/tiktok.py
+          ruff check tests src/database.py src/state.py src/logging_config.py
 
       - name: Run pytest
         run: |

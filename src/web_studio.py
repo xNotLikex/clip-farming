@@ -22,10 +22,6 @@ from src.database import get_db_connection, init_db, update_clip_status
 from src.logging_config import setup_logging
 from src.video.layout import VideoComposer, cancel_active_render, generate_thumbnail
 from src.video.filters import AVAILABLE_CAM_FILTERS
-from src.uploaders.youtube import YouTubeUploader
-from src.uploaders.tiktok import TikTokUploader
-from src.uploaders.account_manager import account_manager
-from src.uploaders.browser_login import start_tiktok_browser_login, get_browser_login_status
 from src.state import status_manager
 from src.version import APP_VERSION, GITHUB_REPO
 from src.updater import check_for_updates, download_and_run_installer
@@ -67,11 +63,6 @@ def handle_options():
 # Zweiter CORS-Handler entfernt (C3 Audit-Fix: überschrieb Range-Header aus dem ersten Handler)
 
 composer = VideoComposer()
-yt_uploader = YouTubeUploader()
-tt_uploader = TikTokUploader()
-
-# Lock fuer Scheduling-Operationen
-schedule_lock = threading.Lock()
 
 def format_relative_time(iso_str: str) -> tuple[str, str]:
     """Wandelt einen ISO-8601-Zeitstempel in eine benutzerfreundliche relative Zeitangabe auf Deutsch um."""
@@ -225,94 +216,6 @@ def process_single_clip(clip_id: str, sub_position: str = "bottom", sticker_text
         update_clip_status(clip_id, "failed", error_log=str(e))
     return False
 
-def publish_clip_now(clip_id: str) -> bool:
-    """Veröffentlicht einen einzelnen Clip sofort auf YouTube Shorts und/oder TikTok."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM clips WHERE clip_id = ?", (clip_id,))
-        clip = cursor.fetchone()
-        if not clip:
-            return False
-
-    short_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
-    if not short_file.exists():
-        return False
-
-    meta_file = METADATA_OUTPUT_DIR / f"{clip_id}.json"
-    meta = {}
-    if meta_file.exists():
-        try:
-            with open(meta_file, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-        except Exception:
-            pass
-
-    title = clip["ai_title"] or meta.get("title") or clip["original_title"] or "Twitch Short"
-    desc = meta.get("description", "#Shorts #Gaming")
-    tags = meta.get("tags", "Shorts, Gaming, Twitch")
-
-    yt_id = None
-    tt_id = None
-
-    # YouTube Upload
-    if yt_uploader.is_configured():
-        status_manager.set_task("publishing", f"Lade '{title}' auf YouTube Shorts hoch...", clip_title=title)
-        yt_id = yt_uploader.upload_short(short_file, title=title, description=desc, tags=tags)
-
-    # TikTok Upload
-    tt_attempted = False
-    if tt_uploader.is_configured():
-        tt_attempted = True
-        status_manager.set_task("publishing", f"Prüfe TikTok-Upload für '{title}'...", clip_title=title)
-        tt_id = tt_uploader.upload_short(short_file, caption=title)
-
-    if not (yt_id or tt_id):
-        err_msg = (
-            "TikTok-Upload ist aktuell nicht implementiert (kein Upload durchgeführt)."
-            if tt_attempted else
-            "Kein aktiver Upload-Kanal (YouTube nicht verbunden, TikTok nicht verfügbar)."
-        )
-        update_clip_status(clip_id, "ready", error_log=err_msg)
-        status_manager.log(f"⚠️ Veröffentlichung von '{title}' abgebrochen: {err_msg}")
-        status_manager.set_task("error", err_msg)
-        return False
-
-    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    update_clip_status(
-        clip_id,
-        "published",
-        published_at=now_iso,
-        youtube_video_id=yt_id,
-        tiktok_video_id=tt_id
-    )
-    status_manager.log(f"Clip '{title}' erfolgreich veröffentlicht (YT: {yt_id or '-'}, TikTok: {tt_id or '-'})")
-    status_manager.set_task("idle", f"Clip '{title}' veröffentlicht.")
-    return True
-
-def auto_publisher_worker():
-    """Hintergrund-Worker: Veröffentlicht fällige geplante Clips nach Zeitspanne."""
-    while True:
-        try:
-            time.sleep(15)
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT clip_id, ai_title, original_title 
-                    FROM clips 
-                    WHERE status = 'scheduled' AND scheduled_publish_at <= ?
-                    ORDER BY scheduled_publish_at ASC
-                """, (now_str,))
-                due_clips = cursor.fetchall()
-
-            for c in due_clips:
-                clip_id = c["clip_id"]
-                clip_title = c["ai_title"] or c["original_title"] or clip_id
-                status_manager.log(f"⏰ Zeitplan erreicht für '{clip_title}'. Starte Veröffentlichung...")
-                publish_clip_now(clip_id)
-        except Exception:
-            logger.exception("Fehler im auto_publisher_worker")
-            time.sleep(15)
 
 from src.web.templates import HTML_DASHBOARD
 
@@ -443,7 +346,6 @@ def get_dashboard_dict():
         st = c["streamer"]
         streamer_counts[st] = streamer_counts.get(st, 0) + 1
 
-    account_status = account_manager.get_status()
     all_streamers = get_streamers_with_avatars()
     cur_state = status_manager.get_state()
     initial_logs = cur_state.get("logs", [])
@@ -458,7 +360,6 @@ def get_dashboard_dict():
         "older_queue_count": older_queue_count,
         "scheduled_clips": scheduled_rows,
         "published_clips": published_rows,
-        "account_status": account_status,
         "streamers": all_streamers,
         "streamer_counts": streamer_counts,
         "cam_filters": AVAILABLE_CAM_FILTERS,
@@ -626,16 +527,12 @@ def start_workers() -> list[threading.Thread]:
     with _WORKERS_LOCK:
         if _workers_started:
             return []
-        pub_thread = threading.Thread(
-            target=auto_publisher_worker, name="auto_publisher_worker", daemon=True
-        )
         autopilot_thread = threading.Thread(
             target=autopilot_background_worker, name="autopilot_background_worker", daemon=True
         )
-        pub_thread.start()
         autopilot_thread.start()
         _workers_started = True
-        return [pub_thread, autopilot_thread]
+        return [autopilot_thread]
 
 
 def create_app() -> Flask:
@@ -1238,16 +1135,7 @@ def save_clip(clip_id):
 
     update_clip_status(clip_id, "ready", ai_title=title)
 
-    if action == "publish_now":
-        publish_clip_now(clip_id)
-        return _finish_save("studio")
-
-    elif action == "schedule":
-        # Einzelnen Clip in Zeitplan einreihen
-        schedule_single_clip(clip_id)
-        return _finish_save("planner")
-
-    elif action == "rerender":
+    if action == "rerender":
         # Wenn der Nutzer nochmals auf Rendern drückt:
         # Vorheriges Rendering sofort abbrechen und neues starten!
         cancel_active_render(clip_id)
@@ -1328,148 +1216,6 @@ def save_clip(clip_id):
 
     return _finish_save("studio")
 
-def schedule_single_clip(clip_id: str, interval_minutes: int = None):
-    """Reiht einen Clip in die automatische Veröffentlichungs-Warteschlange ein."""
-    with schedule_lock:
-        if interval_minutes is None:
-            interval_minutes = account_manager.get_status().get("publishing_interval", 30)
-
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT MAX(scheduled_publish_at) as max_time FROM clips WHERE status = 'scheduled'")
-            row = cursor.fetchone()
-            now = datetime.now()
-            
-            last_time = None
-            if row and row["max_time"]:
-                try:
-                    parsed = datetime.strptime(row["max_time"], "%Y-%m-%d %H:%M:%S")
-                    if parsed > now:
-                        last_time = parsed
-                except Exception:
-                    pass
-
-            if last_time:
-                next_time = last_time + timedelta(minutes=interval_minutes)
-            else:
-                next_time = now + timedelta(minutes=interval_minutes)
-
-            time_str = next_time.strftime("%Y-%m-%d %H:%M:%S")
-            cursor.execute("UPDATE clips SET status = 'scheduled', scheduled_publish_at = ? WHERE clip_id = ?", (time_str, clip_id))
-            conn.commit()
-
-        status_manager.log(f"Clip {clip_id} für automatische Veröffentlichung eingeplant um {time_str} (+{interval_minutes}m).")
-
-@app.route("/schedule/cancel/<clip_id>", methods=["POST"])
-def cancel_schedule_route(clip_id):
-    """Nimmt einen Clip aus dem Zeitplan zurück ins Studio."""
-    update_clip_status(clip_id, "ready", scheduled_publish_at=None)
-    status_manager.log(f"Zeitplan für Clip {clip_id} abgebrochen, zurück im Studio.")
-    return redirect(url_for("index"))
-
-@app.route("/schedule/publish-now/<clip_id>", methods=["POST"])
-def publish_now_route(clip_id):
-    """Veröffentlicht einen eingeplanten Clip sofort."""
-    publish_clip_now(clip_id)
-    return redirect(url_for("index"))
-
-@app.route("/api/schedule-all", methods=["POST"])
-def schedule_all_route():
-    """Reiht alle fertigen Studio-Clips gestaffelt nach Intervall ein."""
-    interval = int(request.form.get("interval_minutes", 30))
-    account_manager.set_publishing_interval(interval)
-
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT clip_id FROM clips WHERE status IN ('ready', 'completed') ORDER BY rowid ASC")
-        clips = cursor.fetchall()
-
-    for c in clips:
-        schedule_single_clip(c["clip_id"], interval_minutes=interval)
-
-    return redirect(url_for("index"))
-
-@app.route("/api/schedule/set-interval", methods=["POST"])
-def set_schedule_interval():
-    interval = int(request.form.get("interval_minutes", 30))
-    account_manager.set_publishing_interval(interval)
-    status_manager.log(f"Standard-Veröffentlichungsintervall auf {interval} Minuten gesetzt.")
-    return redirect(url_for("index"))
-
-# ==================== KONTEN-VERKNÜPFUNG ENDPOINTS ====================
-
-@app.route("/api/accounts/youtube/save-secrets", methods=["POST"])
-def youtube_save_secrets():
-    file = request.files.get("secrets_file")
-    if file and file.filename:
-        content = file.read().decode("utf-8", errors="replace")
-        if account_manager.save_youtube_secrets(content):
-            status_manager.log("YouTube client_secrets.json erfolgreich hochgeladen.")
-        else:
-            status_manager.log("Fehler beim Verarbeiten der client_secrets.json.")
-    return redirect(url_for("index"))
-
-@app.route("/api/accounts/youtube/save-credentials", methods=["POST"])
-def youtube_save_credentials():
-    cid = request.form.get("client_id", "").strip()
-    secret = request.form.get("client_secret", "").strip()
-    if cid and secret:
-        if account_manager.save_youtube_client_credentials(cid, secret):
-            status_manager.log("YouTube Client-ID & Secret erfolgreich gespeichert.")
-        else:
-            status_manager.log("Fehler beim Speichern der YouTube-Zugangsdaten.")
-    return redirect(url_for("index"))
-
-@app.route("/api/accounts/status")
-def accounts_status():
-    return jsonify(account_manager.get_status())
-
-@app.route("/api/accounts/youtube/authorize", methods=["GET", "POST"])
-def youtube_authorize():
-    res = account_manager.authorize_youtube()
-    status_manager.log(res.get("message", "YouTube Autorisierung ausgeführt."))
-    if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.method == "POST":
-        return jsonify(res)
-    if res.get("success") and res.get("auth_url"):
-        return redirect(res["auth_url"])
-    return redirect(url_for("index"))
-
-@app.route("/api/accounts/youtube/disconnect", methods=["POST"])
-def youtube_disconnect():
-    account_manager.disconnect_youtube()
-    status_manager.log("YouTube-Verbindung getrennt.")
-    return redirect(url_for("index"))
-
-@app.route("/api/accounts/youtube/settings", methods=["POST"])
-def youtube_settings():
-    privacy = request.form.get("privacy_status", "private")
-    account_manager.update_youtube_settings(enabled=True, privacy_status=privacy)
-    status_manager.log(f"YouTube Sichtbarkeit auf '{privacy}' gesetzt.")
-    return redirect(url_for("index"))
-
-@app.route("/api/accounts/tiktok/browser-login", methods=["POST"])
-def tiktok_browser_login():
-    res = start_tiktok_browser_login()
-    return jsonify(res)
-
-@app.route("/api/accounts/tiktok/browser-login/status")
-def tiktok_browser_login_status():
-    return jsonify(get_browser_login_status())
-
-@app.route("/api/accounts/tiktok/save-session", methods=["POST"])
-def tiktok_save_session():
-    sid = request.form.get("session_id", "").strip()
-    mode = request.form.get("upload_mode", "draft")
-    if sid:
-        account_manager.save_tiktok_session(session_id=sid, upload_mode=mode, enabled=True)
-        status_manager.log("TikTok Session-ID erfolgreich gespeichert.")
-    return redirect(url_for("index"))
-
-@app.route("/api/accounts/tiktok/disconnect", methods=["POST"])
-def tiktok_disconnect():
-    account_manager.disconnect_tiktok()
-    status_manager.log("TikTok-Verbindung getrennt.")
-    return redirect(url_for("index"))
 
 @app.route("/api/clip/<clip_id>/toggle-published", methods=["POST"])
 def toggle_clip_published(clip_id):

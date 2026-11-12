@@ -221,16 +221,6 @@ ai_copywriter:
   model: gemini-2.5-flash
   api_key: ''
   language: de
-publishing:
-  drip_feed_hours: 3
-  youtube:
-    enabled: true
-    privacy_status: private
-    client_secrets_file: config/youtube_secrets.json
-  tiktok:
-    enabled: true
-    upload_mode: public
-    session_id: ''
 storage:
   auto_cleanup_raw: true
   database_path: data/pipeline.db

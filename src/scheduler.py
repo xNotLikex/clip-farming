@@ -21,8 +21,6 @@ from src.video.transcriber import VideoTranscriber
 from src.video.subtitles import SubtitleGenerator
 from src.video.layout import VideoComposer
 from src.meta.generator import MetadataGenerator
-from src.uploaders.youtube import YouTubeUploader
-from src.uploaders.tiktok import TikTokUploader
 from src.state import status_manager
 
 class PipelineOrchestrator:
@@ -33,11 +31,9 @@ class PipelineOrchestrator:
         self.sub_gen = SubtitleGenerator()
         self.composer = VideoComposer()
         self.meta_gen = MetadataGenerator()
-        self.yt_uploader = YouTubeUploader()
-        self.tt_uploader = TikTokUploader()
 
     def run_cycle(self):
-        """Fuehrt einen kompletten Harvesting-, Schneide- und Upload-Zyklus durch."""
+        """Fuehrt einen kompletten Harvesting- und Schneide-Zyklus durch."""
         # C1 Audit-Fix: status_manager.state existiert nicht → .update() verwenden
         status_manager.update(is_running=True)
         status_manager.set_task("starting", "Initialisiere Pipeline-Durchlauf...")
@@ -133,43 +129,13 @@ class PipelineOrchestrator:
                 )
 
                 if rendered_path and rendered_path.exists():
-                    # E. Uploads durchfuehren (falls konfiguriert)
-                    yt_id = None
-                    tt_id = None
-                    if self.config.get("publishing", {}).get("youtube", {}).get("enabled", False):
-                        status_manager.set_task("uploading", "Lade auf YouTube Shorts hoch...", clip_title=orig_title, streamer=streamer)
-                        yt_id = self.yt_uploader.upload_short(
-                            video_path=rendered_path,
-                            title=metadata.get("title", orig_title),
-                            description=metadata.get("description", ""),
-                            tags=metadata.get("tags", "")
-                        )
-                    
-                    tt_requested = bool(self.config.get("publishing", {}).get("tiktok", {}).get("enabled", False))
-                    if tt_requested:
-                        status_manager.set_task("uploading", "Prüfe TikTok-Upload...", clip_title=orig_title, streamer=streamer)
-                        tt_id = self.tt_uploader.upload_short(
-                            video_path=rendered_path,
-                            caption=metadata.get("title", orig_title)
-                        )
-                        if not tt_id:
-                            status_manager.log(f"⚠️ TikTok-Upload für '{orig_title}' nicht implementiert / fehlgeschlagen.")
-
-                    is_published = bool(yt_id or tt_id)
-                    error_msg = None
-                    if not is_published and (tt_requested or self.config.get("publishing", {}).get("youtube", {}).get("enabled", False)):
-                        error_msg = "Upload fehlgeschlagen oder TikTok-Upload nicht implementiert"
-
                     update_clip_status(
                         clip_id=clip_id,
-                        status="published" if is_published else "ready",
+                        status="ready",
                         rendered_path=str(rendered_path),
                         ai_title=metadata.get("title"),
                         ai_description=metadata.get("description"),
                         ai_tags=metadata.get("tags"),
-                        youtube_video_id=yt_id,
-                        tiktok_video_id=tt_id,
-                        error_log=error_msg
                     )
 
                     print(f"  [OK] Clip {clip_id} erfolgreich fertiggestellt!")
