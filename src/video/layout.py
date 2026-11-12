@@ -53,6 +53,234 @@ def escape_ffmpeg_filter_path(path: Path | str) -> str:
     return normalized.replace(":", "\\:").replace("'", "'\\''")
 
 
+def _even(n: int) -> int:
+    """Rundet eine Pixelzahl auf die nächste gerade Zahl ab (erforderlich für yuv420p)."""
+    return n - (n % 2)
+
+
+def _resolve_rect(
+    data: dict[str, Any],
+    vw: int,
+    vh: int,
+    default_w: int,
+    default_h: int,
+    default_x: int,
+    default_y: int,
+    *,
+    even_xy: bool = True,
+) -> tuple[int, int, int, int]:
+    """Normalisiert Prozent- oder Pixel-Rechtecke auf geclampte, gerade FFmpeg-Koordinaten."""
+    if "x_pct" in data:
+        rw = int(data["w_pct"] * vw)
+        rh = int(data["h_pct"] * vh)
+        rx = int(data["x_pct"] * vw)
+        ry = int(data["y_pct"] * vh)
+    else:
+        rw = int(data.get("w", default_w))
+        rh = int(data.get("h", default_h))
+        rx = int(data.get("x", default_x))
+        ry = int(data.get("y", default_y))
+
+    rw = _even(max(32, min(rw, vw)))
+    rh = _even(max(32, min(rh, vh)))
+    rx = max(0, min(rx, vw - rw))
+    ry = max(0, min(ry, vh - rh))
+    if even_xy:
+        rx = _even(rx)
+        ry = _even(ry)
+    return rx, ry, rw, rh
+
+
+def _build_cam_stream(
+    cx: int,
+    cy: int,
+    cw: int,
+    ch: int,
+    inputs: list[str],
+    cam_3d_path: Path | None = None,
+    *,
+    crop_preserve_aspect: bool = True,
+) -> str:
+    """Erzeugt den FFmpeg-Filter-Teilstring für den Facecam-Stream (mit oder ohne 3D-Temp-Video)."""
+    if cam_3d_path is not None:
+        cam_inp_idx = len(inputs) // 2
+        inputs.extend(["-i", str(cam_3d_path)])
+        return f"[{cam_inp_idx}:v]scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
+    if crop_preserve_aspect:
+        return f"[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
+    return f"[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:720[cam]"
+
+
+def compute_cam_crop_for_layout(
+    vw: int,
+    vh: int,
+    layout_mode: str = "auto",
+    custom_crops: dict[str, Any] | None = None,
+    face_box: tuple[int, int, int, int] | None = None,
+) -> dict[str, int] | None:
+    """Berechnet die Cam-Crop-Koordinaten (x, y, w, h) falls ein Cam-Split aktiv ist."""
+    is_single_916 = (layout_mode == "single_916") or bool(
+        custom_crops and custom_crops.get("mode") == "single_916"
+    )
+    if is_single_916:
+        return None
+
+    if custom_crops and custom_crops.get("enabled", True):
+        cam_data = custom_crops.get("cam", {})
+        has_cam = cam_data.get("enabled", True) and (
+            cam_data.get("w", 0) > 20 or cam_data.get("w_pct", 0) > 0.05
+        )
+        if not has_cam:
+            return None
+        cx, cy, cw, ch = _resolve_rect(cam_data, vw, vh, 480, 360, vw - 480, vh - 360)
+        return {"x": cx, "y": cy, "w": cw, "h": ch}
+
+    if face_box:
+        fx, fy, fw, fh = face_box
+        cam_crop_w = max(int(fw * 2.2), 340)
+        cam_crop_h = int(cam_crop_w * (720 / 1080))
+        cam_crop_x = max(0, fx - int(fw * 0.6))
+        cam_crop_y = max(0, fy - int(fh * 0.4))
+        return {"x": cam_crop_x, "y": cam_crop_y, "w": cam_crop_w, "h": cam_crop_h}
+
+    return None
+
+
+def build_filter_graph(
+    raw_video_path: Path,
+    video_info: dict[str, Any],
+    layout_mode: str = "auto",
+    custom_crops: dict[str, Any] | None = None,
+    face_box: tuple[int, int, int, int] | None = None,
+    cam_3d_path: Path | None = None,
+    sticker_path: Path | None = None,
+    ass_subtitle_path: Path | None = None,
+) -> tuple[str, list[str], int]:
+    """Reine Funktion: baut FFmpeg filter_complex, Inputs-Liste und sticker_y deterministisch auf."""
+    vw = int(video_info.get("width") or 1920)
+    vh = int(video_info.get("height") or 1080)
+    inputs: list[str] = ["-i", str(raw_video_path)]
+    is_single_916 = (layout_mode == "single_916") or bool(
+        custom_crops and custom_crops.get("mode") == "single_916"
+    )
+
+    if is_single_916:
+        single_data: dict[str, Any] = {}
+        if custom_crops:
+            single_data = (
+                custom_crops.get("single")
+                or custom_crops.get("single_916")
+                or custom_crops.get("game")
+                or {}
+            )
+        ideal_w = _even(int(vh * (9.0 / 16.0)))
+        if "x_pct" in single_data:
+            sx = int(single_data["x_pct"] * vw)
+        elif "x" in single_data:
+            sx = int(single_data["x"])
+        else:
+            sx = (vw - ideal_w) // 2
+
+        sw = ideal_w
+        sh = _even(vh)
+        sx = _even(max(0, min(sx, vw - sw)))
+        base_graph = f"[0:v]crop={sw}:{sh}:{sx}:0,scale=1080:1920[base]"
+        sticker_y = 480
+
+    elif custom_crops and custom_crops.get("enabled", True):
+        cam_data = custom_crops.get("cam", {})
+        game_data = custom_crops.get("game", {})
+        has_cam = cam_data.get("enabled", True) and (
+            cam_data.get("w", 0) > 20 or cam_data.get("w_pct", 0) > 0.05
+        )
+
+        if has_cam:
+            cx, cy, cw, ch = _resolve_rect(cam_data, vw, vh, 480, 360, vw - 480, vh - 360)
+            if "x_pct" in game_data or ("w" in game_data and game_data.get("w", 0) > 20):
+                gw_def = int(game_data.get("w", 972))
+                gx, gy, gw, gh = _resolve_rect(
+                    game_data, vw, vh, 972, 1080, (vw - gw_def) // 2, 0
+                )
+                game_filter = (
+                    f"[0:v]crop={gw}:{gh}:{gx}:{gy},"
+                    f"scale=1080:1200:force_original_aspect_ratio=increase,crop=1080:1200[game];"
+                )
+            else:
+                game_filter = (
+                    "[0:v]scale=1080:1200:force_original_aspect_ratio=increase,crop=1080:1200[game];"
+                )
+
+            cam_stream = _build_cam_stream(
+                cx, cy, cw, ch, inputs, cam_3d_path=cam_3d_path, crop_preserve_aspect=True
+            )
+            base_graph = f"{cam_stream};{game_filter}[cam][game]vstack=inputs=2[base]"
+            sticker_y = 620
+        else:
+            if "x_pct" in game_data or ("w" in game_data and game_data.get("w", 0) > 20):
+                gx, gy, gw, gh = _resolve_rect(
+                    game_data, vw, vh, vw, vh, 0, 0, even_xy=False
+                )
+                base_graph = (
+                    f"[0:v]crop={gw}:{gh}:{gx}:{gy},"
+                    f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[base]"
+                )
+            else:
+                base_graph = (
+                    "[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,"
+                    "boxblur=6:2,scale=1080:1920[bg];"
+                    "[0:v]scale=1080:608[fg];"
+                    "[bg][fg]overlay=(W-w)/2:(H-h)/2[base]"
+                )
+            sticker_y = 520
+    else:
+        if face_box:
+            fx, fy, fw, fh = face_box
+            cam_crop_w = max(int(fw * 2.2), 340)
+            cam_crop_h = int(cam_crop_w * (720 / 1080))
+            cam_crop_x = max(0, fx - int(fw * 0.6))
+            cam_crop_y = max(0, fy - int(fh * 0.4))
+            cam_stream = _build_cam_stream(
+                cam_crop_x,
+                cam_crop_y,
+                cam_crop_w,
+                cam_crop_h,
+                inputs,
+                cam_3d_path=cam_3d_path,
+                crop_preserve_aspect=False,
+            )
+            base_graph = (
+                f"{cam_stream};"
+                "[0:v]scale=1080:1200:force_original_aspect_ratio=increase,crop=1080:1200[game];"
+                "[cam][game]vstack=inputs=2[base]"
+            )
+            sticker_y = 620
+        else:
+            base_graph = (
+                "[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,"
+                "boxblur=6:2,scale=1080:1920[bg];"
+                "[0:v]scale=1080:608[fg];"
+                "[bg][fg]overlay=(W-w)/2:(H-h)/2[base]"
+            )
+            sticker_y = 520
+
+    sticker_filter = ""
+    if sticker_path is not None:
+        sticker_idx = len(inputs) // 2
+        inputs.extend(["-i", str(sticker_path)])
+        sticker_filter = f";[base][{sticker_idx}:v]overlay=(W-w)/2:{sticker_y}[with_sticker]"
+        curr_target = "[with_sticker]"
+    else:
+        curr_target = "[base]"
+
+    if ass_subtitle_path is not None:
+        clean_sub_path = escape_ffmpeg_filter_path(ass_subtitle_path)
+        filter_complex = f"{base_graph}{sticker_filter};{curr_target}subtitles='{clean_sub_path}'[v]"
+    else:
+        filter_complex = f"{base_graph}{sticker_filter};{curr_target}copy[v]"
+
+    return filter_complex, inputs, sticker_y
+
+
 def _parse_fps(rate_str: str) -> float:
     """Parst ffprobe r_frame_rate/avg_frame_rate (z.B. '60/1' oder '30000/1001')."""
     if not rate_str or rate_str == "0/0":
@@ -340,224 +568,67 @@ class VideoComposer:
         is_single_916 = (layout_mode == "single_916") or (custom_crops and custom_crops.get("mode") == "single_916")
 
         # Inputs & Filter initialisieren
-        inputs = ["-i", str(raw_video_path)]
-        input_counter = 1
         temp_cam_file = None
 
         if not cam_filter or cam_filter == "none":
             meta_f = METADATA_OUTPUT_DIR / f"{clip_id}.json"
             if meta_f.exists():
                 try:
-                    with open(meta_f, "r", encoding="utf-8") as mf:
+                    with open(meta_f, encoding="utf-8") as mf:
                         m = json.load(mf)
                         cam_filter = m.get("cam_filter", "none")
-                except Exception:
+                except (OSError, json.JSONDecodeError):
                     pass
             if custom_crops and "cam_filter" in custom_crops:
                 cam_filter = custom_crops.get("cam_filter", "none")
 
-        # 1. Base Layout Graph aufbauen
-        if is_single_916:
-            single_data = {}
-            if custom_crops:
-                single_data = custom_crops.get("single") or custom_crops.get("single_916") or custom_crops.get("game") or {}
-
-            # Exaktes 9:16 Seitenverhältnis bezogen auf die Quellhöhe (z.B. 1080 * 9 / 16 = 608px)
-            ideal_w = int(vh * (9.0 / 16.0))
-            ideal_w = ideal_w if ideal_w % 2 == 0 else ideal_w - 1
-
-            if "x_pct" in single_data:
-                sx = int(single_data["x_pct"] * vw)
-            elif "x" in single_data:
-                sx = int(single_data["x"])
-            else:
-                sx = (vw - ideal_w) // 2
-
-            sw = ideal_w
-            sh = vh if vh % 2 == 0 else vh - 1
-            sx = max(0, min(sx, vw - sw))
-            sx = sx if sx % 2 == 0 else sx - 1
-            sy = 0
-
-            base_graph = f"[0:v]crop={sw}:{sh}:{sx}:{sy},scale=1080:1920[base]"
-            sticker_y = 480
-
-        elif custom_crops and custom_crops.get("enabled", True):
-            cam_data = custom_crops.get("cam", {})
-            game_data = custom_crops.get("game", {})
-
-            has_cam = cam_data.get("enabled", True) and (cam_data.get("w", 0) > 20 or cam_data.get("w_pct", 0) > 0.05)
-
-            if has_cam:
-                if "x_pct" in cam_data:
-                    cw = int(cam_data["w_pct"] * vw)
-                    ch = int(cam_data["h_pct"] * vh)
-                    cx = int(cam_data["x_pct"] * vw)
-                    cy = int(cam_data["y_pct"] * vh)
-                else:
-                    cw = int(cam_data.get("w", 480))
-                    ch = int(cam_data.get("h", 360))
-                    cx = int(cam_data.get("x", vw - 480))
-                    cy = int(cam_data.get("y", vh - 360))
-
-                cw = max(32, min(cw, vw))
-                ch = max(32, min(ch, vh))
-                cx = max(0, min(cx, vw - cw))
-                cy = max(0, min(cy, vh - ch))
-                cw = cw - (cw % 2)
-                ch = ch - (ch % 2)
-                cx = cx - (cx % 2)
-                cy = cy - (cy % 2)
-
-                if "x_pct" in game_data:
-                    gw = int(game_data["w_pct"] * vw)
-                    gh = int(game_data["h_pct"] * vh)
-                    gx = int(game_data["x_pct"] * vw)
-                    gy = int(game_data["y_pct"] * vh)
-                elif "w" in game_data and game_data.get("w", 0) > 20:
-                    gw = int(game_data.get("w", 972))
-                    gh = int(game_data.get("h", 1080))
-                    gx = int(game_data.get("x", (vw - gw) // 2))
-                    gy = int(game_data.get("y", 0))
-                else:
-                    gw, gh, gx, gy = None, None, None, None
-
-                if gw and gh:
-                    gw = max(32, min(gw, vw))
-                    gh = max(32, min(gh, vh))
-                    gx = max(0, min(gx, vw - gw))
-                    gy = max(0, min(gy, vh - gh))
-                    gw = gw - (gw % 2)
-                    gh = gh - (gh % 2)
-                    gx = gx - (gx % 2)
-                    gy = gy - (gy % 2)
-                    game_filter = f"[0:v]crop={gw}:{gh}:{gx}:{gy},scale=1080:1200:force_original_aspect_ratio=increase,crop=1080:1200[game];"
-                else:
-                    game_filter = f"[0:v]scale=1080:1200:force_original_aspect_ratio=increase,crop=1080:1200[game];"
-
-                if cam_filter and cam_filter != "none":
-                    try:
-                        from src.video.filters import process_cam_video_3d
-                        temp_cam_file = RAW_CLIPS_DIR / f"temp_3d_{clip_id}.mp4"
-                        cam_crop_dict = {"x": cx, "y": cy, "w": cw, "h": ch}
-                        print(f"[*] Starte anatomischen 3D-Gesichtsfilter '{cam_filter}' ({cw}x{ch})...")
-                        res_p = process_cam_video_3d(raw_video_path, cam_crop_dict, cam_filter, temp_cam_file, on_progress)
-                        if res_p and res_p.exists():
-                            cam_inp_idx = input_counter
-                            inputs.extend(["-i", str(res_p)])
-                            input_counter += 1
-                            cam_stream = f"[{cam_inp_idx}:v]scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
-                        else:
-                            temp_cam_file = None
-                            cam_stream = f"[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
-                    except Exception as e:
-                        print(f"[!] Fehler bei 3D-Gesichtsfilter: {e}")
-                        temp_cam_file = None
-                        cam_stream = f"[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
-                else:
-                    cam_stream = f"[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
-
-                base_graph = (
-                    f"{cam_stream};"
-                    f"{game_filter}"
-                    f"[cam][game]vstack=inputs=2[base]"
-                )
-                sticker_y = 620
-            else:
-                # Kein Cam-Bereich ausgewählt -> Vollbild Gameplay Crop oder Blur Stack
-                if "x_pct" in game_data or ("w" in game_data and game_data.get("w", 0) > 20):
-                    gw = int(game_data["w_pct"] * vw) if "x_pct" in game_data else int(game_data["w"])
-                    gh = int(game_data["h_pct"] * vh) if "h_pct" in game_data else int(game_data["h"])
-                    gx = int(game_data["x_pct"] * vw) if "x_pct" in game_data else int(game_data["x"])
-                    gy = int(game_data["y_pct"] * vh) if "y_pct" in game_data else int(game_data["y"])
-                    gw = max(32, min(gw, vw))
-                    gh = max(32, min(gh, vh))
-                    gx = max(0, min(gx, vw - gw))
-                    gy = max(0, min(gy, vh - gh))
-                    gw = gw - (gw % 2)
-                    gh = gh - (gh % 2)
-                    base_graph = (
-                        f"[0:v]crop={gw}:{gh}:{gx}:{gy},scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[base]"
-                    )
-                else:
-                    base_graph = (
-                        f"[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=6:2,scale=1080:1920[bg];"
-                        f"[0:v]scale=1080:608[fg];"
-                        f"[bg][fg]overlay=(W-w)/2:(H-h)/2[base]"
-                    )
-                sticker_y = 520
-        else:
-            face_box = None
+        if not is_single_916 and not (custom_crops and custom_crops.get("enabled", True)):
             if layout_mode == "split_cam_top":
                 face_box = self.detect_facecam_overlay(raw_video_path) or (0, 0, 320, 240)
             elif layout_mode == "auto":
                 face_box = self.detect_facecam_overlay(raw_video_path)
 
-            if face_box:
-                fx, fy, fw, fh = face_box
-                cam_crop_w = max(int(fw * 2.2), 340)
-                cam_crop_h = int(cam_crop_w * (720 / 1080))
-                cam_crop_x = max(0, fx - int(fw * 0.6))
-                cam_crop_y = max(0, fy - int(fh * 0.4))
+        cam_crop_dict = compute_cam_crop_for_layout(
+            vw, vh, layout_mode=layout_mode, custom_crops=custom_crops, face_box=face_box
+        )
+        if cam_crop_dict and cam_filter and cam_filter != "none":
+            try:
+                from src.video.filters import process_cam_video_3d
 
-                if cam_filter and cam_filter != "none":
-                    try:
-                        from src.video.filters import process_cam_video_3d
-                        temp_cam_file = RAW_CLIPS_DIR / f"temp_3d_{clip_id}.mp4"
-                        cam_crop_dict = {"x": cam_crop_x, "y": cam_crop_y, "w": cam_crop_w, "h": cam_crop_h}
-                        print(f"[*] Starte anatomischen 3D-Gesichtsfilter '{cam_filter}' ({cam_crop_w}x{cam_crop_h})...")
-                        res_p = process_cam_video_3d(raw_video_path, cam_crop_dict, cam_filter, temp_cam_file, on_progress)
-                        if res_p and res_p.exists():
-                            cam_inp_idx = input_counter
-                            inputs.extend(["-i", str(res_p)])
-                            input_counter += 1
-                            cam_stream = f"[{cam_inp_idx}:v]scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[cam]"
-                        else:
-                            temp_cam_file = None
-                            cam_stream = f"[0:v]crop={cam_crop_w}:{cam_crop_h}:{cam_crop_x}:{cam_crop_y},scale=1080:720[cam]"
-                    except Exception as e:
-                        print(f"[!] Fehler bei 3D-Gesichtsfilter: {e}")
-                        temp_cam_file = None
-                        cam_stream = f"[0:v]crop={cam_crop_w}:{cam_crop_h}:{cam_crop_x}:{cam_crop_y},scale=1080:720[cam]"
-                else:
-                    cam_stream = f"[0:v]crop={cam_crop_w}:{cam_crop_h}:{cam_crop_x}:{cam_crop_y},scale=1080:720[cam]"
-
-                base_graph = (
-                    f"{cam_stream};"
-                    f"[0:v]scale=1080:1200:force_original_aspect_ratio=increase,crop=1080:1200[game];"
-                    f"[cam][game]vstack=inputs=2[base]"
+                candidate_cam_file = RAW_CLIPS_DIR / f"temp_3d_{clip_id}.mp4"
+                print(
+                    f"[*] Starte anatomischen 3D-Gesichtsfilter '{cam_filter}' "
+                    f"({cam_crop_dict['w']}x{cam_crop_dict['h']})..."
                 )
-                sticker_y = 620 # Genau auf der Trennlinie
-            else:
-                # IRL / Vollbild / Crowd / No-Cam -> Sauberes, ultra-schnelles Blur-Layout (5x GPU Speed!)
-                base_graph = (
-                    f"[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=6:2,scale=1080:1920[bg];"
-                    f"[0:v]scale=1080:608[fg];"
-                    f"[bg][fg]overlay=(W-w)/2:(H-h)/2[base]"
+                res_p = process_cam_video_3d(
+                    raw_video_path, cam_crop_dict, cam_filter, candidate_cam_file, on_progress
                 )
-                sticker_y = 520
+                if res_p and res_p.exists():
+                    temp_cam_file = res_p
+            except Exception as e:
+                print(f"[!] Fehler bei 3D-Gesichtsfilter: {e}")
+                temp_cam_file = None
 
         # 2. Sticker Badge erzeugen (falls Text vorhanden)
         sticker_png = None
-        sticker_filter = ""
-        
         if header_sticker_text and header_sticker_text.strip():
             sticker_png = raw_video_path.parent / f"sticker_{clip_id}.png"
             create_tiktok_sticker(header_sticker_text.strip(), sticker_png)
-            sticker_idx = input_counter
-            inputs.extend(["-i", str(sticker_png)])
-            input_counter += 1
-            sticker_filter = f";[base][{sticker_idx}:v]overlay=(W-w)/2:{sticker_y}[with_sticker]"
-            curr_target = "[with_sticker]"
-        else:
-            curr_target = "[base]"
 
-        # 3. Untertitel einbinden
-        if ass_subtitle_path and ass_subtitle_path.exists():
-            clean_sub_path = escape_ffmpeg_filter_path(ass_subtitle_path)
-            filter_complex = f"{base_graph}{sticker_filter};{curr_target}subtitles='{clean_sub_path}'[v]"
-        else:
-            filter_complex = f"{base_graph}{sticker_filter};{curr_target}copy[v]"
+        # 3. Filtergraph deterministisch aufbauen
+        active_sub_path = (
+            ass_subtitle_path if (ass_subtitle_path and ass_subtitle_path.exists()) else None
+        )
+        filter_complex, inputs, _sticker_y = build_filter_graph(
+            raw_video_path=raw_video_path,
+            video_info=video_info,
+            layout_mode=layout_mode,
+            custom_crops=custom_crops,
+            face_box=face_box,
+            cam_3d_path=temp_cam_file,
+            sticker_path=sticker_png,
+            ass_subtitle_path=active_sub_path,
+        )
 
         # Phase 5: Erweiterter 2-Pass/Broadcast-Audio-Booster (Dynamische Kompression + EBU R128 Loudness)
         audio_filter = "acompressor=threshold=-18dB:ratio=3:attack=5:release=50,loudnorm=I=-14:TP=-1.5:LRA=11" if self.audio_normalize else "anull"
