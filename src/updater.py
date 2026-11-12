@@ -64,7 +64,7 @@ def check_for_updates() -> Dict[str, Any]:
                 installer_size_mb = 0.0
                 for asset in data.get("assets", []):
                     name = asset.get("name", "").lower()
-                    if "installer" in name and name.endswith(".exe"):
+                    if ("installer" in name or "setup" in name) and name.endswith(".exe"):
                         installer_url = asset.get("browser_download_url", "")
                         installer_size_mb = round(asset.get("size", 0) / (1024 * 1024), 1)
                         break
@@ -116,7 +116,7 @@ def download_and_run_installer(download_url: str) -> Dict[str, Any]:
             download_url,
             headers={"User-Agent": f"Clip-Farming-Studio/{APP_VERSION}"}
         )
-        with urllib.request.urlopen(req, timeout=60) as response, open(installer_file, 'wb') as out_file:
+        with urllib.request.urlopen(req, timeout=120) as response, open(installer_file, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
 
         if not installer_file.exists() or installer_file.stat().st_size < 1024 * 1024:
