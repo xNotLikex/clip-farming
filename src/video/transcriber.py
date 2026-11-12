@@ -37,28 +37,12 @@ class VideoTranscriber:
                 pass
             print("[*] Whisper VRAM erfolgreich freigegeben.")
 
-    def transcribe(self, audio_or_video_path: Path, language: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        Transkribiert das Video/Audio und liefert Segmente mit exakten Word-Level Timestamps.
-        M10 Audit-Fix: Sprache standardmäßig auf None (Auto-Detection) oder dynamisch wählbar.
-        """
-        self._load_model()
-        segments_data = []
-
-        # Falls language None ist, erkennt Whisper die Sprache automatisch
-        transcribe_kwargs = {
-            "word_timestamps": True,
-            "vad_filter": True,
-            "vad_parameters": dict(min_silence_duration_ms=500)
-        }
-        if language:
-            transcribe_kwargs["language"] = language
-
-        segments, info = self.model.transcribe(
+    def _consume_segments(self, audio_or_video_path: Path, transcribe_kwargs: Dict[str, Any]) -> List[Dict[str, Any]]:
+        segments, _info = self.model.transcribe(
             str(audio_or_video_path),
             **transcribe_kwargs
         )
-
+        segments_data = []
         for seg in segments:
             words = []
             if seg.words:
@@ -75,8 +59,36 @@ class VideoTranscriber:
                 "text": seg.text.strip(),
                 "words": words
             })
-
         return segments_data
+
+    def transcribe(self, audio_or_video_path: Path, language: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Transkribiert das Video/Audio und liefert Segmente mit exakten Word-Level Timestamps.
+        M10 Audit-Fix: Sprache standardmäßig auf None (Auto-Detection) oder dynamisch wählbar.
+        """
+        self._load_model()
+
+        # Falls language None ist, erkennt Whisper die Sprache automatisch
+        transcribe_kwargs = {
+            "word_timestamps": True,
+            "vad_filter": True,
+            "vad_parameters": dict(min_silence_duration_ms=500)
+        }
+        if language:
+            transcribe_kwargs["language"] = language
+
+        try:
+            return self._consume_segments(audio_or_video_path, transcribe_kwargs)
+        except Exception as e:
+            if self.device != "cpu":
+                from faster_whisper import WhisperModel
+                print(f"[!] Warnung: CUDA-Transkription fehlgeschlagen ({e}). Wechsle automatisch auf CPU...")
+                self.model = None
+                gc.collect()
+                self.device = "cpu"
+                self.model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
+                return self._consume_segments(audio_or_video_path, transcribe_kwargs)
+            raise
 
     def get_full_transcript(self, segments: List[Dict[str, Any]]) -> str:
         """Gibt den gesamten transkribierten Text als zusammenhängenden String zurück."""
