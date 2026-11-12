@@ -302,7 +302,7 @@ pub async fn process_all_pending(app: Option<AppHandle>) -> Result<usize, String
 
 /// Startet die optionale Autopilot-Endlosschleife im Hintergrund.
 pub fn start_autopilot_loop(app: AppHandle) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         loop {
             let cfg = load_config();
             let interval_mins = cfg.autopilot.interval_minutes.max(5) as u64;

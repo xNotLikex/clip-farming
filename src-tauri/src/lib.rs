@@ -14,6 +14,12 @@ pub mod whisper;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let webview_dir = config::get_data_root().join("data").join("webview2");
+    let _ = std::fs::create_dir_all(&webview_dir);
+    unsafe {
+        std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", &webview_dir);
+    }
+
     tauri::Builder::default()
         .setup(|app| {
             let _ = db::open_connection();

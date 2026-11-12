@@ -80,12 +80,14 @@ function getBackendUrl(path) {
             const id = decodeURIComponent(routeOnly.slice('/thumbnail/'.length));
             return toTauriAssetUrl(`${root}/thumbnails/${id}.jpg`) + suffix;
         }
-        if (routeOnly.startsWith('/stream/raw/')) {
-            const id = decodeURIComponent(routeOnly.slice('/stream/raw/'.length));
+        if (routeOnly.startsWith('/stream/raw/') || routeOnly.startsWith('/raw-video/')) {
+            const prefix = routeOnly.startsWith('/stream/raw/') ? '/stream/raw/' : '/raw-video/';
+            const id = decodeURIComponent(routeOnly.slice(prefix.length));
             return toTauriAssetUrl(`${root}/downloads/raw/${id}.mp4`) + suffix;
         }
-        if (routeOnly.startsWith('/stream/short/')) {
-            const id = decodeURIComponent(routeOnly.slice('/stream/short/'.length));
+        if (routeOnly.startsWith('/stream/short/') || routeOnly.startsWith('/video/')) {
+            const prefix = routeOnly.startsWith('/stream/short/') ? '/stream/short/' : '/video/';
+            const id = decodeURIComponent(routeOnly.slice(prefix.length));
             return toTauriAssetUrl(`${root}/output/shorts/short_${id}.mp4`) + suffix;
         }
     }
@@ -517,6 +519,7 @@ function getStudioCardSignature(clip) {
         clip.clip_id,
         clip.updated_at || '',
         Boolean(clip.has_video),
+        Boolean(clip.has_raw_video),
         Boolean(clip.is_manually_published),
         clip.sticker_text || '',
         clip.title || '',
@@ -573,11 +576,18 @@ function buildStudioCardHtml(clip, cardSig) {
             </div>
 
             <!-- Video Player -->
-            <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden">
+            <div class="relative bg-black ${clip.has_video ? 'aspect-[9/16]' : 'aspect-video'} w-full max-h-[480px] flex items-center justify-center overflow-hidden">
                 ${clip.has_video ? `
                 <video id="studio-video-${clip.clip_id}" controls preload="metadata" poster="${getBackendUrl('/thumbnail/' + clip.clip_id + '?v=' + cacheBust)}" class="w-full h-full object-contain">
                     <source src="${getBackendUrl('/video/' + clip.clip_id + '?v=' + cacheBust)}" type="video/mp4">
                 </video>
+                ` : clip.has_raw_video ? `
+                <video id="studio-video-${clip.clip_id}" controls preload="metadata" poster="${getBackendUrl('/thumbnail/raw/' + clip.clip_id + '?v=' + cacheBust)}" class="w-full h-full object-contain">
+                    <source src="${getBackendUrl('/raw-video/' + clip.clip_id + '?v=' + cacheBust)}" type="video/mp4">
+                </video>
+                <span class="absolute top-3 left-3 bg-amber-500/90 text-zinc-950 text-[11px] font-bold px-2 py-0.5 rounded shadow">
+                    Originalclip (unbearbeitet)
+                </span>
                 ` : `
                 <div class="text-center p-6 text-slate-500">
                     <div class="w-8 h-8 mx-auto mb-2 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
@@ -1626,8 +1636,8 @@ if (document.readyState === 'loading') {
                 el.style.display = 'none';
             });
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('active', 'text-amber-400');
-                el.classList.add('text-slate-400');
+                el.classList.remove('active', 'text-amber-400', 'text-white', 'font-semibold', 'border-amber-500');
+                el.classList.add('text-slate-400', 'border-transparent');
             });
             
             const target = document.getElementById('tab-' + tabId);
@@ -1637,8 +1647,8 @@ if (document.readyState === 'loading') {
             }
             const btn = document.getElementById('tab-' + tabId + '-btn');
             if (btn) {
-                btn.classList.add('active', 'text-amber-400');
-                btn.classList.remove('text-slate-400');
+                btn.classList.add('active', 'text-amber-400', 'border-amber-500', 'font-semibold');
+                btn.classList.remove('text-slate-400', 'border-transparent');
             }
         }
         (function restoreActiveTabOnLoad() {
@@ -3631,13 +3641,14 @@ async function importTwitchClipToStudio(index, mode, btn) {
             }
             refreshDashboard();
         } else {
-            showToast(`✂️ Studio-Import für "${clip.title}" gestartet (Transkription & 9:16 Schnitt läuft)...`, 'success');
-            if (badgeEl) badgeEl.innerHTML = '<span class="text-[10px] font-bold px-2 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">Wird gerendert...</span>';
+            clip.db_status = 'ready';
+            showToast(`✓ "${clip.title}" als Originalclip ins Studio importiert!`, 'success');
+            if (badgeEl) badgeEl.innerHTML = getDbStatusBadgeHtml('ready');
             if (btn) {
-                btn.innerHTML = '✓ Gestartet';
+                btn.innerHTML = '✓ Im Studio';
                 btn.disabled = false;
             }
-            updateStatus();
+            refreshDashboard(true);
         }
     } catch (e) {
         showToast('Fehler beim Importieren: ' + e, 'error');

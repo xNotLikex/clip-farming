@@ -291,12 +291,16 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         let txt_path = raw_dir.join(format!("{}_transcript.txt", clip_id));
         let transcript = fs::read_to_string(&txt_path).unwrap_or_default();
         let short_file = shorts_dir.join(format!("short_{}.mp4", clip_id));
-        let thumb_file = base_dir.join("data").join("thumbnails").join(format!("{}.jpg", clip_id));
+        let raw_file = raw_dir.join(format!("{}.mp4", clip_id));
+        let thumb_file = base_dir.join("thumbnails").join(format!("{}.jpg", clip_id));
         let has_video = short_file.exists();
-        let updated_at = if thumb_file.exists() {
-            thumb_file.metadata().ok().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs() as i64).unwrap_or(0)
-        } else if short_file.exists() {
+        let has_raw_video = raw_file.exists();
+        let updated_at = if short_file.exists() {
             short_file.metadata().ok().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs() as i64).unwrap_or(0)
+        } else if thumb_file.exists() {
+            thumb_file.metadata().ok().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs() as i64).unwrap_or(0)
+        } else if raw_file.exists() {
+            raw_file.metadata().ok().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs() as i64).unwrap_or(0)
         } else {
             0
         };
@@ -318,6 +322,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
             cam_filter,
             is_manually_published,
             has_video,
+            has_raw_video,
             updated_at,
             created_ago: ago,
             created_full: full,

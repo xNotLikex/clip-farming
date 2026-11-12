@@ -1,6 +1,6 @@
 [package]
 name = "clip-farming"
-version = "0.6.0"
+version = "0.1.0"
 description = "Clip Farming Desktop App"
 authors = ["NotLike"]
 repository = "https://github.com/xNotLikex/clip-farming"

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "clip-farming",
-  "version": "0.6.0",
+  "version": "0.1.0",
   "identifier": "com.notlike.clipfarming",
   "build": {
     "frontendDist": "../ui"
@@ -27,7 +27,7 @@
         "enable": true,
         "scope": ["**"]
       },
-      "csp": "default-src 'self' asset: https://asset.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' asset: https://asset.localhost https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv data: blob:; media-src 'self' asset: https://asset.localhost blob:; connect-src 'self' https://api.github.com https://gql.twitch.tv https://id.twitch.tv https://huggingface.co; frame-src 'none'"
+      "csp": null
     }
   },
   "bundle": {

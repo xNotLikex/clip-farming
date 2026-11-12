@@ -11,6 +11,8 @@ src-tauri/target/
 node_modules/
 archive/
 *.exe
+src-tauri/binaries/*.dll
+models/
 
 # Data, Downloads & Output
 data/

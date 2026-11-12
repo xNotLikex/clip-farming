@@ -35,6 +35,8 @@ pub struct ReadyClip {
     pub is_manually_published: bool,
     pub has_video: bool,
     #[serde(default)]
+    pub has_raw_video: bool,
+    #[serde(default)]
     pub updated_at: i64,
     pub created_ago: String,
     pub created_full: String,

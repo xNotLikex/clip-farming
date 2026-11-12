@@ -52,9 +52,9 @@ jobs:
           }
 
           Write-Host "Downloading whisper.cpp Windows x64 binaries..."
-          $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest" -Headers @{ "User-Agent" = "Clip-Farming-CI" }
-          $asset = $rel.assets | Where-Object { $_.name -match "whisper-bin-x64\.zip$" } | Select-Object -First 1
-          if (-not $asset) { throw "whisper-bin-x64.zip asset not found in latest whisper.cpp release" }
+          $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=10" -Headers @{ "User-Agent" = "Clip-Farming-CI" }
+          $asset = $rels | ForEach-Object { $_.assets } | Where-Object { $_.name -eq "whisper-bin-x64.zip" } | Select-Object -First 1
+          if (-not $asset) { throw "whisper-bin-x64.zip asset not found in recent whisper.cpp releases" }
           $whZip = "$env:TEMP/whisper.zip"
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $whZip
           Expand-Archive -Path $whZip -DestinationPath "$env:TEMP/whisper_extract" -Force

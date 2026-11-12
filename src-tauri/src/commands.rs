@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::path::PathBuf;
 use tauri::AppHandle;
 
@@ -16,7 +16,10 @@ use crate::layout::generate_thumbnail;
 use crate::models::DashboardData;
 use crate::pipeline::{process_all_pending, process_single_clip, run_twitch_harvest};
 use crate::state::{cancel_active_render, status_manager};
-use crate::twitch::{harvest_channel, refresh_streamer_avatars};
+use crate::twitch::{
+    download_clip_file, harvest_channel, normalize_gql_time_filter, query_twitch_clips,
+    refresh_streamer_avatars, save_harvested_clip, DiscoveredClip,
+};
 use crate::updater::{check_for_update, download_and_launch_update};
 
 #[tauri::command]
@@ -184,14 +187,14 @@ pub async fn api_proxy(
         tokio::spawn(async move {
             let _ = run_twitch_harvest(Some(app_clone)).await;
         });
-        return Ok(json!({ "ok": true, "started": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true, "started": true }).to_string());
     }
     if clean_path == "/api/process-all" && req_method == "POST" {
         let app_clone = app.clone();
         tokio::spawn(async move {
             let _ = process_all_pending(Some(app_clone)).await;
         });
-        return Ok(json!({ "ok": true, "started": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true, "started": true }).to_string());
     }
     if let Some(clip_id) = clean_path.strip_prefix("/process-one/") {
         let cid = url_decode_simple(clip_id);
@@ -199,16 +202,16 @@ pub async fn api_proxy(
         tokio::spawn(async move {
             let _ = process_single_clip(&cid, Some(app_clone)).await;
         });
-        return Ok(json!({ "ok": true, "started": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true, "started": true }).to_string());
     }
     if let Some(rest) = clean_path.strip_prefix("/api/clip/") {
         if let Some(cid) = rest.strip_suffix("/cancel") {
             let ok = cancel_active_render(&url_decode_simple(cid));
-            return Ok(json!({ "ok": ok }).to_string());
+            return Ok(json!({ "success": ok, "ok": ok }).to_string());
         }
         if let Some(cid) = rest.strip_suffix("/toggle-published") {
             let published = toggle_manually_published(&url_decode_simple(cid))?;
-            return Ok(json!({ "ok": true, "is_manually_published": published }).to_string());
+            return Ok(json!({ "success": true, "ok": true, "is_manually_published": published }).to_string());
         }
         if let Some(cid) = rest.strip_suffix("/detect-cam") {
             let _ = cid;
@@ -217,7 +220,7 @@ pub async fn api_proxy(
         if let Some(cid) = rest.strip_suffix("/save-crop") {
             let cid = url_decode_simple(cid);
             save_clip_crop(cid, payload)?;
-            return Ok(json!({ "ok": true }).to_string());
+            return Ok(json!({ "success": true, "ok": true }).to_string());
         }
         if let Some(cid) = rest.strip_suffix("/meta") {
             let cid = url_decode_simple(cid);
@@ -242,14 +245,71 @@ pub async fn api_proxy(
             std::fs::create_dir_all(get_metadata_dir()).map_err(|e| e.to_string())?;
             let pretty = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
             std::fs::write(&meta_path, pretty).map_err(|e| e.to_string())?;
-            return Ok(json!({ "ok": true, "meta": meta }).to_string());
+            return Ok(json!({ "success": true, "ok": true, "meta": meta }).to_string());
+        }
+    }
+
+    // 2b. Studio Save / Rerender / Schedule / Publish / Delete
+    if let Some(cid) = clean_path.strip_prefix("/save/") {
+        if req_method == "POST" {
+            let cid = url_decode_simple(cid);
+            let action = payload
+                .get("action")
+                .and_then(|v| v.as_str())
+                .unwrap_or("save");
+
+            if action == "delete" {
+                delete_queue_clip(cid)?;
+                return Ok(json!({ "success": true, "ok": true }).to_string());
+            }
+
+            if let Some(title_val) = payload.get("title").and_then(|v| v.as_str()) {
+                let conn = open_connection()?;
+                conn.execute(
+                    "UPDATE clips SET ai_title = ?1 WHERE clip_id = ?2",
+                    rusqlite::params![title_val, &cid],
+                )
+                .map_err(|e| e.to_string())?;
+
+                let meta_dir = get_metadata_dir();
+                std::fs::create_dir_all(&meta_dir).map_err(|e| e.to_string())?;
+                let meta_path = meta_dir.join(format!("{cid}.json"));
+                let mut meta: Value = if meta_path.exists() {
+                    std::fs::read_to_string(&meta_path)
+                        .ok()
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                        .unwrap_or_else(|| json!({}))
+                } else {
+                    json!({})
+                };
+                if let Some(obj) = meta.as_object_mut() {
+                    obj.insert("title".to_string(), Value::String(title_val.to_string()));
+                }
+                if let Ok(pretty) = serde_json::to_string_pretty(&meta) {
+                    let _ = std::fs::write(&meta_path, pretty);
+                }
+            }
+
+            match action {
+                "rerender" => {
+                    process_single_clip(&cid, Some(app.clone())).await?;
+                }
+                "schedule" => {
+                    update_clip_status(&cid, "scheduled")?;
+                }
+                "publish_now" => {
+                    update_clip_status(&cid, "published")?;
+                }
+                _ => {}
+            }
+            return Ok(json!({ "success": true, "ok": true }).to_string());
         }
     }
 
     // 3. Queue Delete / Cleanup
     if let Some(cid) = clean_path.strip_prefix("/queue/delete/") {
         delete_queue_clip(url_decode_simple(cid))?;
-        return Ok(json!({ "ok": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true }).to_string());
     }
     if clean_path == "/queue/delete-older" && req_method == "POST" {
         let days = payload.get("days").and_then(|v| v.as_i64()).unwrap_or(7);
@@ -260,21 +320,21 @@ pub async fn api_proxy(
                 [format!("-{days} days")],
             )
             .map_err(|e| e.to_string())?;
-        return Ok(json!({ "ok": true, "deleted": deleted }).to_string());
+        return Ok(json!({ "success": true, "ok": true, "deleted": deleted }).to_string());
     }
 
     // 4. Scheduling
     if let Some(cid) = clean_path.strip_prefix("/schedule-one/") {
         update_clip_status(&url_decode_simple(cid), "scheduled")?;
-        return Ok(json!({ "ok": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true }).to_string());
     }
     if let Some(cid) = clean_path.strip_prefix("/schedule/publish-now/") {
         update_clip_status(&url_decode_simple(cid), "published")?;
-        return Ok(json!({ "ok": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true }).to_string());
     }
     if let Some(cid) = clean_path.strip_prefix("/schedule/cancel/") {
         update_clip_status(&url_decode_simple(cid), "ready")?;
-        return Ok(json!({ "ok": true }).to_string());
+        return Ok(json!({ "success": true, "ok": true }).to_string());
     }
 
     // 5. Streamers CRUD & Layout
@@ -299,11 +359,11 @@ pub async fn api_proxy(
             .unwrap_or("auto");
         let added = add_streamer(&name, min_views, max_clips, layout)?;
         let _ = refresh_streamer_avatars(&[name]).await;
-        return Ok(json!({ "ok": added, "added": added }).to_string());
+        return Ok(json!({ "success": added, "ok": added, "added": added }).to_string());
     }
     if let Some(name) = clean_path.strip_prefix("/api/streamers/remove/") {
         let removed = remove_streamer(&url_decode_simple(name))?;
-        return Ok(json!({ "ok": removed }).to_string());
+        return Ok(json!({ "success": removed, "ok": removed }).to_string());
     }
     if clean_path == "/api/streamers/update" && req_method == "POST" {
         let name = payload
@@ -316,7 +376,7 @@ pub async fn api_proxy(
         let enabled = payload.get("enabled").and_then(|v| v.as_bool());
         let custom_crops = payload.get("custom_crops").cloned();
         let ok = update_streamer(name, min_views, max_clips, layout, enabled, custom_crops)?;
-        return Ok(json!({ "ok": ok }).to_string());
+        return Ok(json!({ "success": ok, "ok": ok }).to_string());
     }
     if clean_path == "/api/streamers/update-all-views" && req_method == "POST" {
         let min_views = payload
@@ -324,7 +384,7 @@ pub async fn api_proxy(
             .and_then(|v| v.as_i64())
             .unwrap_or(100);
         let count = update_all_streamers_min_views(min_views)?;
-        return Ok(json!({ "ok": true, "updated": count }).to_string());
+        return Ok(json!({ "success": true, "ok": true, "updated": count }).to_string());
     }
     if let Some(rest) = clean_path.strip_prefix("/api/streamers/") {
         if let Some(name) = rest.strip_suffix("/layout") {
@@ -332,7 +392,7 @@ pub async fn api_proxy(
             let layout = payload.get("layout").and_then(|v| v.as_str());
             let custom_crops = payload.get("custom_crops").cloned();
             let ok = update_streamer(&sname, None, None, layout, None, custom_crops)?;
-            return Ok(json!({ "ok": ok }).to_string());
+            return Ok(json!({ "success": ok, "ok": ok }).to_string());
         }
         if let Some(name) = rest.strip_suffix("/config") {
             let sname = url_decode_simple(name);
@@ -351,7 +411,7 @@ pub async fn api_proxy(
                 let custom_crops = payload.get("custom_crops").cloned();
                 let ok =
                     update_streamer(&sname, min_views, max_clips, layout, enabled, custom_crops)?;
-                return Ok(json!({ "ok": ok }).to_string());
+                return Ok(json!({ "success": ok, "ok": ok }).to_string());
             }
         }
         if let Some(name) = rest.strip_suffix("/sample-clip") {
@@ -365,7 +425,7 @@ pub async fn api_proxy(
                 )
                 .ok();
             if let Some(cid) = existing_id {
-                return Ok(json!({ "ok": true, "clip_id": cid }).to_string());
+                return Ok(json!({ "success": true, "ok": true, "clip_id": cid }).to_string());
             }
             let temp_entry = StreamerEntry {
                 name: sname.clone(),
@@ -387,7 +447,7 @@ pub async fn api_proxy(
                 .ok();
             if let Some(cid) = new_id {
                 let _ = generate_thumbnail(&cid, false);
-                return Ok(json!({ "ok": true, "clip_id": cid }).to_string());
+                return Ok(json!({ "success": true, "ok": true, "clip_id": cid }).to_string());
             }
             return Err(format!("Kein Beispiel-Clip für {sname} gefunden."));
         }
@@ -397,9 +457,43 @@ pub async fn api_proxy(
     if clean_path == "/api/settings" {
         if req_method == "GET" {
             let cfg = load_config();
-            return serde_json::to_string(&cfg).map_err(|e| e.to_string());
+            return Ok(json!({
+                "success": true,
+                "enabled": cfg.autopilot.enabled,
+                "interval_minutes": cfg.autopilot.interval_minutes,
+                "time_filter": cfg.autopilot.time_filter,
+                "fallback_to_week": cfg.autopilot.fallback_to_week,
+                "auto_render": cfg.autopilot.auto_render,
+                "hardware_encoder": cfg.video.hardware_encoder,
+                "whisper_model": cfg.video.whisper_model,
+            })
+            .to_string());
         } else {
             let mut cfg = load_config();
+            // Flaches UI-Format aus #settings-form
+            if let Some(en) = payload.get("enabled").and_then(|v| v.as_bool()) {
+                cfg.autopilot.enabled = en;
+            }
+            if let Some(iv) = payload.get("interval_minutes").and_then(|v| v.as_i64()) {
+                cfg.autopilot.interval_minutes = iv;
+            }
+            if let Some(tf) = payload.get("time_filter").and_then(|v| v.as_str()) {
+                cfg.autopilot.time_filter = tf.to_string();
+                cfg.twitch.time_filter = tf.to_string();
+            }
+            if let Some(fb) = payload.get("fallback_to_week").and_then(|v| v.as_bool()) {
+                cfg.autopilot.fallback_to_week = fb;
+            }
+            if let Some(ar) = payload.get("auto_render").and_then(|v| v.as_bool()) {
+                cfg.autopilot.auto_render = ar;
+            }
+            if let Some(hw) = payload.get("hardware_encoder").and_then(|v| v.as_str()) {
+                cfg.video.hardware_encoder = hw.to_string();
+            }
+            if let Some(wm) = payload.get("whisper_model").and_then(|v| v.as_str()) {
+                cfg.video.whisper_model = wm.to_string();
+            }
+            // Optionales verschachteltes Format
             if let Some(tw) = payload.get("twitch") {
                 if let Some(cid) = tw.get("client_id").and_then(|v| v.as_str()) {
                     cfg.twitch.client_id = cid.to_string();
@@ -437,7 +531,7 @@ pub async fn api_proxy(
                 }
             }
             save_config(&cfg)?;
-            return Ok(json!({ "ok": true }).to_string());
+            return Ok(json!({ "success": true, "ok": true }).to_string());
         }
     }
 
@@ -484,8 +578,7 @@ pub async fn api_proxy(
                 }
             }
         }
-        return Ok(json!({
-            "ok": true,
+        return Ok(json!({ "success": true, "ok": true,
             "exported": exported,
             "folder": folder.to_string_lossy()
         })
@@ -523,10 +616,126 @@ pub async fn api_proxy(
             return Ok(json!({ "ok": false, "cancelled": true }).to_string());
         };
         std::fs::copy(&src, &dst).map_err(|e| format!("Export-Fehler: {e}"))?;
-        return Ok(json!({ "ok": true, "path": dst.to_string_lossy() }).to_string());
+        return Ok(json!({ "success": true, "ok": true, "path": dst.to_string_lossy() }).to_string());
     }
 
-    // 8. Updater
+    // 8. Twitch Clip-Explorer (Manuelle Suche & Direkt-Import)
+    if clean_path == "/api/twitch/search-clips" {
+        let query_str = endpoint.split('?').nth(1).unwrap_or("");
+        let mut streamer = String::new();
+        let mut timeframe = "LAST_DAY".to_string();
+        let mut limit = 24usize;
+        for pair in query_str.split('&') {
+            if let Some((k, v)) = pair.split_once('=') {
+                let decoded = url_decode_simple(v);
+                match k {
+                    "streamer" => streamer = decoded.trim().to_string(),
+                    "timeframe" => timeframe = decoded,
+                    "limit" => limit = decoded.parse::<usize>().unwrap_or(24).clamp(1, 50),
+                    _ => {}
+                }
+            }
+        }
+        if streamer.is_empty() {
+            return Ok(json!({ "success": false, "error": "Kein Streamer-Name angegeben." }).to_string());
+        }
+        let tf = normalize_gql_time_filter(&timeframe);
+        let clips = query_twitch_clips(&streamer, limit, tf).await?;
+        let conn = open_connection()?;
+        let enriched: Vec<Value> = clips
+            .into_iter()
+            .map(|c| {
+                let db_status: Option<String> = conn
+                    .query_row(
+                        "SELECT status FROM clips WHERE clip_id = ?1",
+                        [&c.clip_id],
+                        |row| row.get(0),
+                    )
+                    .ok();
+                json!({
+                    "clip_id": c.clip_id,
+                    "streamer": c.streamer,
+                    "title": c.title,
+                    "url": c.url,
+                    "view_count": c.view_count,
+                    "duration": c.duration,
+                    "created_at": c.created_at,
+                    "thumbnail_url": c.thumbnail_url,
+                    "db_status": db_status,
+                })
+            })
+            .collect();
+
+        return Ok(json!({
+            "success": true,
+            "time_filter": tf,
+            "streamer": {
+                "login": streamer.to_lowercase(),
+                "display_name": streamer,
+            },
+            "clips": enriched
+        })
+        .to_string());
+    }
+
+    if clean_path == "/api/twitch/import-clip" && req_method == "POST" {
+        let clip_id = payload
+            .get("clip_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if clip_id.is_empty() {
+            return Ok(json!({ "success": false, "error": "clip_id fehlt." }).to_string());
+        }
+        let streamer = payload
+            .get("streamer")
+            .and_then(|v| v.as_str())
+            .unwrap_or("twitch")
+            .to_string();
+        let title = payload
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Clip")
+            .to_string();
+        let url = payload
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let view_count = payload.get("view_count").and_then(|v| v.as_i64()).unwrap_or(0);
+        let duration = payload.get("duration").and_then(|v| v.as_f64()).unwrap_or(30.0);
+        let created_at = payload
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let mode = payload
+            .get("mode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("studio");
+
+        let raw_path = download_clip_file(&url, &clip_id).await?;
+        let discovered = DiscoveredClip {
+            clip_id: clip_id.clone(),
+            streamer,
+            title,
+            url,
+            view_count,
+            duration,
+            created_at,
+            thumbnail_url: String::new(),
+        };
+        save_harvested_clip(&discovered, &raw_path)?;
+        let _ = generate_thumbnail(&clip_id, false);
+
+        if mode != "queue" {
+            update_clip_status(&clip_id, "ready")?;
+        }
+        return Ok(json!({ "success": true, "ok": true, "clip_id": clip_id }).to_string());
+    }
+
+    // 9. Updater
     if clean_path == "/api/system/check-update" {
         let res = check_for_update().await?;
         return Ok(res.to_string());
@@ -542,3 +751,4 @@ pub async fn api_proxy(
 
     Err(format!("Unbekannter API-Endpunkt: {req_method} {clean_path}"))
 }
+

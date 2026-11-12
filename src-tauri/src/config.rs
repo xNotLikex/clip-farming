@@ -176,10 +176,11 @@ fn is_dir_writable(dir: &Path) -> bool {
     }
 }
 
-/// Liefert das schreibbare Daten-Wurzelverzeichnis:
+/// Liefert das schreibbare Daten-Wurzelverzeichnis (100% portabel neben der .exe):
 /// 1. Wenn `CLIP_FARMING_DATA_DIR` gesetzt ist -> dieses nutzen (ideal für Tests).
-/// 2. Portable / Dev-Modus neben Exe oder CWD (wenn `data/` oder `config/` existiert und schreibbar ist).
-/// 3. Standardmäßig `%LOCALAPPDATA%\Clip-Farming` unter Windows.
+/// 2. Dev-Modus (`target/debug` oder `target/release` im Repo): Repo-Root nutzen, wenn dort `data/`/`config/` liegt.
+/// 3. Portable-Standard: Direkt im Ordner der `.exe` (`exe_dir`), sofern beschreibbar (keine Daten in AppData!).
+/// 4. Nur falls `exe_dir` schreibgeschützt ist (z. B. `Program Files`): `%LOCALAPPDATA%\Clip-Farming`.
 pub fn get_data_root() -> PathBuf {
     if let Some(override_dir) = std::env::var_os("CLIP_FARMING_DATA_DIR") {
         let p = PathBuf::from(override_dir);
@@ -189,19 +190,27 @@ pub fn get_data_root() -> PathBuf {
 
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
-            if (exe_dir.join("data").exists() || exe_dir.join("config").exists())
-                && is_dir_writable(&exe_dir.join("data"))
-            {
+            // Dev-Modus unter src-tauri/target/{debug,release} -> Repo-Root prüfen
+            let is_cargo_target = exe_dir
+                .parent()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                == Some("target");
+            if is_cargo_target {
+                for candidate in [Path::new("."), Path::new("..")] {
+                    if (candidate.join("data").exists() || candidate.join("config").exists())
+                        && is_dir_writable(&candidate.join("data"))
+                    {
+                        let _ = ensure_directories_in(candidate);
+                        return candidate.to_path_buf();
+                    }
+                }
+            }
+
+            // Portable-Standard: direkt neben clip-farming.exe speichern
+            if is_dir_writable(exe_dir) {
                 let _ = ensure_directories_in(exe_dir);
                 return exe_dir.to_path_buf();
-            }
-            if let Some(parent) = exe_dir.parent() {
-                if (parent.join("data").exists() || parent.join("config").exists())
-                    && is_dir_writable(&parent.join("data"))
-                {
-                    let _ = ensure_directories_in(parent);
-                    return parent.to_path_buf();
-                }
             }
         }
     }
