@@ -3826,6 +3826,22 @@ def set_last_export_dir(path: Path):
     except Exception:
         pass
 
+def _open_in_explorer(target_path: Path, select_file: bool = True) -> None:
+    """Öffnet den Windows Explorer im Zielordner oder markiert die exportierte Datei."""
+    if sys.platform != "win32":
+        return
+    try:
+        resolved = target_path.resolve()
+        if select_file:
+            # /select, darf bei Leerzeichen nicht zusammen mit dem Pfad gequotet werden,
+            # weil explorer.exe den Parameter sonst ignoriert und "Dokumente" öffnet.
+            safe_path = str(resolved).replace('"', "")
+            subprocess.Popen(f'explorer.exe /select,"{safe_path}"')
+        else:
+            subprocess.Popen(["explorer.exe", str(resolved)])
+    except Exception:
+        pass
+
 @app.route("/api/export-all-ready", methods=["POST"])
 def export_all_ready_clips():
     """Phase 5: Exportiert alle fertig geschnittenen 9:16 Shorts in einen wählbaren Zielordner."""
@@ -3864,11 +3880,7 @@ def export_all_ready_clips():
                 pass
 
     status_manager.log(f"📦 Stapel-Export: {exported_count} fertige Shorts nach '{target_dir.name}' exportiert.")
-    if sys.platform == "win32":
-        try:
-            subprocess.Popen(["explorer.exe", str(target_dir)])
-        except Exception:
-            pass
+    _open_in_explorer(target_dir, select_file=False)
 
     return jsonify({
         "success": True,
@@ -3930,11 +3942,7 @@ def export_clip_dialog(clip_id):
         shutil.copy2(video_path, dest_path)
         set_last_export_dir(dest_path.parent)
 
-        if sys.platform == "win32":
-            try:
-                subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
-            except Exception:
-                pass
+        _open_in_explorer(dest_path)
 
         return jsonify({
             "success": True,
@@ -3995,11 +4003,7 @@ def export_raw_dialog(clip_id):
         shutil.copy2(video_path, dest_path)
         set_last_export_dir(dest_path.parent)
 
-        if sys.platform == "win32":
-            try:
-                subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
-            except Exception:
-                pass
+        _open_in_explorer(dest_path)
 
         return jsonify({
             "success": True,
@@ -4047,11 +4051,7 @@ def export_clip_to_downloads(clip_id):
     shutil.copy2(video_path, dest_path)
 
     # Windows Explorer mit markierter Datei öffnen
-    if sys.platform == "win32":
-        try:
-            subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
-        except Exception:
-            pass
+    _open_in_explorer(dest_path)
 
     return jsonify({
         "success": True,
@@ -4090,11 +4090,7 @@ def export_raw_to_downloads(clip_id):
 
     shutil.copy2(video_path, dest_path)
 
-    if sys.platform == "win32":
-        try:
-            subprocess.Popen(["explorer.exe", f"/select,{str(dest_path)}"])
-        except Exception:
-            pass
+    _open_in_explorer(dest_path)
 
     return jsonify({"success": True, "filename": filename, "path": str(dest_path), "folder": str(dest_path.parent)})
 

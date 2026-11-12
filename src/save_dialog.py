@@ -58,6 +58,7 @@ def open_save_dialog(suggested_filename: str, initial_dir: str = "", title: str 
             filters = "MP4 Video (*.mp4)\0*.mp4\0Alle Dateien (*.*)\0*.*\0\0"
 
             OFN_OVERWRITEPROMPT = 0x00000002
+            OFN_NOCHANGEDIR     = 0x00000008
             OFN_PATHMUSTEXIST   = 0x00000800
             OFN_EXPLORER        = 0x00080000
             OFN_ENABLESIZING    = 0x00800000
@@ -71,7 +72,7 @@ def open_save_dialog(suggested_filename: str, initial_dir: str = "", title: str 
             ofn.nMaxFile = 1024
             ofn.lpstrInitialDir = initial_dir if os.path.exists(initial_dir) else None
             ofn.lpstrTitle = title
-            ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_ENABLESIZING
+            ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_ENABLESIZING
             ofn.lpstrDefExt = "mp4"
 
             if comdlg32.GetSaveFileNameW(ctypes.byref(ofn)):
