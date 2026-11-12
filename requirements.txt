@@ -7,9 +7,11 @@ colorama>=0.4.6
 flask>=3.0.0
 
 # Video & Download Harvester
+# Hinweis: yt-dlp bewusst aktuell halten (Twitch ändert Endpunkte häufig).
 yt-dlp>=2024.08.00
 
 # AI Transcription (GPU Accelerated with CUDA)
+# Hinweis: torch (optional, für CUDA-Erkennung in transcriber.py) bei Bedarf separat mit passender CUDA-Index-URL installieren.
 faster-whisper>=1.0.0
 av<14
 
