@@ -145,22 +145,31 @@ class PipelineOrchestrator:
                             tags=metadata.get("tags", "")
                         )
                     
-                    if self.config.get("publishing", {}).get("tiktok", {}).get("enabled", False):
-                        status_manager.set_task("uploading", "Lade auf TikTok hoch...", clip_title=orig_title, streamer=streamer)
+                    tt_requested = bool(self.config.get("publishing", {}).get("tiktok", {}).get("enabled", False))
+                    if tt_requested:
+                        status_manager.set_task("uploading", "Prüfe TikTok-Upload...", clip_title=orig_title, streamer=streamer)
                         tt_id = self.tt_uploader.upload_short(
                             video_path=rendered_path,
                             caption=metadata.get("title", orig_title)
                         )
+                        if not tt_id:
+                            status_manager.log(f"⚠️ TikTok-Upload für '{orig_title}' nicht implementiert / fehlgeschlagen.")
+
+                    is_published = bool(yt_id or tt_id)
+                    error_msg = None
+                    if not is_published and (tt_requested or self.config.get("publishing", {}).get("youtube", {}).get("enabled", False)):
+                        error_msg = "Upload fehlgeschlagen oder TikTok-Upload nicht implementiert"
 
                     update_clip_status(
                         clip_id=clip_id,
-                        status="published" if (yt_id or tt_id) else "ready",
+                        status="published" if is_published else "ready",
                         rendered_path=str(rendered_path),
                         ai_title=metadata.get("title"),
                         ai_description=metadata.get("description"),
                         ai_tags=metadata.get("tags"),
                         youtube_video_id=yt_id,
-                        tiktok_video_id=tt_id
+                        tiktok_video_id=tt_id,
+                        error_log=error_msg
                     )
 
                     print(f"  [OK] Clip {clip_id} erfolgreich fertiggestellt!")

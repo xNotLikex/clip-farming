@@ -257,9 +257,22 @@ def publish_clip_now(clip_id: str) -> bool:
         yt_id = yt_uploader.upload_short(short_file, title=title, description=desc, tags=tags)
 
     # TikTok Upload
+    tt_attempted = False
     if tt_uploader.is_configured():
-        status_manager.set_task("publishing", f"Lade '{title}' auf TikTok hoch...", clip_title=title)
+        tt_attempted = True
+        status_manager.set_task("publishing", f"Prüfe TikTok-Upload für '{title}'...", clip_title=title)
         tt_id = tt_uploader.upload_short(short_file, caption=title)
+
+    if not (yt_id or tt_id):
+        err_msg = (
+            "TikTok-Upload ist aktuell nicht implementiert (kein Upload durchgeführt)."
+            if tt_attempted else
+            "Kein aktiver Upload-Kanal (YouTube nicht verbunden, TikTok nicht verfügbar)."
+        )
+        update_clip_status(clip_id, "ready", error_log=err_msg)
+        status_manager.log(f"⚠️ Veröffentlichung von '{title}' abgebrochen: {err_msg}")
+        status_manager.set_task("error", err_msg)
+        return False
 
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     update_clip_status(
@@ -2296,15 +2309,13 @@ HTML_DASHBOARD = """
                                     <span class="text-xs text-slate-400">Creator Session Upload</span>
                                 </div>
                             </div>
-                            {% if account_status.tiktok.is_connected %}
-                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>Aktiv
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-800">
+                                <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1.5"></span>Nicht verfügbar
                             </span>
-                            {% else %}
-                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-zinc-800 text-slate-400 border border-slate-700">
-                                <span class="inline-block w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span>Inaktiv
-                            </span>
-                            {% endif %}
+                        </div>
+
+                        <div class="p-3 bg-amber-950/40 border border-amber-800/60 rounded-lg text-xs text-amber-200">
+                            <strong>Hinweis:</strong> Der automatische TikTok-Upload ist aktuell noch nicht implementiert. Clips werden nicht ohne echten Upload als veröffentlicht markiert.
                         </div>
 
                         {% if account_status.tiktok.is_connected %}

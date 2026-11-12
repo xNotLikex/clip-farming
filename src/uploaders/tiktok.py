@@ -27,20 +27,13 @@ class TikTokUploader:
 
     def upload_short(self, video_path: Path, caption: str) -> Optional[str]:
         """
-        Lädt ein fertiges Video auf TikTok hoch (als Draft oder direkt veröffentlicht).
+        TikTok-Upload ist aktuell nicht implementiert (Stub entfernt, kein Fake-Erfolg).
+        Gibt immer None zurück, damit kein Clip fälschlich als 'published' markiert wird.
         """
         sid = self.get_session_id()
         if not self.enabled or not sid:
             print("[i] TikTok Upload übersprungen: In Konten-Einstellungen nicht aktiviert oder keine Session-ID hinterlegt.")
             return None
 
-        print(f"[*] Starte TikTok Upload: \"{caption[:50]}...\" (Modus: {self.upload_mode})")
-        try:
-            # TikTok Upload Logik (Session Cookie Flow)
-            import uuid
-            tt_id = f"tt_{uuid.uuid4().hex[:12]}"
-            print(f"[+] Video erfolgreich an TikTok übergeben (ID: {tt_id}, Status: {self.upload_mode})")
-            return tt_id
-        except Exception as e:
-            print(f"[!] TikTok Upload Fehler: {e}")
-            return None
+        print(f"[!] TikTok-Upload nicht implementiert – Upload für \"{caption[:50]}\" abgebrochen.")
+        return None
