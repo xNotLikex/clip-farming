@@ -1845,12 +1845,14 @@ HTML_DASHBOARD = """
                             <div>
                                 <label class="block text-2xs font-medium text-slate-400 mb-1">Min. Views:</label>
                                 <input type="number" value="{{ s.min_clip_views }}" min="1" max="100000"
+                                       oninput="scheduleStreamerMinViewsSave('{{ s.name }}', this.value)"
                                        onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
                                        class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
                             </div>
                             <div>
                                 <label class="block text-2xs font-medium text-slate-400 mb-1">Max Clips/Run:</label>
                                 <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
+                                       oninput="scheduleStreamerMaxClipsSave('{{ s.name }}', this.value)"
                                        onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
                                        class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-white font-semibold focus:outline-none">
                             </div>
@@ -2022,12 +2024,14 @@ HTML_DASHBOARD = """
                                 <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
                                     <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
                                     <input type="number" value="{{ s.min_clip_views }}" min="1" max="10000"
+                                           oninput="scheduleStreamerMinViewsSave('{{ s.name }}', this.value)"
                                            onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
                                            class="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
                                 </div>
                                 <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
                                     <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max Clips:</span>
                                     <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
+                                           oninput="scheduleStreamerMaxClipsSave('{{ s.name }}', this.value)"
                                            onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
                                            class="w-12 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
                                 </div>

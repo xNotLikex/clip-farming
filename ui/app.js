@@ -789,7 +789,12 @@ function renderStreamers(streamers) {
     if (filterCount) filterCount.innerText = `${streamers.length} angezeigt`;
 
     const fullGrid = document.getElementById('streamer-grid-list');
-    if (fullGrid) {
+    const isEditingStreamerGrid = fullGrid && (
+        (document.activeElement && fullGrid.contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName))
+        || _pendingStreamerSaves.size > 0
+        || _streamerAutoSaveTimers.size > 0
+    );
+    if (fullGrid && !isEditingStreamerGrid) {
         fullGrid.innerHTML = streamers.map(s => {
             const curLayout = s.layout || 'auto';
             const hasCustom = !!s.custom_crops || !!s.has_custom_crops;
@@ -843,12 +848,14 @@ function renderStreamers(streamers) {
                     <div>
                         <label class="block text-2xs font-medium text-slate-400 uppercase tracking-wider mb-1">Min. Views:</label>
                         <input type="number" value="${s.min_clip_views || 25}" min="1" max="100000"
+                               oninput="scheduleStreamerMinViewsSave('${escapeJs(s.name)}', this.value)"
                                onchange="updateStreamerMinViews('${escapeJs(s.name)}', this.value)"
                                class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
                     </div>
                     <div>
                         <label class="block text-2xs font-medium text-slate-400 uppercase tracking-wider mb-1">Max Clips/Run:</label>
                         <input type="number" value="${s.max_clips_per_run || 2}" min="1" max="10"
+                               oninput="scheduleStreamerMaxClipsSave('${escapeJs(s.name)}', this.value)"
                                onchange="updateStreamerMaxClips('${escapeJs(s.name)}', this.value)"
                                class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-white font-semibold focus:outline-none">
                     </div>
@@ -998,33 +1005,86 @@ async function saveAsDefaultStreamerLayout() {
     }
 }
 
+const _streamerAutoSaveTimers = new Map();
+const _pendingStreamerSaves = new Set();
+
+function scheduleStreamerMinViewsSave(name, minViews, delayMs = 450) {
+    const key = `${String(name).toLowerCase()}:min_views`;
+    if (_streamerAutoSaveTimers.has(key)) {
+        clearTimeout(_streamerAutoSaveTimers.get(key));
+    }
+    const val = parseInt(minViews, 10);
+    if (isNaN(val) || val < 1) {
+        _streamerAutoSaveTimers.delete(key);
+        return;
+    }
+    const timer = setTimeout(() => {
+        _streamerAutoSaveTimers.delete(key);
+        updateStreamerMinViews(name, val);
+    }, delayMs);
+    _streamerAutoSaveTimers.set(key, timer);
+}
+
+function scheduleStreamerMaxClipsSave(name, maxClips, delayMs = 450) {
+    const key = `${String(name).toLowerCase()}:max_clips`;
+    if (_streamerAutoSaveTimers.has(key)) {
+        clearTimeout(_streamerAutoSaveTimers.get(key));
+    }
+    const val = parseInt(maxClips, 10);
+    if (isNaN(val) || val < 1) {
+        _streamerAutoSaveTimers.delete(key);
+        return;
+    }
+    const timer = setTimeout(() => {
+        _streamerAutoSaveTimers.delete(key);
+        updateStreamerMaxClips(name, val);
+    }, delayMs);
+    _streamerAutoSaveTimers.set(key, timer);
+}
+
 async function updateStreamerMinViews(name, minViews) {
+    const key = `${String(name).toLowerCase()}:min_views`;
+    if (_streamerAutoSaveTimers.has(key)) {
+        clearTimeout(_streamerAutoSaveTimers.get(key));
+        _streamerAutoSaveTimers.delete(key);
+    }
     const val = parseInt(minViews, 10);
     if (isNaN(val) || val < 1) return;
+    _pendingStreamerSaves.add(key);
     try {
         await apiFetch('/api/streamers/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name, min_clip_views: val })
         });
-        showToast(`Mindest-Views für ${name} auf ${val} geändert!`, 'success');
+        showToast(`Mindest-Views für ${name} automatisch auf ${val} gespeichert`, 'success');
     } catch (e) {
         alert('Fehler beim Aktualisieren: ' + e);
+    } finally {
+        _pendingStreamerSaves.delete(key);
     }
 }
 
 async function updateStreamerMaxClips(name, maxClips) {
+    const key = `${String(name).toLowerCase()}:max_clips`;
+    if (_streamerAutoSaveTimers.has(key)) {
+        clearTimeout(_streamerAutoSaveTimers.get(key));
+        _streamerAutoSaveTimers.delete(key);
+    }
     const val = parseInt(maxClips, 10);
     if (isNaN(val) || val < 1) return;
+    _pendingStreamerSaves.add(key);
     try {
         await apiFetch('/api/streamers/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name, max_clips_per_run: val })
         });
-        showToast(`Max Clips für ${name} auf ${val} geändert!`, 'success');
+        showToast(`Max Clips für ${name} automatisch auf ${val} gespeichert`, 'success');
     } catch (e) {
         alert('Fehler beim Aktualisieren: ' + e);
+    } finally {
+        _pendingStreamerSaves.delete(key);
     }
 }
 
@@ -3641,6 +3701,8 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.loadSettingsIntoForm = loadSettingsIntoForm;
         window.updateStreamerMinViews = updateStreamerMinViews;
         window.updateStreamerMaxClips = updateStreamerMaxClips;
+        window.scheduleStreamerMinViewsSave = scheduleStreamerMinViewsSave;
+        window.scheduleStreamerMaxClipsSave = scheduleStreamerMaxClipsSave;
         window.updateStreamerLayout = updateStreamerLayout;
         window.saveAsDefaultStreamerLayout = saveAsDefaultStreamerLayout;
         window.applyBulkMinViews = applyBulkMinViews;
