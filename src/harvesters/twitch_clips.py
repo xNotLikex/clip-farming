@@ -1,22 +1,48 @@
-import os
+import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from src.config import RAW_CLIPS_DIR, TWITCH_GQL_CLIENT_ID, TWITCH_GQL_URL, load_config
+from src.database import get_processed_ids, save_clip
 
 if sys.platform == "win32":
-    try:
+    with suppress(OSError, AttributeError):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-import subprocess
-import json
-import time
 
-from src.config import RAW_CLIPS_DIR, load_config, TWITCH_GQL_CLIENT_ID, TWITCH_GQL_URL
-from src.database import get_processed_ids, save_clip
+ALLOWED_GQL_TIME_FILTERS = frozenset({"LAST_DAY", "LAST_WEEK", "LAST_MONTH", "ALL_TIME", "TRENDING"})
+
+
+def _normalize_gql_time_filter(time_filter: str | None, default: str = "LAST_DAY") -> str:
+    """Validiert GQL-Zeitfilter gegen die feste Allowlist (schützt vor Query-Injection)."""
+    candidate = (time_filter or default).strip().upper()
+    return candidate if candidate in ALLOWED_GQL_TIME_FILTERS else default
+
+
+def _build_retry_session() -> requests.Session:
+    """Erzeugt eine wiederverwendbare HTTP-Session mit Backoff-Retries."""
+    session = requests.Session()
+    retry = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=("GET", "POST"),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
 
 class TwitchClipHarvester:
     def __init__(self):
@@ -26,8 +52,9 @@ class TwitchClipHarvester:
         self.client_secret = self.twitch_cfg.get("client_secret", "").strip()
         self.access_token = None
         self.token_expiry = 0
+        self.session = _build_retry_session()
 
-    def _get_app_access_token(self) -> Optional[str]:
+    def _get_app_access_token(self) -> str | None:
         """Holt ein OAuth App Access Token über die offizielle Twitch API mit automatischem Refresh."""
         if not self.client_id or not self.client_secret:
             return None
@@ -42,7 +69,7 @@ class TwitchClipHarvester:
             "grant_type": "client_credentials"
         }
         try:
-            resp = requests.post(url, params=params, timeout=10)
+            resp = self.session.post(url, params=params, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 self.access_token = data.get("access_token")
@@ -50,23 +77,24 @@ class TwitchClipHarvester:
                 # Sicherheitsabstand von 60s vor tatsächlichem Ablauf
                 self.token_expiry = time.time() + max(60, expires_in - 60)
                 return self.access_token
-        except Exception as e:
+        except requests.RequestException as e:
             print(f"[!] Fehler beim Abrufen des Twitch Tokens: {e}")
         return None
 
-    def fetch_clips_gql_fallback(self, channel_name: str, time_filter: str = "LAST_DAY", limit: int = 30) -> List[Dict[str, Any]]:
+    def fetch_clips_gql_fallback(self, channel_name: str, time_filter: str = "LAST_DAY", limit: int = 30) -> list[dict[str, Any]]:
         """
         Zero-Config Fallback: Holt aktuelle Clips direkt über die 
         öffentliche Twitch GQL-Schnittstelle.
         time_filter Optionen: 'LAST_DAY', 'LAST_WEEK', 'ALL_TIME'
         """
+        safe_filter = _normalize_gql_time_filter(time_filter, default="LAST_DAY")
         headers = {"Client-ID": TWITCH_GQL_CLIENT_ID}
         query = f"""
         query($login: String!, $limit: Int!) {{
             user(login: $login) {{
                 id
                 login
-                clips(first: $limit, criteria: {{ filter: {time_filter} }}) {{
+                clips(first: $limit, criteria: {{ filter: {safe_filter} }}) {{
                     edges {{
                         node {{
                             id
@@ -88,7 +116,7 @@ class TwitchClipHarvester:
         }
 
         try:
-            resp = requests.post(TWITCH_GQL_URL, json=payload, headers=headers, timeout=15)
+            resp = self.session.post(TWITCH_GQL_URL, json=payload, headers=headers, timeout=15)
             if resp.status_code != 200:
                 return []
             
@@ -116,15 +144,12 @@ class TwitchClipHarvester:
             print(f"[!] GQL-Fehler bei Kanal {channel_name}: {e}")
             return []
 
-    def search_channel_clips_detailed(self, channel_name: str, time_filter: str = "LAST_DAY", limit: int = 24) -> Dict[str, Any]:
+    def search_channel_clips_detailed(self, channel_name: str, time_filter: str = "LAST_DAY", limit: int = 24) -> dict[str, Any]:
         """
         Manuelle Studio-Suche: Holt Clips eines beliebigen Streamers inkl. Thumbnail, Spiel-Kategorie
         und Streamer-Profilbild für das gewählte Zeitfenster (LAST_DAY, LAST_WEEK, LAST_MONTH, ALL_TIME).
         """
-        allowed_filters = {"LAST_DAY", "LAST_WEEK", "LAST_MONTH", "ALL_TIME", "TRENDING"}
-        tf = (time_filter or "LAST_DAY").strip().upper()
-        if tf not in allowed_filters:
-            tf = "LAST_WEEK"
+        tf = _normalize_gql_time_filter(time_filter, default="LAST_WEEK")
 
         login_clean = (channel_name or "").strip().lower().lstrip("@")
         if not login_clean:
@@ -171,7 +196,7 @@ class TwitchClipHarvester:
         last_err = None
         for attempt in range(2):
             try:
-                resp = requests.post(TWITCH_GQL_URL, json=payload, headers=headers, timeout=12)
+                resp = self.session.post(TWITCH_GQL_URL, json=payload, headers=headers, timeout=12)
                 if resp.status_code != 200:
                     last_err = f"Twitch API HTTP {resp.status_code}"
                     time.sleep(0.4)
@@ -232,7 +257,7 @@ class TwitchClipHarvester:
 
         return {"success": False, "error": f"Fehler bei der Twitch-Suche: {last_err}", "clips": []}
 
-    def fetch_clips_helix(self, channel_name: str, hours_back: int = 24, time_filter: str = "LAST_DAY") -> List[Dict[str, Any]]:
+    def fetch_clips_helix(self, channel_name: str, hours_back: int = 24, time_filter: str = "LAST_DAY") -> list[dict[str, Any]]:
         """Holt Clips über die offizielle Twitch Helix API mit dynamischem Zeitfenster."""
         token = self._get_app_access_token()
         if not token:
@@ -244,7 +269,7 @@ class TwitchClipHarvester:
         }
 
         # 1. User ID holen
-        user_resp = requests.get(f"https://api.twitch.tv/helix/users?login={channel_name}", headers=headers, timeout=10)
+        user_resp = self.session.get(f"https://api.twitch.tv/helix/users?login={channel_name}", headers=headers, timeout=10)
         if user_resp.status_code != 200 or not user_resp.json().get("data"):
             return self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter)
         
@@ -259,7 +284,7 @@ class TwitchClipHarvester:
             started_at_str = None
         else:
             if tf == "LAST_DAY":
-                stream_resp = requests.get(f"https://api.twitch.tv/helix/streams?user_id={user_id}", headers=headers, timeout=10)
+                stream_resp = self.session.get(f"https://api.twitch.tv/helix/streams?user_id={user_id}", headers=headers, timeout=10)
                 if stream_resp.status_code == 200 and stream_resp.json().get("data"):
                     started_at_str = stream_resp.json()["data"][0]["started_at"]
 
@@ -270,14 +295,14 @@ class TwitchClipHarvester:
                     calc_hours = 720
                 else:
                     calc_hours = max(1, hours_back)
-                dt = datetime.now(timezone.utc) - timedelta(hours=calc_hours)
+                dt = datetime.now(UTC) - timedelta(hours=calc_hours)
                 started_at_str = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # 3. Clips abrufen
         clips_url = f"https://api.twitch.tv/helix/clips?broadcaster_id={user_id}&first=50"
         if started_at_str:
             clips_url += f"&started_at={started_at_str}"
-        clips_resp = requests.get(clips_url, headers=headers, timeout=10)
+        clips_resp = self.session.get(clips_url, headers=headers, timeout=10)
         if clips_resp.status_code != 200:
             return self.fetch_clips_gql_fallback(channel_name, time_filter=tf)
 
@@ -296,7 +321,7 @@ class TwitchClipHarvester:
             })
         return result
 
-    def download_clip(self, clip_url: str, clip_id: str) -> Optional[Path]:
+    def download_clip(self, clip_url: str, clip_id: str) -> Path | None:
         """Lädt einen Clip portabel per yt-dlp in den raw-Ordner herunter."""
         output_path = RAW_CLIPS_DIR / f"{clip_id}.mp4"
         if output_path.exists() and output_path.stat().st_size > 1000:
@@ -337,7 +362,7 @@ class TwitchClipHarvester:
 
         return None
 
-    def harvest_channel(self, streamer_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def harvest_channel(self, streamer_cfg: dict[str, Any]) -> list[dict[str, Any]]:
         """Harvested die besten neuen Clips für einen Streamer."""
         # Konfiguration stets frisch laden
         self.config = load_config()
@@ -398,16 +423,20 @@ class TwitchClipHarvester:
             print(f"[-] Keine neuen qualifizierten Clips für {channel_name} gefunden.")
             return []
 
-        downloaded_clips = []
-        for clip in selected_clips:
+        def _download_one(clip: dict[str, Any]) -> tuple[dict[str, Any], Path | None]:
             print(f"  -> Gefunden: \"{clip['title']}\" ({clip['view_count']} Views) - Lade herunter...")
-            raw_path = self.download_clip(clip["url"], clip["clip_id"])
-            if raw_path:
-                clip["raw_path"] = str(raw_path)
-                save_clip(clip)
-                downloaded_clips.append(clip)
-                print(f"  [+] Gespeichert: {raw_path.name}")
-            else:
-                print(f"  [-] Download fehlgeschlagen: {clip['clip_id']}")
+            return clip, self.download_clip(clip["url"], clip["clip_id"])
+
+        downloaded_clips: list[dict[str, Any]] = []
+        workers = max(1, min(3, len(selected_clips)))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            for clip, raw_path in executor.map(_download_one, selected_clips):
+                if raw_path:
+                    clip["raw_path"] = str(raw_path)
+                    save_clip(clip)
+                    downloaded_clips.append(clip)
+                    print(f"  [+] Gespeichert: {raw_path.name}")
+                else:
+                    print(f"  [-] Download fehlgeschlagen: {clip['clip_id']}")
 
         return downloaded_clips

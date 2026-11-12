@@ -29,7 +29,7 @@ def test_helix_last_week_sets_started_at_around_168h():
 
     with (
         patch.object(harvester, "_get_app_access_token", return_value="tok"),
-        patch("src.harvesters.twitch_clips.requests.get", side_effect=fake_get),
+        patch.object(harvester.session, "get", side_effect=fake_get),
     ):
         harvester.fetch_clips_helix("trymacs", hours_back=12, time_filter="LAST_WEEK")
 
@@ -70,9 +70,33 @@ def test_helix_error_fallback_forwards_time_filter():
 
     with (
         patch.object(harvester, "_get_app_access_token", return_value="tok"),
-        patch("src.harvesters.twitch_clips.requests.get", side_effect=fake_get),
+        patch.object(harvester.session, "get", side_effect=fake_get),
         patch.object(harvester, "fetch_clips_gql_fallback", return_value=[]) as mock_gql,
     ):
         harvester.fetch_clips_helix("trymacs", time_filter="ALL_TIME")
 
     mock_gql.assert_called_once_with("trymacs", time_filter="ALL_TIME")
+
+
+def test_gql_fallback_enforces_time_filter_allowlist():
+    harvester = TwitchClipHarvester()
+    captured_queries: list[str] = []
+
+    def fake_post(url, json=None, headers=None, timeout=15):
+        captured_queries.append((json or {}).get("query", ""))
+        return _make_resp(200, {"data": {"user": {"clips": {"edges": []}}}})
+
+    with patch.object(harvester.session, "post", side_effect=fake_post):
+        harvester.fetch_clips_gql_fallback("trymacs", time_filter="LAST_DAY }}) { evil }")
+
+    assert len(captured_queries) == 1
+    assert "filter: LAST_DAY" in captured_queries[0]
+    assert "evil" not in captured_queries[0]
+
+
+def test_harvester_session_has_retry_adapter():
+    harvester = TwitchClipHarvester()
+    adapter = harvester.session.get_adapter("https://api.twitch.tv")
+    assert adapter.max_retries.total == 3
+    assert 429 in adapter.max_retries.status_forcelist
+
