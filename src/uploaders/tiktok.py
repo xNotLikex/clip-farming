@@ -1,7 +1,11 @@
 import json
+import logging
 from pathlib import Path
-from typing import Optional
+
 from src.config import DATA_DIR, load_config
+
+logger = logging.getLogger(__name__)
+
 
 class TikTokUploader:
     def __init__(self):
@@ -11,21 +15,21 @@ class TikTokUploader:
         self.enabled = self.tt_cfg.get("enabled", False)
         self.upload_mode = self.tt_cfg.get("upload_mode", "draft")
 
-    def get_session_id(self) -> Optional[str]:
+    def get_session_id(self) -> str | None:
         if self.session_file.exists():
             try:
-                with open(self.session_file, "r", encoding="utf-8") as f:
+                with open(self.session_file, encoding="utf-8") as f:
                     data = json.load(f)
                     return data.get("session_id")
-            except Exception:
-                pass
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.warning("Konnte tiktok_session.json nicht lesen: %s", exc)
         return self.tt_cfg.get("session_id")
 
     def is_configured(self) -> bool:
         sid = self.get_session_id()
         return bool(self.enabled and sid and len(sid) > 10)
 
-    def upload_short(self, video_path: Path, caption: str) -> Optional[str]:
+    def upload_short(self, video_path: Path, caption: str) -> str | None:
         """
         TikTok-Upload ist aktuell nicht implementiert (Stub entfernt, kein Fake-Erfolg).
         Gibt immer None zurück, damit kein Clip fälschlich als 'published' markiert wird.
