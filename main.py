@@ -10,8 +10,9 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from src.config import load_config, ensure_directories
+from src.config import ensure_directories, load_config
 from src.database import get_db_connection, init_db
+from src.logging_config import setup_logging
 
 BANNER = r"""
   ╔══════════════════════════════════════════════════════════════╗
@@ -43,9 +44,10 @@ def show_status():
     print("-" * 45)
 
 def main():
-    print(BANNER)
     ensure_directories()
+    setup_logging()
     init_db()
+    print(BANNER)
 
     parser = argparse.ArgumentParser(description="Clip-Farming Autopilot Pipeline")
     parser.add_argument("--daemon", action="store_true", help="Startet den 24/7 Autopilot-Modus")

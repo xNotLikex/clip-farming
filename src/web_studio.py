@@ -1,6 +1,7 @@
+import json
+import logging
 import os
 import sys
-import json
 import time
 import html
 import shutil
@@ -18,6 +19,7 @@ from src.config import (
     get_autopilot_settings, save_autopilot_settings
 )
 from src.database import get_db_connection, init_db, update_clip_status
+from src.logging_config import setup_logging
 from src.video.layout import VideoComposer, cancel_active_render, generate_thumbnail
 from src.video.filters import AVAILABLE_CAM_FILTERS
 from src.uploaders.youtube import YouTubeUploader
@@ -35,6 +37,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+logger = logging.getLogger(__name__)
 app = Flask(__name__)
 @app.after_request
 def add_cors_and_security_headers(response):
@@ -307,7 +310,8 @@ def auto_publisher_worker():
                 clip_title = c["ai_title"] or c["original_title"] or clip_id
                 status_manager.log(f"⏰ Zeitplan erreicht für '{clip_title}'. Starte Veröffentlichung...")
                 publish_clip_now(clip_id)
-        except Exception as e:
+        except Exception:
+            logger.exception("Fehler im auto_publisher_worker")
             time.sleep(15)
 
 from src.web.templates import HTML_DASHBOARD
@@ -572,8 +576,8 @@ def cleanup_old_clips_housekeeping(max_age_days: int = 7):
                 if raw_f.exists():
                     try:
                         raw_f.unlink()
-                    except Exception:
-                        pass
+                    except OSError as exc:
+                        logger.warning("Konnte alten Rohclip %s nicht löschen: %s", raw_f, exc)
                 cursor.execute("UPDATE clips SET status = 'deleted' WHERE clip_id = ?", (cid,))
                 deleted_count += 1
             if deleted_count > 0:
@@ -608,6 +612,7 @@ def autopilot_background_worker():
                     status_manager.log(f"🤖 Autopilot: Starte zyklische Prüfung (alle {interval_minutes} Min)...")
                     execute_harvest_job()
         except Exception:
+            logger.exception("Fehler im autopilot_background_worker")
             time.sleep(20)
 
 
@@ -2057,8 +2062,10 @@ def save_crop_api(clip_id):
     return jsonify({"success": True, "message": "Zuschnitt gespeichert"})
 
 def start_studio(port: int = 5000):
+    setup_logging()
     init_db()
     start_workers()
+    logger.info("Clip-Farming Studio gestartet auf http://localhost:%s", port)
     print("\n" + "="*70)
     print(f"  CLIP-FARMING STUDIO GESTARTET!")
     print(f"  👉 Öffne im Browser: http://localhost:{port}")
