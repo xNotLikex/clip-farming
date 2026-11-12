@@ -1,12 +1,18 @@
-from pathlib import Path
+import copy
 import os
+import shutil
 import sys
 import threading
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import yaml
-from typing import Dict, Any, List, Optional
 
 # H1 Audit-Fix: Thread-Sicherheit für Lese- und Schreiboperationen auf config.yaml
 _CONFIG_LOCK = threading.RLock()
+_CONFIG_CACHE: dict[str, Any] | None = None
+_CONFIG_CACHE_MTIME_NS: int | None = None
+_CONFIG_CACHE_PATH: Path | None = None
 
 # Absolute Project Root (Portable - relative to this file)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -58,26 +64,63 @@ def ensure_directories():
                    CHAT_DIR, OUTPUT_DIR, SHORTS_OUTPUT_DIR, METADATA_OUTPUT_DIR, FONTS_DIR]:
         folder.mkdir(parents=True, exist_ok=True)
 
-def load_config() -> Dict[str, Any]:
-    """Load configuration from config/config.yaml (auto-bootstraps from config.example.yaml if missing)."""
+def _apply_env_overrides(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Überschreibt Secrets optional über Umgebungsvariablen."""
+    env_map = (
+        ("TWITCH_CLIENT_ID", ("twitch", "client_id")),
+        ("TWITCH_CLIENT_SECRET", ("twitch", "client_secret")),
+        ("GEMINI_API_KEY", ("ai", "api_key")),
+        ("TIKTOK_SESSION_ID", ("publishing", "tiktok", "session_id")),
+    )
+    for env_name, key_path in env_map:
+        val = os.environ.get(env_name, "").strip()
+        if not val:
+            continue
+        target = cfg
+        for section in key_path[:-1]:
+            if not isinstance(target.get(section), dict):
+                target[section] = {}
+            target = target[section]
+        target[key_path[-1]] = val
+    return cfg
+
+
+def load_config() -> dict[str, Any]:
+    """Lädt config/config.yaml mit Thread-sicherem mtime-Cache und Env-Overrides."""
+    global _CONFIG_CACHE, _CONFIG_CACHE_MTIME_NS, _CONFIG_CACHE_PATH
     ensure_directories()
     config_file = CONFIG_DIR / "config.yaml"
     example_file = CONFIG_DIR / "config.example.yaml"
     with _CONFIG_LOCK:
         if not config_file.exists() and example_file.exists():
-            import shutil
             shutil.copy2(example_file, config_file)
         if not config_file.exists():
             raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {config_file}")
-        with open(config_file, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+        mtime_ns = config_file.stat().st_mtime_ns
+        if (
+            _CONFIG_CACHE is None
+            or _CONFIG_CACHE_PATH != config_file
+            or _CONFIG_CACHE_MTIME_NS != mtime_ns
+        ):
+            with open(config_file, encoding="utf-8") as f:
+                _CONFIG_CACHE = yaml.safe_load(f) or {}
+            _CONFIG_CACHE_MTIME_NS = mtime_ns
+            _CONFIG_CACHE_PATH = config_file
+        cfg = copy.deepcopy(_CONFIG_CACHE)
+    return _apply_env_overrides(cfg)
 
-def save_config(cfg: Dict[str, Any]):
-    """Save configuration back to config/config.yaml."""
+
+def save_config(cfg: dict[str, Any]):
+    """Speichert die Konfiguration in config/config.yaml und invalidiert den Cache."""
+    global _CONFIG_CACHE, _CONFIG_CACHE_MTIME_NS, _CONFIG_CACHE_PATH
     config_file = CONFIG_DIR / "config.yaml"
     with _CONFIG_LOCK:
+        config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(config_file, "w", encoding="utf-8") as f:
             yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+        _CONFIG_CACHE = None
+        _CONFIG_CACHE_MTIME_NS = None
+        _CONFIG_CACHE_PATH = None
 
 TWITCH_GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 TWITCH_GQL_URL = "https://gql.twitch.tv/gql"
