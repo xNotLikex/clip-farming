@@ -76,7 +76,7 @@ pub fn delete_queue_clip(clip_id: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn save_clip_crop(clip_id: String, crops: Value) -> Result<bool, String> {
+pub fn save_clip_crop(clip_id: String, payload: Value) -> Result<bool, String> {
     let meta_dir = get_metadata_dir();
     std::fs::create_dir_all(&meta_dir).map_err(|e| e.to_string())?;
     let meta_path = meta_dir.join(format!("{clip_id}.json"));
@@ -91,13 +91,44 @@ pub fn save_clip_crop(clip_id: String, crops: Value) -> Result<bool, String> {
     };
 
     if let Some(obj) = meta.as_object_mut() {
+        let crops = if payload.get("custom_crops").is_some() {
+            payload.get("custom_crops").cloned().unwrap_or(payload.clone())
+        } else {
+            payload.clone()
+        };
+
         obj.insert("custom_crops".to_string(), crops.clone());
-        let mode = crops
-            .get("mode")
+
+        let mode = payload
+            .get("layout_mode")
             .and_then(|m| m.as_str())
+            .or_else(|| crops.get("mode").and_then(|m| m.as_str()))
             .unwrap_or("custom")
             .to_string();
         obj.insert("layout_mode".to_string(), Value::String(mode));
+
+        if let Some(st) = payload.get("sticker_text").and_then(|s| s.as_str()) {
+            obj.insert("sticker_text".to_string(), Value::String(st.to_string()));
+            obj.insert("hook_text".to_string(), Value::String(st.to_string()));
+        }
+        if let Some(sp) = payload.get("sub_position").and_then(|s| s.as_str()) {
+            obj.insert("sub_position".to_string(), Value::String(sp.to_string()));
+        }
+        if let Some(cf) = payload.get("cam_filter").and_then(|s| s.as_str()) {
+            obj.insert("cam_filter".to_string(), Value::String(cf.to_string()));
+        }
+        if let Some(t) = payload.get("title").and_then(|s| s.as_str()) {
+            obj.insert("title".to_string(), Value::String(t.to_string()));
+            if let Ok(conn) = open_connection() {
+                let _ = conn.execute(
+                    "UPDATE clips SET ai_title = ?1 WHERE clip_id = ?2",
+                    rusqlite::params![t, &clip_id],
+                );
+            }
+        }
+        if let Some(tr) = payload.get("transcript").and_then(|s| s.as_str()) {
+            obj.insert("edited_transcript".to_string(), Value::String(tr.to_string()));
+        }
     }
 
     let pretty = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
@@ -219,8 +250,21 @@ pub async fn api_proxy(
         }
         if let Some(cid) = rest.strip_suffix("/save-crop") {
             let cid = url_decode_simple(cid);
-            save_clip_crop(cid, payload)?;
-            return Ok(json!({ "success": true, "ok": true }).to_string());
+            let render_now = payload
+                .get("render_now")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            save_clip_crop(cid.clone(), payload)?;
+
+            if render_now {
+                let app_clone = app.clone();
+                let cid_clone = cid.clone();
+                tokio::spawn(async move {
+                    let _ = process_single_clip(&cid_clone, Some(app_clone)).await;
+                });
+            }
+            return Ok(json!({ "success": true, "ok": true, "rendering": render_now }).to_string());
         }
         if let Some(cid) = rest.strip_suffix("/meta") {
             let cid = url_decode_simple(cid);
@@ -290,9 +334,17 @@ pub async fn api_proxy(
                 }
             }
 
+            if let Some(crops_val) = payload.get("custom_crops") {
+                save_clip_crop(cid.clone(), crops_val.clone())?;
+            }
+
             match action {
                 "rerender" => {
-                    process_single_clip(&cid, Some(app.clone())).await?;
+                    let cid_clone = cid.clone();
+                    let app_clone = app.clone();
+                    tokio::spawn(async move {
+                        let _ = process_single_clip(&cid_clone, Some(app_clone)).await;
+                    });
                 }
                 "schedule" => {
                     update_clip_status(&cid, "scheduled")?;

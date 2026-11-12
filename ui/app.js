@@ -606,6 +606,7 @@ function buildStudioCardHtml(clip, cardSig) {
 
             <!-- Edit Form -->
             <form id="form-${clip.clip_id}" action="/save/${clip.clip_id}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
+                <input type="hidden" name="clip_id" value="${clip.clip_id}">
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">
