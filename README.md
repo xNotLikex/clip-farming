@@ -35,7 +35,7 @@ Die Anwendung kombiniert eine native Windows-Oberfläche (`clip-farming.exe`) mi
 
 4. **🔗 Konten (`Konten`):**
    * **YouTube Shorts:** OAuth2-Anbindung über `config/youtube_secrets.json` (Token wird in `data/youtube_token.json` abgelegt).
-   * **TikTok:** Session-basierte Anbindung (`data/tiktok_session.json`).
+   * **TikTok:** Aktuell **nicht verfügbar** (direkter Upload ist deaktiviert, bis eine vollwertige TikTok-API-/Upload-Anbindung implementiert ist).
 
 5. **👥 Streamer-Verwaltung (`Streamer`):**
    * Überwachte Twitch-Kanäle hinzufügen, aktivieren/deaktivieren, Mindest-Views (`min_clip_views`), Clip-Limit (`max_clips_per_run`), Standard-Layout und gespeicherte Crop-Bereiche pro Streamer verwalten.
@@ -225,3 +225,19 @@ copy src-tauri\target\release\clip-farming.exe clip-farming.exe
 ```
 
 Der fertige Installer landet anschließend unter `dist/Clip-Farming-Installer.exe`.
+
+---
+
+## ⚙️ Konfiguration & Secrets
+
+* Beim ersten Start wird `config/config.example.yaml` automatisch nach `config/config.yaml` kopiert (`config/config.yaml`, `data/` und Token-Dateien sind über `.gitignore` ausgeschlossen).
+* Secrets können alternativ über Umgebungsvariablen überschrieben werden: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `GEMINI_API_KEY`, `TIKTOK_SESSION_ID`.
+
+---
+
+## ⚖️ Rechtliches & Hinweise
+
+* **Urheberrecht & Plattformregeln:** Twitch-Clips gehören den jeweiligen Streamern/Rechteinhabern. Vor einer Veröffentlichung auf YouTube Shorts oder TikTok sollten Einverständnis eingeholt und Quellenangaben berücksichtigt werden („Reused Content“-Richtlinien beachten).
+* **Twitch-Schnittstellen:** Die offizielle **Twitch Helix API** mit eigenen Client-Credentials ist der empfohlene Weg. Der öffentliche GQL-Fallback (`TWITCH_GQL_CLIENT_ID`) ist eine inoffizielle Schnittstelle **ohne Garantie** und kann sich jederzeit ändern.
+* **TikTok-Status:** Der direkte TikTok-Upload ist derzeit deaktiviert (`Nicht verfügbar`), Clips werden nicht fälschlicherweise als veröffentlicht markiert.
+
