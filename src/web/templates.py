@@ -1,0 +1,2950 @@
+HTML_DASHBOARD = """
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clip-Farming Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #090d16; 
+            color: #f1f5f9; 
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        :focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+            *, ::before, ::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        .tab-btn.active { border-bottom-color: #f59e0b; color: #ffffff; font-weight: 600; }
+        .tab-content.hidden { display: none !important; }
+        #preview-modal.hidden, #streamer-modal.hidden, #crop-modal.hidden, #settings-modal.hidden, #streamer-config-modal.hidden {
+            display: none !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+        }
+        #preview-modal:not(.hidden), #streamer-modal:not(.hidden), #crop-modal:not(.hidden), #settings-modal:not(.hidden), #streamer-config-modal:not(.hidden) {
+            display: flex !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        #crop-stage-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000000;
+            overflow: hidden;
+            border-radius: 8px;
+            min-height: 260px;
+        }
+        #crop-overlay-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+        }
+        .crop-cam-handle, .crop-game-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #0f172a;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(0,0,0,0.8);
+            z-index: 30;
+            transition: transform 0.15s;
+            pointer-events: auto;
+        }
+        .crop-cam-handle:hover, .crop-game-handle:hover {
+            transform: scale(1.3);
+        }
+    </style>
+    <script>
+        // Immediate Zero-Delay Handlers (execute on initial paint before any async script)
+        function openStreamerModal() {
+            if (typeof switchTab === 'function') {
+                switchTab('streamers');
+            } else if (window.switchTab) {
+                window.switchTab('streamers');
+            }
+        }
+        function closeStreamerModal() {
+            var m = document.getElementById('streamer-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function openStreamerConfigModal(streamerName) {
+            if (window.__realOpenStreamerConfigModal) {
+                return window.__realOpenStreamerConfigModal(streamerName);
+            }
+            var m = document.getElementById('streamer-config-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+                if (window.loadStreamerConfigIntoForm) window.loadStreamerConfigIntoForm(streamerName);
+            }
+        }
+        function closeStreamerConfigModal() {
+            var m = document.getElementById('streamer-config-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function saveStreamerConfig(event) {
+            if (window.__realSaveStreamerConfig) return window.__realSaveStreamerConfig(event);
+            if (window.saveStreamerConfig && window.saveStreamerConfig !== saveStreamerConfig) return window.saveStreamerConfig(event);
+        }
+        function loadSampleClipDirect(name, btnEl) {
+            if (!name) return;
+            if (window.__realLoadSampleClipDirect) return window.__realLoadSampleClipDirect(name, btnEl);
+            var oldHtml = btnEl ? btnEl.innerHTML : '';
+            if (btnEl) {
+                btnEl.disabled = true;
+                btnEl.classList.add('opacity-70', 'cursor-not-allowed');
+                btnEl.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mr-1"></span><span>Lade Test-Clip...</span>';
+            }
+            if (window.showToast) window.showToast('Lade Test-Clip für ' + name + ' von Twitch...', 'info');
+            fetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.clip_id) {
+                        closeStreamerConfigModal();
+                        closeStreamerModal();
+                        if (window.showToast) window.showToast('Test-Clip für ' + name + ' bereit! Rahmen jetzt anpassen.', 'success');
+                        openCropModal(data.clip_id, name, data.title || ('Test-Clip Vorlage (' + name + ')'));
+                    } else {
+                        var err = (data && data.error) ? data.error : 'Konnte keinen Test-Clip laden';
+                        if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                        else alert('Fehler: ' + err);
+                    }
+                })
+                .catch(function(err) {
+                    if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                    else alert('Fehler beim Laden des Test-Clips: ' + err);
+                })
+                .finally(function() {
+                    if (btnEl) {
+                        btnEl.disabled = false;
+                        btnEl.classList.remove('opacity-70', 'cursor-not-allowed');
+                        btnEl.innerHTML = oldHtml;
+                    }
+                });
+        }
+        window.loadSampleClipDirect = loadSampleClipDirect;
+        function loadSampleClipForStreamer() {
+            if (window.__realLoadSampleClipForStreamer) return window.__realLoadSampleClipForStreamer();
+            var hiddenName = document.getElementById('cfg-streamer-hidden-name');
+            var name = hiddenName ? hiddenName.value.trim() : '';
+            if (!name) return;
+            var spinner = document.getElementById('btn-sample-spinner');
+            var btnText = document.getElementById('btn-sample-text');
+            var btn = document.getElementById('btn-load-streamer-sample');
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.innerText = 'Lade Test-Clip von Twitch herunter...';
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+            if (window.showToast) window.showToast('Lade Test-Clip für ' + name + '...', 'info');
+            fetch('/api/streamers/' + encodeURIComponent(name) + '/sample-clip', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.clip_id) {
+                        closeStreamerConfigModal();
+                        closeStreamerModal();
+                        if (window.showToast) window.showToast('Test-Clip geladen! Rahmen anpassen.', 'success');
+                        openCropModal(data.clip_id, name, data.title || ('Test-Clip Vorlage (' + name + ')'));
+                    } else {
+                        var err = (data && data.error) ? data.error : 'Konnte keinen Clip laden.';
+                        if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                        else alert('Fehler: ' + err);
+                    }
+                })
+                .catch(function(err) {
+                    if (window.showToast) window.showToast('Fehler: ' + err, 'error');
+                    else alert('Fehler beim Laden: ' + err);
+                })
+                .finally(function() {
+                    if (spinner) spinner.classList.add('hidden');
+                    if (btnText) btnText.innerText = 'Test-Clip laden & Rahmen visuell einstellen';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                });
+        }
+        window.loadSampleClipForStreamer = loadSampleClipForStreamer;
+        function openSettingsModal() {
+            if (window.openSettingsModal && window.openSettingsModal !== openSettingsModal) {
+                return window.openSettingsModal();
+            }
+            var m = document.getElementById('settings-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+        }
+        function closeSettingsModal() {
+            if (window.closeSettingsModal && window.closeSettingsModal !== closeSettingsModal) {
+                return window.closeSettingsModal();
+            }
+            var m = document.getElementById('settings-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function switchTab(tabId) {
+            if (!tabId) return;
+            try {
+                localStorage.setItem('clip_farming_active_tab', tabId);
+            } catch(e) {}
+            document.querySelectorAll('.tab-content').forEach(function(el) {
+                el.classList.add('hidden');
+                el.style.setProperty('display', 'none', 'important');
+            });
+            document.querySelectorAll('.tab-btn').forEach(function(el) {
+                el.classList.remove('active', 'text-amber-400');
+                el.classList.add('text-slate-400');
+            });
+            var target = document.getElementById('tab-' + tabId);
+            if (target) {
+                target.classList.remove('hidden');
+                target.style.setProperty('display', 'block', 'important');
+            }
+            var btn = document.getElementById('tab-' + tabId + '-btn');
+            if (btn) {
+                btn.classList.add('active', 'text-amber-400');
+                btn.classList.remove('text-slate-400');
+            }
+            if (tabId === 'studio') {
+                document.querySelectorAll('#studio-grid video').forEach(function(v) {
+                    try {
+                        if (v.paused && v.currentTime === 0) {
+                            v.currentTime = 0.001;
+                        }
+                    } catch(e) {}
+                });
+            }
+        }
+        (function restoreActiveTabOnLoad() {
+            function applySavedTab() {
+                try {
+                    var urlParams = new URLSearchParams(window.location.search);
+                    var tabFromUrl = urlParams.get('tab') || window.location.hash.replace('#', '');
+                    var savedTab = tabFromUrl || localStorage.getItem('clip_farming_active_tab');
+                    if (savedTab && document.getElementById('tab-' + savedTab)) {
+                        switchTab(savedTab);
+                    }
+                } catch(e) {}
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applySavedTab);
+            } else {
+                applySavedTab();
+            }
+        })();
+                function openRawPreviewFromRow(row) {
+            if (!row) return;
+            var d = row.dataset;
+            openRawPreview(d.clipId, d.streamer, d.title, d.views, d.duration, d.createdAgo, d.createdFull);
+        }
+        window.openRawPreviewFromRow = openRawPreviewFromRow;
+
+        function openCropModalFromButton(btn) {
+            if (!btn) return;
+            var d = btn.dataset;
+            openCropModal(d.clipId, d.streamer, d.title);
+        }
+        window.openCropModalFromButton = openCropModalFromButton;
+
+        function startStudioVideoPlay(clipId, overlay) {
+            if (overlay) overlay.style.display = 'none';
+            var vid = document.getElementById('studio-video-' + clipId);
+            if (vid) {
+                vid.play().catch(function() {});
+            }
+        }
+        window.startStudioVideoPlay = startStudioVideoPlay;
+
+        var currentCropClipId = '';
+        var currentCropStreamer = '';
+        var currentCropTitle = '';
+        var currentCropMode = 'split'; // 'split' oder 'single_916'
+        var cropState = {
+            cam: { x: 0.68, y: 0.58, w: 0.28, h: 0.35, enabled: true },
+            game: { x: 0.24, y: 0.0, w: 0.51, h: 1.0, enabled: true },
+            single: { x: 0.34, y: 0.0, w: 0.316, h: 1.0, enabled: true }
+        };
+        var activeCropDrag = null;
+        var cropFallbackImg = new Image();
+
+        function openCropModal(clipId, streamer, title) {
+            if (!clipId) return;
+            currentCropClipId = clipId;
+            currentCropStreamer = streamer || '';
+            currentCropTitle = title || '';
+
+            var badge = document.getElementById('crop-modal-clip-badge');
+            if (badge) badge.innerText = (streamer ? streamer + ': ' : '') + (title ? title.slice(0, 30) : clipId);
+
+            var m = document.getElementById('crop-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+
+            // 1. Sofortiges Vorladen des 16:9 Rohbildes als sichtbarer Hintergrund (verhindert schwarzen Kasten)
+            var stageImg = document.getElementById('crop-stage-img');
+            if (stageImg) {
+                stageImg.src = '/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now();
+                stageImg.onload = function() {
+                    draw916Preview();
+                };
+            }
+
+            // 2. Fallback-Image für den rechten 9:16 Preview Canvas
+            cropFallbackImg.src = '/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now();
+            cropFallbackImg.onload = function() {
+                draw916Preview();
+            };
+
+            // 3. Setup Video-Element für Zeitleiste & Playback
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.poster = '/thumbnail/raw/' + encodeURIComponent(clipId);
+                vid.muted = true;
+                vid.src = '/raw-video/' + encodeURIComponent(clipId);
+                vid.onloadedmetadata = function() {
+                    try {
+                        vid.currentTime = Math.min(0.5, (vid.duration || 1) / 2);
+                        var playPromise = vid.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(function() {
+                                vid.pause();
+                                draw916Preview();
+                            }).catch(function() {
+                                draw916Preview();
+                            });
+                        }
+                    } catch(e) {
+                        draw916Preview();
+                    }
+                };
+                vid.onseeked = function() {
+                    draw916Preview();
+                };
+                vid.load();
+            }
+
+            // 4. Default Boxen sofort anzeigen
+            updateBoxDom('cam');
+            updateBoxDom('game');
+            updateBoxDom('single');
+            draw916Preview();
+
+            // 5. Gespeicherte Schnitt-Metadaten laden
+            fetch('/api/clip/' + encodeURIComponent(clipId) + '/meta')
+                .then(function(r) { return r.json(); })
+                .then(function(meta) {
+                    if (meta && meta.custom_crops) {
+                        applyLoadedCropMeta(meta);
+                    }
+                    updateBoxDom('cam');
+                    updateBoxDom('game');
+                    updateBoxDom('single');
+                    draw916Preview();
+                })
+                .catch(function() {
+                    draw916Preview();
+                });
+        }
+
+        function closeCropModal() {
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.pause();
+                vid.src = '';
+            }
+            var m = document.getElementById('crop-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        function switchCropMode(mode) {
+            currentCropMode = (mode === 'single_916') ? 'single_916' : 'split';
+            var btnSplit = document.getElementById('btn-mode-split');
+            var btnSingle = document.getElementById('btn-mode-single');
+            var tbSplit = document.getElementById('toolbar-split');
+            var tbSingle = document.getElementById('toolbar-single');
+            var boxCam = document.getElementById('crop-box-cam');
+            var boxGame = document.getElementById('crop-box-game');
+            var boxSingle = document.getElementById('crop-box-single');
+
+            if (currentCropMode === 'single_916') {
+                if (boxCam) boxCam.style.setProperty('display', 'none', 'important');
+                if (boxGame) boxGame.style.setProperty('display', 'none', 'important');
+                if (boxSingle) boxSingle.style.setProperty('display', 'flex', 'important');
+
+                if (tbSplit) tbSplit.style.setProperty('display', 'none', 'important');
+                if (tbSingle) {
+                    tbSingle.classList.remove('hidden');
+                    tbSingle.style.setProperty('display', 'flex', 'important');
+                }
+
+                if (btnSplit) {
+                    btnSplit.className = "flex-1 py-2 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700 cursor-pointer";
+                }
+                if (btnSingle) {
+                    btnSingle.className = "flex-1 py-2 px-3 rounded text-xs font-bold transition flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-lg border border-emerald-400 cursor-pointer";
+                }
+                updateBoxDom('single');
+            } else {
+                if (boxCam) boxCam.style.setProperty('display', 'flex', 'important');
+                if (boxGame) boxGame.style.setProperty('display', 'flex', 'important');
+                if (boxSingle) boxSingle.style.setProperty('display', 'none', 'important');
+
+                if (tbSplit) {
+                    tbSplit.classList.remove('hidden');
+                    tbSplit.style.setProperty('display', 'block', 'important');
+                }
+                if (tbSingle) tbSingle.style.setProperty('display', 'none', 'important');
+
+                if (btnSplit) {
+                    btnSplit.className = "flex-1 py-2 px-3 rounded text-xs font-bold transition flex items-center justify-center gap-2 bg-amber-500 text-zinc-950 shadow-lg border border-amber-400 cursor-pointer";
+                }
+                if (btnSingle) {
+                    btnSingle.className = "flex-1 py-2 px-3 rounded text-xs font-medium transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700 cursor-pointer";
+                }
+                updateBoxDom('cam');
+                updateBoxDom('game');
+            }
+            draw916Preview();
+        }
+        window.switchCropMode = switchCropMode;
+
+        function toggleCamEnabled() {
+            if (currentCropMode === 'single_916') {
+                switchCropMode('split');
+            } else {
+                switchCropMode('single_916');
+            }
+        }
+        window.toggleCamEnabled = toggleCamEnabled;
+
+        function updateBoxDom(type) {
+            var box = document.getElementById('crop-box-' + type);
+            if (!box) return;
+            var s = cropState[type];
+            if (!s) return;
+
+            // Strict sanitization against NaN / undefined / collapse
+            if (typeof s.x !== 'number' || isNaN(s.x)) s.x = (type === 'cam' ? 0.68 : (type === 'game' ? 0.24 : 0.34));
+            if (typeof s.y !== 'number' || isNaN(s.y)) s.y = (type === 'cam' ? 0.58 : 0.0);
+            if (typeof s.w !== 'number' || isNaN(s.w) || s.w < 0.05) s.w = (type === 'cam' ? 0.28 : (type === 'game' ? 0.51 : 0.316));
+            if (typeof s.h !== 'number' || isNaN(s.h) || s.h < 0.05) s.h = (type === 'cam' ? 0.35 : 1.0);
+
+            // Clamp bounds
+            s.x = Math.max(0, Math.min(1 - s.w, s.x));
+            s.y = Math.max(0, Math.min(1 - s.h, s.y));
+
+            box.style.left = (s.x * 100) + '%';
+            box.style.top = (s.y * 100) + '%';
+            box.style.width = (s.w * 100) + '%';
+            box.style.height = (s.h * 100) + '%';
+
+            var readout = document.getElementById('crop-coords-readout');
+            if (readout) {
+                if (currentCropMode === 'single_916') {
+                    readout.innerText = 'Vollbild 9:16: ' + Math.round(cropState.single.w * 1920) + 'x1080 px (1 Rahmen • Keine Cam)';
+                } else {
+                    var camW = Math.round(cropState.cam.w * 1920);
+                    var camH = Math.round(cropState.cam.h * 1080);
+                    var gameW = Math.round(cropState.game.w * 1920);
+                    var gameH = Math.round(cropState.game.h * 1080);
+                    readout.innerText = 'Cam: ' + camW + 'x' + camH + ' • Game: ' + gameW + 'x' + gameH + ' (2 Rahmen)';
+                }
+            }
+        }
+
+        function draw916Preview() {
+            var canvas = document.getElementById('crop-preview-canvas');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var vid = document.getElementById('crop-stage-video');
+            var stageImg = document.getElementById('crop-stage-img');
+            
+            var source = (vid && vid.readyState >= 2) ? vid : 
+                         ((stageImg && stageImg.complete && stageImg.naturalWidth > 0) ? stageImg : 
+                         ((cropFallbackImg && cropFallbackImg.complete && cropFallbackImg.naturalWidth > 0) ? cropFallbackImg : null));
+
+            ctx.fillStyle = '#0b0f19';
+            ctx.fillRect(0, 0, 270, 480);
+
+            if (!source) {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(8, 8, 254, 464);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 12px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Lade Frame...', 135, 240);
+                return;
+            }
+
+            var vw = source.videoWidth || source.naturalWidth || 1920;
+            var vh = source.videoHeight || source.naturalHeight || 1080;
+
+            if (currentCropMode === 'single_916') {
+                var sx = cropState.single.x * vw;
+                var sy = 0;
+                var sw = Math.max(16, cropState.single.w * vw);
+                var sh = vh;
+                try {
+                    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 270, 480);
+                } catch(e) {}
+            } else {
+                // Split Screen:
+                // 1. Gameplay in lower portion
+                var gx = cropState.game.x * vw;
+                var gy = cropState.game.y * vh;
+                var gw = Math.max(16, cropState.game.w * vw);
+                var gh = Math.max(16, cropState.game.h * vh);
+
+                try {
+                    ctx.drawImage(source, gx, gy, gw, gh, 0, 160, 270, 320);
+                } catch(e) {}
+
+                // 2. Facecam in top portion
+                var cx = cropState.cam.x * vw;
+                var cy = cropState.cam.y * vh;
+                var cw = Math.max(16, cropState.cam.w * vw);
+                var ch = Math.max(16, cropState.cam.h * vh);
+
+                try {
+                    ctx.drawImage(source, cx, cy, cw, ch, 0, 0, 270, 160);
+                } catch(e) {}
+
+                // Trennlinie zwischen Facecam und Gameplay
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, 160);
+                ctx.lineTo(270, 160);
+                ctx.stroke();
+            }
+
+            // Hook Sticker simulation (title badge)
+            if (currentCropTitle) {
+                ctx.save();
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(0,0,0,0.7)';
+                ctx.shadowBlur = 6;
+                var stickerW = 230;
+                var stickerH = 26;
+                var stickerY = (currentCropMode === 'split') ? 172 : 110;
+                var stickerX = (270 - stickerW) / 2;
+                ctx.fillRect(stickerX, stickerY, stickerW, stickerH);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 10px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                var dispText = currentCropTitle.length > 32 ? currentCropTitle.slice(0, 30) + '...' : currentCropTitle;
+                ctx.fillText(dispText, 135, stickerY + (stickerH / 2));
+                ctx.restore();
+            }
+        }
+
+        function applyPreset(preset) {
+            if (preset === 'cam_br') {
+                cropState.cam.x = 0.69; cropState.cam.y = 0.60; cropState.cam.enabled = true;
+            } else if (preset === 'cam_tl') {
+                cropState.cam.x = 0.03; cropState.cam.y = 0.05; cropState.cam.enabled = true;
+            } else if (preset === 'cam_tr') {
+                cropState.cam.x = 0.69; cropState.cam.y = 0.05; cropState.cam.enabled = true;
+            } else if (preset === 'cam_bl') {
+                cropState.cam.x = 0.03; cropState.cam.y = 0.60; cropState.cam.enabled = true;
+            } else if (preset === 'cam_off') {
+                cropState.cam.enabled = !cropState.cam.enabled;
+            } else if (preset === 'game_center') {
+                cropState.game.x = (1 - cropState.game.w) / 2;
+            } else if (preset === 'game_left') {
+                cropState.game.x = 0.02;
+            } else if (preset === 'game_right') {
+                cropState.game.x = 1 - cropState.game.w - 0.02;
+            } else if (preset === 'single_center') {
+                cropState.single.x = (1 - cropState.single.w) / 2;
+            } else if (preset === 'single_left') {
+                cropState.single.x = 0.02;
+            } else if (preset === 'single_right') {
+                cropState.single.x = 1 - cropState.single.w - 0.02;
+            }
+            updateBoxDom('cam');
+            updateBoxDom('game');
+            updateBoxDom('single');
+            draw916Preview();
+        }
+
+        function setCamPixelWidth(wPx) {
+            var w = Math.max(280, Math.min(800, parseInt(wPx, 10) || 540));
+            cropState.cam.w = w / 1920;
+            cropState.cam.h = (w * (2 / 3)) / 1080;
+            if (cropState.cam.x + cropState.cam.w > 1) cropState.cam.x = 1 - cropState.cam.w;
+            if (cropState.cam.y + cropState.cam.h > 1) cropState.cam.y = 1 - cropState.cam.h;
+            var disp = document.getElementById('crop-cam-size-display');
+            if (disp) disp.innerText = w + ' x ' + Math.round(w * (2 / 3)) + ' px';
+            var slider = document.getElementById('crop-cam-size-slider');
+            if (slider) slider.value = w;
+            updateBoxDom('cam');
+            draw916Preview();
+        }
+
+        function setGamePixelWidth(wPx) {
+            var w = Math.max(480, Math.min(1200, parseInt(wPx, 10) || 972));
+            cropState.game.w = w / 1920;
+            cropState.game.h = 1.0;
+            if (cropState.game.x + cropState.game.w > 1) cropState.game.x = 1 - cropState.game.w;
+            var disp = document.getElementById('crop-game-size-display');
+            if (disp) disp.innerText = w + ' x 1080 px';
+            var slider = document.getElementById('crop-game-size-slider');
+            if (slider) slider.value = w;
+            updateBoxDom('game');
+            draw916Preview();
+        }
+
+        function seekCropVideo(delta) {
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.currentTime = Math.max(0, Math.min(vid.duration || 60, vid.currentTime + delta));
+            }
+        }
+
+        function toggleCropVideoPlay() {
+            var vid = document.getElementById('crop-stage-video');
+            var btn = document.getElementById('crop-play-btn');
+            if (!vid) return;
+            if (vid.paused) {
+                vid.play();
+                if (btn) btn.innerText = '⏸️ Pause';
+            } else {
+                vid.pause();
+                if (btn) btn.innerText = '▶️ Play';
+            }
+        }
+
+        function onCropSliderInput(val) {
+            var vid = document.getElementById('crop-stage-video');
+            if (vid) {
+                vid.currentTime = parseFloat(val) || 0;
+            }
+        }
+
+        function saveCropCoordinates(renderNow) {
+            if (!currentCropClipId) return;
+            var payload = {
+                layout_mode: currentCropMode === 'single_916' ? 'single_916' : 'custom',
+                custom_crops: {
+                    mode: currentCropMode,
+                    cam: {
+                        enabled: cropState.cam.enabled,
+                        x: Math.round(cropState.cam.x * 1920),
+                        y: Math.round(cropState.cam.y * 1080),
+                        w: Math.round(cropState.cam.w * 1920),
+                        h: Math.round(cropState.cam.h * 1080),
+                        x_pct: cropState.cam.x,
+                        y_pct: cropState.cam.y,
+                        w_pct: cropState.cam.w,
+                        h_pct: cropState.cam.h
+                    },
+                    game: {
+                        enabled: true,
+                        x: Math.round(cropState.game.x * 1920),
+                        y: 0,
+                        w: Math.round(cropState.game.w * 1920),
+                        h: 1080,
+                        x_pct: cropState.game.x,
+                        y_pct: 0,
+                        w_pct: cropState.game.w,
+                        h_pct: 1.0
+                    },
+                    single: {
+                        x: Math.round(cropState.single.x * 1920),
+                        y: 0,
+                        w: 608,
+                        h: 1080,
+                        x_pct: cropState.single.x,
+                        y_pct: 0,
+                        w_pct: 608 / 1920,
+                        h_pct: 1.0
+                    }
+                },
+                render_now: !!renderNow
+            };
+
+            fetch('/api/clip/' + currentCropClipId + '/save-crop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function() {
+                closeCropModal();
+                if (renderNow) {
+                    if (window.showToast) window.showToast('Zuschnitt gespeichert & Rendering gestartet!', 'success');
+                    setTimeout(updateLiveStatus, 300);
+                } else {
+                    if (window.showToast) window.showToast('Zuschnitt erfolgreich gespeichert!', 'success');
+                }
+            }).catch(function(err) {
+                alert('Fehler beim Speichern: ' + err);
+            });
+        }
+
+        function saveAsDefaultStreamerLayout() {
+            if (window.__realSaveAsDefaultStreamerLayout) {
+                return window.__realSaveAsDefaultStreamerLayout();
+            }
+            if (!currentCropStreamer) {
+                alert('Kein Streamer ermittelt.');
+                return;
+            }
+            var payload = {
+                mode: currentCropMode === 'single_916' ? 'single_916' : 'split',
+                cam: {
+                    x_pct: cropState.cam.x,
+                    y_pct: cropState.cam.y,
+                    w_pct: cropState.cam.w,
+                    h_pct: cropState.cam.h,
+                    enabled: cropState.cam.enabled
+                },
+                game: {
+                    x_pct: cropState.game.x,
+                    y_pct: 0,
+                    w_pct: cropState.game.w,
+                    h_pct: 1.0,
+                    enabled: true
+                }
+            };
+            fetch('/api/streamers/' + encodeURIComponent(currentCropStreamer) + '/layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ layout: currentCropMode === 'single_916' ? 'single_916' : 'custom', custom_crops: payload })
+            }).then(function() {
+                if (window.showToast) window.showToast('✓ Standard-Layout für ' + currentCropStreamer + ' gespeichert!', 'success');
+                else alert('Standard-Layout gespeichert!');
+            }).catch(function(err) {
+                alert('Fehler beim Speichern: ' + err);
+            });
+        }
+
+        function detectFacecamInCropModal() {
+            if (!currentCropClipId) return;
+            var badge = document.getElementById('crop-modal-clip-badge');
+            if (badge) badge.innerText = 'KI scannt Facecam...';
+            fetch('/api/clip/' + currentCropClipId + '/detect-cam')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.cam) {
+                        cropState.cam.x = data.cam.x_pct;
+                        cropState.cam.y = data.cam.y_pct;
+                        cropState.cam.w = data.cam.w_pct;
+                        cropState.cam.h = data.cam.h_pct;
+                        cropState.cam.enabled = true;
+                        updateBoxDom('cam');
+                        draw916Preview();
+                    }
+                    if (badge) badge.innerText = (currentCropStreamer ? currentCropStreamer + ': ' : '') + currentCropTitle;
+                })
+                .catch(function() {
+                    if (badge) badge.innerText = (currentCropStreamer ? currentCropStreamer + ': ' : '') + currentCropTitle;
+                });
+        }
+
+        function applyLoadedCropMeta(meta) {
+            if (!meta) return;
+            var c = meta.custom_crops;
+            if (c) {
+                if (c.mode === 'single_916' || meta.layout_mode === 'single_916') {
+                    currentCropMode = 'single_916';
+                    if (c.single && c.single.x_pct !== undefined && c.single.x_pct > 0) cropState.single.x = c.single.x_pct;
+                } else {
+                    currentCropMode = 'split';
+                    if (c.cam) {
+                        if (c.cam.x_pct !== undefined) cropState.cam.x = c.cam.x_pct;
+                        if (c.cam.y_pct !== undefined) cropState.cam.y = c.cam.y_pct;
+                        if (c.cam.w_pct !== undefined && c.cam.w_pct > 0.05) cropState.cam.w = c.cam.w_pct;
+                        if (c.cam.h_pct !== undefined && c.cam.h_pct > 0.05) cropState.cam.h = c.cam.h_pct;
+                        if (c.cam.enabled !== undefined) cropState.cam.enabled = c.cam.enabled;
+                    }
+                    if (c.game) {
+                        if (c.game.x_pct !== undefined) cropState.game.x = c.game.x_pct;
+                        if (c.game.w_pct !== undefined && c.game.w_pct > 0.05) cropState.game.w = c.game.w_pct;
+                    }
+                }
+            }
+            if (!cropState.cam.w || cropState.cam.w < 0.05) cropState.cam.w = 540 / 1920;
+            if (!cropState.cam.h || cropState.cam.h < 0.05) cropState.cam.h = 360 / 1080;
+            if (!cropState.game.w || cropState.game.w < 0.05) cropState.game.w = 972 / 1920;
+            if (!cropState.single.w || cropState.single.w < 0.05) cropState.single.w = 608 / 1920;
+            switchCropMode(currentCropMode);
+        }
+
+        function initCropInteractions() {
+            var stage = document.getElementById('crop-stage-container');
+            if (!stage) return;
+
+            function onPointerDown(e, target, isResize, handle) {
+                e.preventDefault();
+                e.stopPropagation();
+                var rect = stage.getBoundingClientRect();
+                activeCropDrag = {
+                    target: target,
+                    isResize: isResize,
+                    handle: handle,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    stageW: rect.width,
+                    stageH: rect.height,
+                    initX: cropState[target].x,
+                    initY: cropState[target].y,
+                    initW: cropState[target].w,
+                    initH: cropState[target].h
+                };
+            }
+
+            var camBox = document.getElementById('crop-box-cam');
+            if (camBox) {
+                camBox.addEventListener('pointerdown', function(e) {
+                    if (e.target.classList.contains('crop-cam-handle')) return;
+                    onPointerDown(e, 'cam', false, null);
+                });
+            }
+
+            document.querySelectorAll('.crop-cam-handle').forEach(function(h) {
+                h.addEventListener('pointerdown', function(e) {
+                    onPointerDown(e, 'cam', true, h.getAttribute('data-handle'));
+                });
+            });
+
+            var gameBox = document.getElementById('crop-box-game');
+            if (gameBox) {
+                gameBox.addEventListener('pointerdown', function(e) {
+                    if (e.target.classList.contains('crop-game-handle')) return;
+                    onPointerDown(e, 'game', false, null);
+                });
+            }
+
+            document.querySelectorAll('.crop-game-handle').forEach(function(h) {
+                h.addEventListener('pointerdown', function(e) {
+                    onPointerDown(e, 'game', true, h.getAttribute('data-handle'));
+                });
+            });
+
+            var singleBox = document.getElementById('crop-box-single');
+            if (singleBox) {
+                singleBox.addEventListener('pointerdown', function(e) {
+                    onPointerDown(e, 'single', false, null);
+                });
+            }
+
+            window.addEventListener('pointermove', function(e) {
+                if (!activeCropDrag) return;
+                e.preventDefault();
+                var d = activeCropDrag;
+                var dx = (e.clientX - d.startX) / d.stageW;
+                var dy = (e.clientY - d.startY) / d.stageH;
+
+                if (!d.isResize) {
+                    var s = cropState[d.target];
+                    s.x = Math.max(0, Math.min(1 - s.w, d.initX + dx));
+                    if (d.target === 'cam') {
+                        s.y = Math.max(0, Math.min(1 - s.h, d.initY + dy));
+                    }
+                } else if (d.target === 'cam') {
+                    var scaleDelta = (d.handle && d.handle.includes('r') ? dx : -dx);
+                    var newW = Math.max(280 / 1920, Math.min(800 / 1920, d.initW + scaleDelta));
+                    var newH = (newW * 1920 * (2 / 3)) / 1080;
+                    cropState.cam.w = newW;
+                    cropState.cam.h = newH;
+                    if (cropState.cam.x + cropState.cam.w > 1) cropState.cam.x = 1 - cropState.cam.w;
+                    if (cropState.cam.y + cropState.cam.h > 1) cropState.cam.y = 1 - cropState.cam.h;
+                } else if (d.target === 'game') {
+                    var scaleDelta = (d.handle && d.handle.includes('r') ? dx : -dx);
+                    var newW = Math.max(480 / 1920, Math.min(1200 / 1920, d.initW + scaleDelta));
+                    cropState.game.w = newW;
+                    cropState.game.h = 1.0;
+                    if (cropState.game.x + cropState.game.w > 1) cropState.game.x = 1 - cropState.game.w;
+                }
+                updateBoxDom(d.target);
+                draw916Preview();
+            });
+
+            window.addEventListener('pointerup', function() { activeCropDrag = null; });
+            window.addEventListener('pointercancel', function() { activeCropDrag = null; });
+
+            // Setup video event listeners
+            var vid = document.getElementById('crop-stage-video');
+            var slider = document.getElementById('crop-time-slider');
+            var timeDisp = document.getElementById('crop-time-display');
+            if (vid) {
+                function onMeta() {
+                    if (slider) slider.max = vid.duration || 60;
+                    draw916Preview();
+                }
+                vid.addEventListener('loadedmetadata', onMeta);
+                vid.addEventListener('loadeddata', onMeta);
+                vid.addEventListener('canplay', onMeta);
+                vid.addEventListener('seeked', draw916Preview);
+                vid.addEventListener('timeupdate', function() {
+                    if (slider) slider.value = vid.currentTime;
+                    if (timeDisp) {
+                        var cur = Math.floor(vid.currentTime);
+                        var dur = Math.floor(vid.duration || 0);
+                        var curStr = (cur < 10 ? '0' : '') + Math.floor(cur / 60) + ':' + (cur % 60 < 10 ? '0' : '') + (cur % 60);
+                        var durStr = (dur < 10 ? '0' : '') + Math.floor(dur / 60) + ':' + (dur % 60 < 10 ? '0' : '') + (dur % 60);
+                        timeDisp.innerText = curStr + ' / ' + durStr;
+                    }
+                    draw916Preview();
+                });
+            }
+        }
+
+        function showToast(message, type) {
+            type = type || 'info';
+            var toast = document.getElementById('ui-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'ui-toast';
+                document.body.appendChild(toast);
+            }
+            var borderCls = 'border-slate-700 bg-slate-900/95 text-slate-200';
+            var iconSvg = '<svg class="w-4 h-4 text-amber-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            if (type === 'success') {
+                borderCls = 'border-emerald-700 bg-emerald-950/95 text-emerald-100';
+                iconSvg = '<svg class="w-4 h-4 text-emerald-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+            } else if (type === 'error') {
+                borderCls = 'border-rose-700 bg-rose-950/95 text-rose-100';
+                iconSvg = '<svg class="w-4 h-4 text-rose-400 inline-block shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            }
+            toast.className = 'fixed bottom-5 right-5 z-[9999] max-w-sm px-4 py-3 rounded-lg border ' + borderCls + ' shadow-2xl text-xs font-semibold flex items-center gap-2.5 transition-all duration-200 pointer-events-none';
+            toast.innerHTML = iconSvg + ' <span>' + message + '</span>';
+            toast.style.display = 'flex';
+            toast.style.opacity = '1';
+            clearTimeout(window._toastTimeout);
+            window._toastTimeout = setTimeout(function() {
+                toast.style.opacity = '0';
+                setTimeout(function() { toast.style.display = 'none'; }, 250);
+            }, 3500);
+        }
+        window.showToast = showToast;
+
+        async function downloadShortVideo(clipId, btn, evt) {
+            if (!clipId) return;
+            var isQuick = evt && evt.shiftKey;
+            var origContent = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
+            }
+            if (isQuick) {
+                showToast('Exportiere HQ Video direkt in Downloads...', 'info');
+            } else {
+                showToast('Speicherort wählen... (Windows-Dialog geöffnet)', 'info');
+            }
+            try {
+                var url = isQuick 
+                    ? ('/api/clip/' + encodeURIComponent(clipId) + '/export-to-downloads')
+                    : ('/api/clip/' + encodeURIComponent(clipId) + '/export-dialog');
+                var res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                var data = await res.json();
+                if (data && data.success) {
+                    showToast('✓ Video gespeichert: ' + data.filename, 'success');
+                } else if (data && data.cancelled) {
+                    showToast('Speichern abgebrochen', 'info');
+                } else {
+                    var err = (data && data.error) ? data.error : 'Konnte Speicher-Dialog nicht öffnen.';
+                    showToast('Fehler: ' + err, 'error');
+                }
+            } catch (err) {
+                console.warn('Export endpoint failed:', err);
+                showToast('Fehler beim Exportieren: ' + err, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origContent;
+                }
+            }
+        }
+
+        async function downloadRawVideo(clipId, btn, evt) {
+            if (!clipId) return;
+            var isQuick = evt && evt.shiftKey;
+            var origContent = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>' + (isQuick ? 'Speichere...' : 'Öffne...') + '</span>';
+            }
+            if (isQuick) {
+                showToast('Exportiere Rohdatei direkt in Downloads...', 'info');
+            } else {
+                showToast('Speicherort wählen... (Windows-Dialog geöffnet)', 'info');
+            }
+            try {
+                var url = isQuick
+                    ? ('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-to-downloads')
+                    : ('/api/clip/' + encodeURIComponent(clipId) + '/export-raw-dialog');
+                var res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                var data = await res.json();
+                if (data && data.success) {
+                    showToast('✓ Rohdatei gespeichert: ' + data.filename, 'success');
+                } else if (data && data.cancelled) {
+                    showToast('Speichern abgebrochen', 'info');
+                } else {
+                    var err = (data && data.error) ? data.error : 'Konnte Speicher-Dialog nicht öffnen.';
+                    showToast('Fehler: ' + err, 'error');
+                }
+            } catch (err) {
+                console.warn('Export raw endpoint failed:', err);
+                showToast('Fehler beim Exportieren: ' + err, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origContent;
+                }
+            }
+        }
+
+                var currentUpdateData = null;
+
+        function checkForUpdates() {
+            fetch('/api/check-update')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.update_available) {
+                        currentUpdateData = data;
+                        var badge = document.getElementById('update-badge');
+                        var badgeV = document.getElementById('update-badge-v');
+                        if (badge && badgeV) {
+                            badgeV.innerText = 'v' + data.latest_version;
+                            badge.style.display = 'inline-flex';
+                        }
+                    }
+                })
+                .catch(function() {});
+        }
+
+        function openUpdateModal() {
+            if (!currentUpdateData) return;
+            var m = document.getElementById('update-modal');
+            var vEl = document.getElementById('modal-update-ver');
+            var notesEl = document.getElementById('modal-update-notes-body');
+            var ghLink = document.getElementById('modal-github-link');
+
+            if (vEl) vEl.innerText = 'v' + currentUpdateData.latest_version;
+            if (notesEl) {
+                var notes = currentUpdateData.release_notes || 'Neue Fehlerbehebungen & Leistungsoptimierungen.';
+                notesEl.innerText = notes;
+            }
+            if (ghLink && currentUpdateData.download_url) {
+                ghLink.href = 'https://github.com/xNotLikex/clip-farming/releases/latest';
+            }
+
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+        }
+
+        function closeUpdateModal() {
+            var m = document.getElementById('update-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        function performUpdate(btn) {
+            if (!currentUpdateData || !currentUpdateData.download_url) {
+                window.open('https://github.com/xNotLikex/clip-farming/releases/latest', '_blank');
+                return;
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> <span>Lade Installer...</span>';
+            }
+            var statusMsg = document.getElementById('update-status-msg');
+            if (statusMsg) {
+                statusMsg.innerHTML = '<span class="text-amber-400">Lade Installer von GitHub herunter... Bitte kurz warten.</span>';
+            }
+
+            fetch('/api/apply-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ download_url: currentUpdateData.download_url })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res && res.success) {
+                    if (statusMsg) statusMsg.innerHTML = '<span class="text-emerald-400 font-bold">✓ Installer gestartet! Setup wird ausgeführt...</span>';
+                    setTimeout(closeUpdateModal, 3000);
+                } else {
+                    if (statusMsg) statusMsg.innerHTML = '<span class="text-rose-400">Fehler beim Update: ' + (res.error || 'Download fehlgeschlagen') + '</span>';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Erneut versuchen</span>';
+                    }
+                }
+            })
+            .catch(function(err) {
+                if (statusMsg) statusMsg.innerHTML = '<span class="text-rose-400">Download fehlgeschlagen. Öffne GitHub...</span>';
+                window.open('https://github.com/xNotLikex/clip-farming/releases/latest', '_blank');
+            });
+        }
+
+        window.checkForUpdates = checkForUpdates;
+        window.openUpdateModal = openUpdateModal;
+        window.closeUpdateModal = closeUpdateModal;
+        window.performUpdate = performUpdate;
+
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkForUpdates, 1500);
+        });
+
+        window.addEventListener('DOMContentLoaded', function() {
+            initCropInteractions();
+        });
+        setTimeout(initCropInteractions, 100);
+        var currentPreviewClipId = '';
+        var currentPreviewStreamer = '';
+        var currentPreviewTitle = '';
+
+        function openRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull) {
+            if (!clipId) return;
+            currentPreviewClipId = clipId;
+            currentPreviewStreamer = streamer || '';
+            currentPreviewTitle = title || '';
+            var sEl = document.getElementById('modal-streamer');
+            if (sEl) sEl.innerText = (streamer || '').toUpperCase();
+            var tEl = document.getElementById('modal-title');
+            if (tEl) tEl.innerText = title || '';
+            var statsElem = document.getElementById('modal-stats');
+            if (statsElem) {
+                var txt = (views || 0) + ' Views • ' + (duration || 0) + 's (Rohdatei)';
+                if (createdAgo) txt += ' • ' + createdAgo;
+                statsElem.innerText = txt;
+                if (createdFull) statsElem.title = createdFull;
+            }
+            var poster = document.getElementById('modal-video-poster');
+            if (poster) {
+                poster.src = '/thumbnail/raw/' + encodeURIComponent(clipId) + '?t=' + Date.now();
+                poster.style.display = 'block';
+            }
+            var player = document.getElementById('modal-video-player');
+            if (player) {
+                player.poster = '/thumbnail/raw/' + encodeURIComponent(clipId);
+                player.src = '/raw-video/' + encodeURIComponent(clipId);
+                player.onplaying = function() {
+                    if (poster) poster.style.display = 'none';
+                };
+                player.load();
+                player.play().catch(function() {});
+            }
+            var procForm = document.getElementById('modal-process-form');
+            if (procForm) procForm.action = '/process-one/' + clipId;
+            var delForm = document.getElementById('modal-delete-form');
+            if (delForm) delForm.action = '/queue/delete/' + clipId;
+            var dlRaw = document.getElementById('modal-download-raw');
+            if (dlRaw) {
+                dlRaw.onclick = function(e) { downloadRawVideo(clipId, dlRaw, e); };
+            }
+            var m = document.getElementById('preview-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+                m.style.setProperty('display', 'flex', 'important');
+            }
+        }
+        function closePreviewModal() {
+            var player = document.getElementById('modal-video-player');
+            if (player) {
+                player.pause();
+                player.src = '';
+            }
+            var m = document.getElementById('preview-modal');
+            if (m) {
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                m.style.setProperty('display', 'none', 'important');
+            }
+        }
+        function triggerRun() {
+            var btn = document.getElementById('btn-trigger');
+            if (btn) {
+                btn.disabled = true;
+                btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
+            }
+            fetch('/api/run', { method: 'POST' }).then(function() {
+                if (window.showToast) window.showToast('Twitch-Scan gestartet!', 'info');
+                setTimeout(updateLiveStatus, 200);
+            });
+        }
+        function processAll() {
+            if (window.__realProcessAll) {
+                window.__realProcessAll();
+            } else {
+                fetch('/api/process-all', { method: 'POST' }).then(function() {
+                    setTimeout(updateLiveStatus, 200);
+                });
+            }
+        }
+        function toggleLogs() {
+            var box = document.getElementById('log-box');
+            var icon = document.getElementById('log-toggle-icon');
+            if (!box) return;
+            if (box.classList.contains('hidden') || box.style.display === 'none') {
+                box.classList.remove('hidden');
+                box.style.display = 'block';
+                if (icon) icon.innerText = '▲ Verbergen';
+                window.logsOpen = true;
+            } else {
+                box.classList.add('hidden');
+                box.style.display = 'none';
+                if (icon) icon.innerText = '▼ Anzeigen';
+                window.logsOpen = false;
+            }
+        }
+        function updateLiveStatus() {
+            fetch('/api/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    var dot = document.getElementById('live-dot');
+                    var text = document.getElementById('live-status-text');
+                    var desc = document.getElementById('live-task-desc');
+                    var btn = document.getElementById('btn-trigger');
+                    var progressCard = document.getElementById('render-progress-card');
+                    var progressBar = document.getElementById('render-progress-bar');
+                    var progressPercent = document.getElementById('render-percent-text');
+                    var progressEta = document.getElementById('render-eta-text');
+                    var progressSpeed = document.getElementById('render-speed-badge');
+                    var progressTitle = document.getElementById('render-progress-title');
+
+                    if (data.is_running) {
+                        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+                        if (text) text.innerText = 'AKTIV: ' + (data.status || 'ARBEITET').toUpperCase();
+                        if (desc) desc.innerText = (data.current_task || '') + (data.streamer ? ' (' + data.streamer + ')' : '');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
+                            btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
+                        }
+                        if (data.status === 'rendering' || data.progress_percent > 0) {
+                            if (progressCard) progressCard.classList.remove('hidden');
+                            if (progressBar) progressBar.style.width = data.progress_percent + '%';
+                            if (progressPercent) progressPercent.innerText = data.progress_percent + '%';
+                            if (progressEta && data.eta_seconds) progressEta.innerText = 'Noch ca. ' + data.eta_seconds + 's';
+                            if (progressSpeed && data.speed) progressSpeed.innerText = data.speed + ' NVENC';
+                            if (progressTitle) progressTitle.innerText = data.current_task || 'Rendere Video...';
+                        } else {
+                            if (progressCard) progressCard.classList.add('hidden');
+                        }
+                    } else {
+                        if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+                        if (text) text.innerText = 'STANDBY';
+                        if (desc) desc.innerText = data.current_task || 'Bereit zur Ausführung';
+                        if (progressCard) progressCard.classList.add('hidden');
+                        if (btn && btn.disabled) {
+                            btn.disabled = false;
+                            btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm';
+                            btn.innerHTML = '<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen';
+                        }
+
+                        // Bei Uebergang von aktiv -> idle: Studio-Vorschaukarten & Videos aktualisieren
+                        if (window.gLiveStudioPrevRunning) {
+                            if (typeof window.refreshDashboard === 'function') {
+                                window.refreshDashboard();
+                            } else {
+                                var ts = Date.now();
+                                document.querySelectorAll('img[id^="poster-img-"]').forEach(function(img) {
+                                    var base = img.src.split('?')[0];
+                                    img.src = base + '?v=' + ts;
+                                });
+                                document.querySelectorAll('video[id^="studio-video-"]').forEach(function(vid) {
+                                    var pBase = (vid.getAttribute('poster') || '').split('?')[0];
+                                    if (pBase) vid.setAttribute('poster', pBase + '?v=' + ts);
+                                    var s = vid.querySelector('source');
+                                    if (s) {
+                                        s.src = s.src.split('?')[0] + '?v=' + ts;
+                                        vid.load();
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    window.gLiveStudioPrevRunning = data.is_running;
+
+                    if (data.logs && data.logs.length > 0) {
+                        var countEl = document.getElementById('log-count');
+                        if (countEl) countEl.innerText = data.logs.length + ' Einträge';
+                        var box = document.getElementById('log-box');
+                        if (box) {
+                            box.innerHTML = data.logs.slice(-40).map(function(l) {
+                                return '<div class="text-slate-300 leading-relaxed font-mono">' + l + '</div>';
+                            }).join('');
+                            box.scrollTop = box.scrollHeight;
+                        }
+                    }
+                })
+                .catch(function(err) {});
+        }
+        setInterval(updateLiveStatus, 1500);
+        setTimeout(updateLiveStatus, 400);
+    </script>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header & Live Status Bar -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-6 border-b border-slate-800 gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
+                        <span>CLIP-FARMING</span><span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">STUDIO</span>
+                        <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v{{ app_version }}</span>
+                    </h1>
+                    <button id="update-badge" style="display: none;" onclick="openUpdateModal()" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 transition shadow-sm animate-pulse cursor-pointer">
+                        <span>Update <span id="update-badge-v"></span> verfügbar</span>
+                    </button>
+                    <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
+                        <span class="w-2 h-2 rounded-full {% if is_running %}bg-emerald-400 animate-ping{% else %}bg-slate-400{% endif %}" id="live-dot"></span>
+                        <span id="live-status-text">{% if is_running %}AKTIV: {{ current_status|upper }}{% else %}STANDBY{% endif %}</span>
+                    </span>
+                </div>
+                <p id="live-task-desc" class="text-slate-400 text-sm mt-1">{{ current_task }}</p>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="switchTab('streamers')" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Streamer verwalten ({{ streamers|length }})
+                </button>
+                <button onclick="openSettingsModal()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm rounded transition text-slate-200 shadow">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Einstellungen
+                </button>
+                <button onclick="triggerRun()" id="btn-trigger" class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Neue Clips auf Twitch suchen
+                </button>
+            </div>
+        </header>
+
+        <!-- LIVE RENDER PROGRESS CARD (Wird eingeblendet wenn aktiv) -->
+        <div id="render-progress-card" class="hidden bg-zinc-900 border border-zinc-700 rounded-lg p-5 shadow-2xl animate-pulse-subtle">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3 h-3 rounded-full bg-pink-500 animate-ping"></span>
+                    <span id="render-progress-title" class="text-sm font-bold text-white tracking-wide">Rendern aktiv...</span>
+                </div>
+                <div class="flex items-center gap-3 font-mono">
+                    <span id="render-speed-badge" class="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-0.5 rounded border border-zinc-700">NVENC</span>
+                    <span id="render-eta-text" class="text-xs font-semibold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">Noch ca. --s</span>
+                    <span id="render-percent-text" class="text-lg font-black text-white">0%</span>
+                </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-950 rounded h-2.5 overflow-hidden p-0.5 border border-slate-700/80 shadow-inner">
+                <div id="render-progress-bar" class="bg-amber-500 h-full rounded transition-all duration-300 shadow-lg" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Modern Unified Navigation Bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 gap-3">
+            <div class="flex items-center gap-1 text-sm font-medium overflow-x-auto w-full sm:w-auto -mb-px">
+                <button onclick="switchTab('queue')" id="tab-queue-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-amber-500 text-white font-semibold transition whitespace-nowrap">
+                    <span>Warteschlange</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{{ counts.harvested }}</span>
+                </button>
+                <button onclick="switchTab('studio')" id="tab-studio-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <span>Studio & Freigabe</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ counts.ready }}</span>
+                </button>
+                <button onclick="switchTab('planner')" id="tab-planner-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <span>Planer</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ counts.scheduled }}</span>
+                </button>
+                <button onclick="switchTab('accounts')" id="tab-accounts-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <span>Konten</span>
+                    <span class="w-2 h-2 rounded-full {% if account_status.youtube.is_connected or account_status.tiktok.is_connected %}bg-emerald-400{% else %}bg-slate-600{% endif %}"></span>
+                </button>
+                <button onclick="switchTab('streamers')" id="tab-streamers-btn" class="tab-btn px-4 py-3 flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span>Streamer</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono" id="tab-count-streamers">{{ streamers|length }}</span>
+                </button>
+            </div>
+
+            <!-- Compact Drawer Ticker -->
+            <div class="flex items-center gap-2 pb-2 sm:pb-0 text-xs">
+                <button type="button" onclick="toggleLogs()" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5 font-mono">
+                    <span id="log-count" class="text-slate-400">{{ initial_logs|length }} Logs</span>
+                    <span id="log-toggle-icon" class="text-[10px] text-slate-500">▼</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Collapsible Log Drawer (Hidden by default) -->
+        <div id="log-drawer-container" class="space-y-2">
+            <div id="log-box" class="hidden bg-slate-950 p-3.5 rounded-lg font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1 border border-slate-800">
+                {% if initial_logs %}
+                    {% for log in initial_logs[-40:] %}
+                        <div class="text-slate-300 leading-relaxed font-mono">{{ log }}</div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-slate-500">Warte auf Aktionen...</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- TAB 1: WARTESCHLANGE -->
+        <div id="tab-queue" class="tab-content space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-950/80 border-b border-slate-800 gap-3">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                            <span>Warteschlange</span>
+                            <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{{ counts.harvested }} Rohdateien</span>
+                        </div>
+                        <span class="text-xs text-slate-400 mt-0.5 block">Klicke auf eine Zeile für die Videovorschau vor dem Zuschnitt.</span>
+                    </div>
+                    {% if counts.harvested > 0 %}
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        {% if older_queue_count > 0 %}
+                        <form action="/queue/delete-older" method="POST" class="inline" onsubmit="return confirm('Wirklich alle {{ older_queue_count }} Roh-Clips von gestern und älter löschen?');">
+                            <button type="submit" class="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 border border-slate-700/80 rounded transition font-medium" title="Löscht alle {{ older_queue_count }} Roh-Clips von gestern & älter">
+                                Gestern & älter löschen ({{ older_queue_count }})
+                            </button>
+                        </form>
+                        {% endif %}
+                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Alle ins Studio übernehmen
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div id="queue-streamer-filter-bar" class="hidden px-4 py-2.5 bg-slate-950/40 border-b border-slate-800 flex items-center gap-2.5 flex-wrap"></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800/80 bg-slate-950/60 text-slate-400 text-xs font-semibold">
+                                <th class="py-3 px-4 w-12 text-center"></th>
+                                <th class="py-3 px-4 whitespace-nowrap">Streamer</th>
+                                <th class="py-3 px-4">Clip</th>
+                                <th class="py-3 px-4 whitespace-nowrap">Dauer & Views</th>
+                                <th class="py-3 px-4 whitespace-nowrap">Erstellt</th>
+                                <th class="py-3 px-4 text-right whitespace-nowrap">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-tbody" class="divide-y divide-slate-800/60">
+                            {% for clip in queue_clips %}
+                            <tr data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.original_title|e }}" data-views="{{ clip.view_count }}" data-duration="{{ '%.0f'|format(clip.duration) }}" data-created-ago="{{ clip.created_ago|e }}" data-created-full="{{ clip.created_full|e }}" onclick="openRawPreviewFromRow(this)"
+                                class="hover:bg-slate-800/40 cursor-pointer transition group">
+                                <td class="py-3 px-4 text-center whitespace-nowrap">
+                                    <div class="w-7 h-7 rounded bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 flex items-center justify-center text-xs transition">
+                                        ▶
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 whitespace-nowrap">
+                                    <span class="font-semibold text-slate-200 text-sm block">{{ clip.streamer }}</span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="font-medium text-slate-100 group-hover:text-amber-400 transition text-sm">{{ clip.original_title }}</div>
+                                </td>
+                                <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">
+                                    <span class="font-mono text-slate-300">{{ "%.0f"|format(clip.duration) }}s</span>
+                                    <span class="text-slate-600 mx-1.5">•</span>
+                                    <span class="font-mono text-slate-300">{{ clip.view_count }} Views</span>
+                                </td>
+                                <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap" title="{{ clip.created_full }}">
+                                    <span>{{ clip.created_ago }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <div class="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition">
+                                        <form action="/process-one/{{ clip.clip_id }}" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 font-semibold text-xs rounded border border-slate-700/80 hover:border-amber-500 transition shadow-sm">
+                                                In Studio
+                                            </button>
+                                        </form>
+                                        <form action="/queue/delete/{{ clip.clip_id }}" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen?');">
+                                            <button type="submit" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition" title="Löschen">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="py-12 text-center text-slate-500">Keine Clips in der Warteschlange.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: STUDIO & FREIGABE -->
+        <div id="tab-studio" class="tab-content hidden space-y-6">
+            <!-- Manuelle Streamer-Suche & Clip-Explorer -->
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 shadow-xl space-y-4">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            Twitch Clip-Explorer (Manuelle Streamer-Suche)
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Durchsuche beliebige Twitch-Streamer nach Zeitfenster und importiere Wunsch-Clips direkt ins Studio.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative">
+                            <input type="text" id="manual-search-streamer" list="manual-search-datalist"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault(); searchManualStreamerClips();}"
+                                placeholder="Streamer-Name (z. B. eliasn97)..."
+                                class="w-56 sm:w-64 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition">
+                            <datalist id="manual-search-datalist">
+                                {% for s in streamers %}
+                                <option value="{{ s.name }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="inline-flex rounded-lg bg-slate-950 border border-slate-800 p-0.5" role="group" aria-label="Zeitfenster">
+                            <button type="button" onclick="selectManualTimeframe('LAST_DAY')" id="manual-tf-LAST_DAY" data-tf="LAST_DAY" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-zinc-950 transition">24h</button>
+                            <button type="button" onclick="selectManualTimeframe('LAST_WEEK')" id="manual-tf-LAST_WEEK" data-tf="LAST_WEEK" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">7 Tage</button>
+                            <button type="button" onclick="selectManualTimeframe('LAST_MONTH')" id="manual-tf-LAST_MONTH" data-tf="LAST_MONTH" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">30 Tage</button>
+                            <button type="button" onclick="selectManualTimeframe('ALL_TIME')" id="manual-tf-ALL_TIME" data-tf="ALL_TIME" class="manual-tf-btn px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">All-Time</button>
+                        </div>
+                        <button type="button" id="btn-manual-search" onclick="searchManualStreamerClips()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Clips suchen</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Suchergebnisse -->
+                <div id="manual-search-results" class="hidden pt-3 border-t border-slate-800/80 space-y-3">
+                    <div id="manual-search-header" class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 px-3.5 py-2.5 rounded-lg border border-slate-800/80">
+                        <div class="flex items-center gap-2.5" id="manual-search-streamer-info"></div>
+                        <button type="button" onclick="closeManualSearchResults()" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 transition">
+                            ✕ Ergebnisse schließen
+                        </button>
+                    </div>
+                    <div id="manual-search-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                </div>
+            </div>
+
+            {% if ready_clips %}
+            <!-- Sammel-Aktionen Header -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 p-4 rounded-lg gap-3">
+                <div>
+                    <span class="text-sm font-bold text-white">{{ counts.ready }} Shorts bereit zur Bearbeitung & Veröffentlichung</span>
+                    <span class="text-xs text-slate-400 block">Du kannst jeden Clip einzeln anpassen oder alle gestaffelt im Zeitplan veröffentlichen.</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="exportAllReadyClips(this)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm" title="Alle fertigen Videos in einen gewählten Ordner exportieren">
+                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> Alle fertigen Shorts exportieren
+                    </button>
+                    <form action="/api/schedule-all" method="POST" class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-400">Intervall:</span>
+                        <select name="interval_minutes" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-2">
+                            <option value="15">alle 15 Min</option>
+                            <option value="30" selected>alle 30 Min</option>
+                            <option value="45">alle 45 Min</option>
+                            <option value="60">jede 1 Stunde</option>
+                            <option value="120">alle 2 Stunden</option>
+                        </select>
+                        <button type="submit" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-semibold text-xs rounded transition flex items-center gap-2">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Alle gestaffelt einplanen
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Streamer Filter Bar (Profilbilder & Mehrfachauswahl) -->
+            <div id="streamer-pills-container" class="{% if not ready_clips %}hidden {% endif %}px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-lg flex items-center gap-2.5 flex-wrap shadow">
+                <span class="text-xs font-semibold text-slate-400 mr-1 whitespace-nowrap">Streamer:</span>
+                <button type="button" onclick="clearStudioStreamerFilter()" class="px-2.5 py-1 rounded-full border text-xs font-semibold bg-amber-500 text-slate-950 border-amber-400 shadow-sm transition whitespace-nowrap">
+                    Alle ({{ ready_clips|length }})
+                </button>
+            </div>
+
+            <div id="studio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {% for clip in ready_clips %}
+                <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl flex flex-col hover:border-slate-700 transition-all duration-300 studio-clip-card {% if clip.is_manually_published %}opacity-40 grayscale hover:grayscale-0 hover:opacity-95 border-emerald-900/80 bg-slate-950/90{% endif %}" id="card-{{ clip.clip_id }}" data-streamer="{{ clip.streamer|lower }}">
+                    <!-- Card Header: Streamer & Veröffentlicht-Checkbox -->
+                    <div class="flex justify-between items-center bg-slate-950/90 px-4 py-2.5 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-zinc-800 border border-zinc-700 text-xs font-semibold px-2 py-0.5 rounded text-amber-400">
+                                {{ clip.streamer }}
+                            </span>
+                            {% if clip.created_ago %}
+                            <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap" title="{{ clip.created_full }}">
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> {{ clip.created_ago }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <label class="flex items-center gap-2 cursor-pointer bg-slate-900 hover:bg-slate-800 px-3 py-1 rounded-lg border border-slate-700/80 transition" title="Video als veröffentlicht markieren (graut die Karte aus)">
+                            <input type="checkbox" onchange="toggleManualPublished('{{ clip.clip_id }}', this.checked)" {% if clip.is_manually_published %}checked{% endif %} class="w-4 h-4 accent-emerald-500 rounded cursor-pointer">
+                            <span class="text-xs font-bold {% if clip.is_manually_published %}text-emerald-400{% else %}text-slate-400{% endif %}" id="pub-label-{{ clip.clip_id }}">
+                                {% if clip.is_manually_published %}✓ Veröffentlicht{% else %}Veröffentlicht?{% endif %}
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Video Player Container (9:16) -->
+                    <div class="relative bg-black aspect-[9/16] w-full max-h-[480px] flex items-center justify-center overflow-hidden group">
+                        {% if clip.has_video %}
+                        <!-- Instant Visible Poster Overlay to guarantee frame is never black -->
+                        <div id="poster-overlay-{{ clip.clip_id }}" class="absolute inset-0 z-10 flex items-center justify-center cursor-pointer transition-opacity duration-300" onclick="startStudioVideoPlay('{{ clip.clip_id }}', this)">
+                            <img id="poster-img-{{ clip.clip_id }}" src="/thumbnail/{{ clip.clip_id }}?v={{ clip.updated_at }}" alt="Vorschau" class="absolute inset-0 w-full h-full object-cover">
+                            <div class="w-14 h-14 rounded-full bg-slate-900/80 border-2 border-amber-400/90 text-amber-400 flex items-center justify-center text-xl shadow-2xl backdrop-blur transition-transform group-hover:bg-amber-500">
+                                ▶
+                            </div>
+                        </div>
+                        <video id="studio-video-{{ clip.clip_id }}" controls preload="metadata" poster="/thumbnail/{{ clip.clip_id }}?v={{ clip.updated_at }}" class="w-full h-full object-contain relative z-0" onplay="var p = document.getElementById('poster-overlay-{{ clip.clip_id }}'); if (p) p.style.display = 'none';">
+                            <source src="/video/{{ clip.clip_id }}?v={{ clip.updated_at }}" type="video/mp4">
+                        </video>
+                        {% else %}
+                        <div class="text-center p-6 text-slate-500">
+                            <div class="w-8 h-8 mx-auto mb-2 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                            Video wird gerendert...
+                        </div>
+                        {% endif %}
+                        
+                        <span class="absolute top-3 right-3 bg-slate-900/80 text-xs text-slate-300 font-semibold px-2 py-1 rounded-md backdrop-blur">
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> {{ clip.view_count }}
+                        </span>
+
+                        {% if clip.has_video %}
+                        <button type="button" onclick="downloadShortVideo('{{ clip.clip_id }}', this, event)" 
+                            class="absolute bottom-3 right-3 bg-slate-900/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg border border-slate-700/80 backdrop-blur transition flex items-center gap-1.5 cursor-pointer z-10"
+                            title="Speicherort wählen & HQ Video sichern (Shift-Klick für Direkt-Export in Downloads)">
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> <span>HQ Download</span>
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Edit Form -->
+                    <form id="form-{{ clip.clip_id }}" action="/save/{{ clip.clip_id }}" method="POST" class="p-5 flex-1 flex flex-col justify-between gap-4">
+                        <div class="space-y-3">
+                            <!-- Video Title -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">
+                                    Titel (YouTube / TikTok)
+                                </label>
+                                <input type="text" name="title" value="{{ clip.title }}" 
+                                    class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                            </div>
+
+                            <button type="button" data-clip-id="{{ clip.clip_id }}" data-streamer="{{ clip.streamer|e }}" data-title="{{ clip.title|e }}" onclick="openCropModalFromButton(this)" 
+                                class="w-full py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded text-xs font-semibold transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Clip Editor
+                            </button>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="pt-4 border-t border-slate-800 flex flex-col gap-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="submit" name="action" value="save" 
+                                    class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5">
+                                    Nur speichern
+                                </button>
+                                <button type="submit" name="action" value="rerender" 
+                                    class="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Speichern & Neu Rendern
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="submit" name="action" value="schedule" 
+                                    class="py-2 px-3 bg-sky-700 hover:bg-sky-600 font-bold text-xs rounded-lg transition text-white flex items-center justify-center gap-1">
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Zeitplan
+                                </button>
+                                <button type="submit" name="action" value="publish_now" 
+                                    class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs rounded-lg transition text-white flex items-center justify-center gap-1">
+                                    <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Sofort posten
+                                </button>
+                            </div>
+                            <div class="text-right">
+                                <button type="submit" name="action" value="delete" 
+                                    onclick="return confirm('Clip wirklich löschen?');"
+                                    class="text-xs text-rose-400 hover:text-rose-300 transition">
+                                    <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Löschen & Ignorieren
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-12 text-center">
+                <div class="w-12 h-12 mx-auto mb-3 text-slate-600 flex items-center justify-center"><svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></div>
+                <h3 class="text-lg font-bold text-slate-300">Noch keine fertig gerenderten Shorts im Studio</h3>
+                <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                    Klicke im Reiter <strong>„1. Warteschlange“</strong> bei deinen Wunsch-Clips auf <strong>„<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> In Studio übernehmen“</strong>!
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- TAB 3: VERÖFFENTLICHUNGS-PLANER & HISTORIE -->
+        <div id="tab-planner" class="tab-content hidden space-y-6">
+            
+            <!-- Planer Einstellungen Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Automatische Veröffentlichungs-Warteschlange (Drip-Feed)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Verhindert Spam: Eingeplante Clips werden automatisch im gewählten Zeitabstand nacheinander auf YouTube Shorts & TikTok hochgeladen.
+                    </p>
+                </div>
+                <form action="/api/schedule/set-interval" method="POST" class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-300">Standard-Intervall:</span>
+                    <select name="interval_minutes" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-3 py-2 font-semibold">
+                        <option value="15" {% if account_status.publishing_interval == 15 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 15 Minuten</option>
+                        <option value="30" {% if account_status.publishing_interval == 30 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 30 Minuten (Empfohlen)</option>
+                        <option value="45" {% if account_status.publishing_interval == 45 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 45 Minuten</option>
+                        <option value="60" {% if account_status.publishing_interval == 60 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 1 Stunde</option>
+                        <option value="120" {% if account_status.publishing_interval == 120 %}selected{% endif %}><svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> 2 Stunden</option>
+                    </select>
+                </form>
+            </div>
+
+            <!-- 1. Geplante Clips (Warteschlange) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
+                <div class="p-4 bg-slate-950/70 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-sm font-bold text-sky-400">⏳ Geplante Veröffentlichungen ({{ scheduled_clips|length }})</span>
+                    <span class="text-xs text-slate-400">Hintergrund-Worker prüft alle 15 Sekunden</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase font-semibold">
+                                <th class="py-3.5 px-4">Streamer</th>
+                                <th class="py-3.5 px-4">Titel</th>
+                                <th class="py-3.5 px-4">Geplante Veröffentlichung</th>
+                                <th class="py-3.5 px-4">Plattformen</th>
+                                <th class="py-3.5 px-4 text-right">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="planner-tbody" class="divide-y divide-slate-800/80">
+                            {% for clip in scheduled_clips %}
+                            <tr class="hover:bg-slate-800/40 transition">
+                                <td class="py-3.5 px-4 font-bold text-amber-400">{{ clip.streamer }}</td>
+                                <td class="py-3.5 px-4 font-semibold text-slate-200">{{ clip.ai_title or clip.original_title }}</td>
+                                <td class="py-3.5 px-4 font-mono text-amber-300">
+                                    <div class="flex items-center gap-1.5">
+                                        <span>⏰ {{ clip.scheduled_publish_at }}</span>
+                                    </div>
+                                </td>
+                                <td class="py-3.5 px-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs px-2 py-0.5 rounded {% if account_status.youtube.is_connected %}bg-red-950 text-red-300 border border-red-800{% else %}bg-slate-800 text-slate-500{% endif %}">YouTube</span>
+                                        <span class="text-xs px-2 py-0.5 rounded {% if account_status.tiktok.is_connected %}bg-pink-950 text-pink-300 border border-pink-800{% else %}bg-slate-800 text-slate-500{% endif %}">TikTok</span>
+                                    </div>
+                                </td>
+                                <td class="py-3.5 px-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <form action="/schedule/publish-now/{{ clip.clip_id }}" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 font-bold text-xs rounded-lg text-white transition">
+                                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Jetzt posten
+                                            </button>
+                                        </form>
+                                        <form action="/schedule/cancel/{{ clip.clip_id }}" method="POST" class="inline">
+                                            <button type="submit" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 font-medium text-xs text-slate-300 rounded-lg transition" title="Zurück ins Studio">
+                                                ↩️ Abbrechen
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="py-8 text-center text-slate-500">Keine Clips im Veröffentlichungs-Zeitplan. Klicke im Studio auf „<svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Zeitplan“!</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Historie (Bereits veröffentlicht) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
+                <div class="p-4 bg-slate-950/70 border-b border-slate-800">
+                    <span class="text-sm font-bold text-emerald-400">✓ Bereits veröffentlichte Shorts ({{ published_clips|length }})</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase font-semibold">
+                                <th class="py-3.5 px-4">Streamer</th>
+                                <th class="py-3.5 px-4">Veröffentlichter Titel</th>
+                                <th class="py-3.5 px-4">Veröffentlicht am</th>
+                                <th class="py-3.5 px-4">Status & Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="published-tbody" class="divide-y divide-slate-800/80">
+                            {% for clip in published_clips %}
+                            <tr class="hover:bg-slate-800/40 transition">
+                                <td class="py-3.5 px-4 font-bold text-amber-400">{{ clip.streamer }}</td>
+                                <td class="py-3.5 px-4 font-medium text-slate-200">{{ clip.ai_title or clip.original_title }}</td>
+                                <td class="py-3.5 px-4 font-mono text-slate-400 text-xs">{{ clip.published_at or '-' }}</td>
+                                <td class="py-3.5 px-4">
+                                    {% if clip.youtube_video_id %}
+                                    <a href="https://youtube.com/shorts/{{ clip.youtube_video_id }}" target="_blank" class="text-xs font-bold text-red-400 hover:underline inline-flex items-center gap-1">
+                                        <span>▶</span> YouTube Short ↗
+                                    </a>
+                                    {% else %}
+                                    <span class="text-xs text-emerald-400 font-semibold">✓ Veröffentlicht</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="py-8 text-center text-slate-500">Noch keine Clips veröffentlicht.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: KONTEN VERKNÜPFEN -->
+        <div id="tab-accounts" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    <div>
+                        <h2 class="text-lg font-black text-white">Social Media Konten verknüpfen</h2>
+                        <p class="text-xs text-slate-400">Verbinde deine Kanäle, damit gerenderte Shorts automatisch nach Zeitplan oder auf Knopfdruck veröffentlicht werden.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold px-3 py-1.5 rounded {% if account_status.youtube.is_connected %}bg-emerald-950 text-emerald-400 border border-emerald-800{% else %}bg-slate-800 text-slate-400{% endif %}">
+                        YouTube: {% if account_status.youtube.is_connected %}✓ Verbunden{% else %}✗ Getrennt{% endif %}
+                    </span>
+                    <span class="text-xs font-bold px-3 py-1.5 rounded {% if account_status.tiktok.is_connected %}bg-emerald-950 text-emerald-400 border border-emerald-800{% else %}bg-slate-800 text-slate-400{% endif %}">
+                        TikTok: {% if account_status.tiktok.is_connected %}✓ Verbunden{% else %}✗ Getrennt{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Card 1: YouTube Shorts -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">YouTube Shorts</h3>
+                                    <span class="text-xs text-slate-400">Google YouTube Data API v3</span>
+                                </div>
+                            </div>
+                            {% if account_status.youtube.is_connected %}
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>Aktiv
+                            </span>
+                            {% elif account_status.youtube.has_secrets %}
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-950 text-amber-400 border border-amber-800">
+                                <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1.5"></span>Bereit
+                            </span>
+                            {% else %}
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-zinc-800 text-slate-400 border border-slate-700">
+                                <span class="inline-block w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span>Inaktiv
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        {% if account_status.youtube.is_connected %}
+                        <div class="p-4 bg-emerald-950/40 border border-emerald-800/50 rounded space-y-2">
+                            <div class="text-xs text-slate-300">
+                                <strong>Kanal:</strong> <span class="text-emerald-300 font-bold">{{ account_status.youtube.channel_name }}</span>
+                            </div>
+                            <div class="text-xs text-slate-400">
+                                Upload-Status: <span class="uppercase font-mono text-white">{{ account_status.youtube.privacy_status }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Login-Button immer prominent wenn Secrets vorhanden -->
+                        {% if account_status.youtube.has_secrets and not account_status.youtube.is_connected %}
+                        <div class="p-4 bg-red-950/40 border border-red-500/50 rounded space-y-3 text-center">
+                            <span class="text-xs font-bold text-red-300 block">Secrets hinterlegt! Letzter Schritt:</span>
+                            <button type="button" onclick="startYouTubeOAuthLogin()" id="btn-yt-login"
+                                class="w-full py-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 font-bold text-sm rounded text-white flex items-center justify-center gap-2 shadow-lg shadow-red-500/25 transition transform active:scale-95">
+                                <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Jetzt mit Google / YouTube einloggen
+                            </button>
+                            <div id="yt-login-status-box" class="hidden p-3 bg-slate-900/95 border border-red-500/60 rounded text-xs font-semibold text-red-200 flex items-center justify-center gap-2">
+                                <span class="animate-spin text-base">⏳</span>
+                                <span id="yt-login-status-text">Google-Login im neuen Tab geöffnet...</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if not account_status.youtube.is_connected %}
+                        <!-- Schnell-Einrichtung: Client-ID & Secret direkt einfügen -->
+                        <div class="space-y-3 pt-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-200">Google OAuth Zugangsdaten:</span>
+                                <a href="https://console.cloud.google.com/apis/credentials/wizard" target="_blank" class="text-2xs text-amber-400 hover:text-amber-400 underline flex items-center gap-1">
+                                    <span>↗</span> Google Cloud Wizard öffnen
+                                </a>
+                            </div>
+
+                            <form action="/api/accounts/youtube/save-credentials" method="POST" class="space-y-2 bg-slate-950/70 p-3 rounded border border-slate-800">
+                                <input type="text" name="client_id" placeholder="Google Client-ID (z. B. 123456...apps.googleusercontent.com)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
+                                <input type="password" name="client_secret" placeholder="Google Client-Secret (z. B. GOCSPX-...)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono">
+                                <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg text-slate-200 transition">
+                                    Zugangsdaten speichern
+                                </button>
+                            </form>
+
+                            <!-- Alternative: Datei-Upload -->
+                            <details class="text-2xs text-slate-400">
+                                <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">Oder client_secrets.json Datei hochladen...</summary>
+                                <form action="/api/accounts/youtube/save-secrets" method="POST" enctype="multipart/form-data" class="space-y-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+                                    <input type="file" name="secrets_file" accept=".json" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-2xs file:font-bold file:bg-zinc-800 file:text-zinc-200 border-zinc-700 cursor-pointer">
+                                    <button type="submit" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-2xs font-bold rounded text-slate-300">JSON speichern</button>
+                                </form>
+                            </details>
+
+                            <!-- 3-Schritte Mini-Anleitung -->
+                            <div class="text-2xs text-slate-400 bg-slate-950/40 p-2.5 rounded border border-slate-800/80 space-y-1">
+                                <div class="font-bold text-slate-300">30-Sekunden Schnell-Anleitung:</div>
+                                <div>1. In der <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" class="text-amber-400 underline">Google Cloud Console</a> die <strong>YouTube Data API v3</strong> aktivieren.</div>
+                                <div>2. Unter Anmeldedaten eine <strong>OAuth-Client-ID</strong> (Typ: Desktop-App) erstellen.</div>
+                                <div>3. Client-ID & Secret oben einfügen und einloggen!</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if account_status.youtube.is_connected %}
+                    <div class="pt-6 border-t border-slate-800 mt-6 space-y-3">
+                        <form action="/api/accounts/youtube/settings" method="POST" class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400">Sichtbarkeit:</span>
+                            <select name="privacy_status" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 flex-1">
+                                <option value="private" {% if account_status.youtube.privacy_status == 'private' %}selected{% endif %}>Privat (Sicher prüfen)</option>
+                                <option value="unlisted" {% if account_status.youtube.privacy_status == 'unlisted' %}selected{% endif %}>Ungelistet</option>
+                                <option value="public" {% if account_status.youtube.privacy_status == 'public' %}selected{% endif %}>Öffentlich (Direkt online)</option>
+                            </select>
+                        </form>
+                        <form action="/api/accounts/youtube/disconnect" method="POST" onsubmit="return confirm('YouTube-Verbindung wirklich trennen?');">
+                            <button type="submit" class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-lg transition">
+                                YouTube Verbindung trennen
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Card 2: TikTok -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-8 h-8 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">TikTok</h3>
+                                    <span class="text-xs text-slate-400">Creator Session Upload</span>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-800">
+                                <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1.5"></span>Nicht verfügbar
+                            </span>
+                        </div>
+
+                        <div class="p-3 bg-amber-950/40 border border-amber-800/60 rounded-lg text-xs text-amber-200">
+                            <strong>Hinweis:</strong> Der automatische TikTok-Upload ist aktuell noch nicht implementiert. Clips werden nicht ohne echten Upload als veröffentlicht markiert.
+                        </div>
+
+                        {% if account_status.tiktok.is_connected %}
+                        <!-- TikTok bereits verbunden -->
+                        <div class="p-5 bg-emerald-950/40 border border-emerald-800/60 rounded-lg text-center space-y-2">
+                            <div class="text-2xl text-emerald-400"><svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                            <div class="text-sm font-bold text-emerald-300">TikTok-Konto ist erfolgreich verknüpft!</div>
+                            <div class="text-xs text-slate-300">Session aktiv • Bereit für automatische Uploads</div>
+                            <div class="text-2xs font-mono text-slate-500 pt-1">Session-ID: {{ account_status.tiktok.session_id_preview }}</div>
+                            <div class="pt-2">
+                                <button type="button" onclick="startTikTokBrowserLogin()" class="text-2xs text-slate-400 hover:text-slate-200 underline">
+                                    Erneut verbinden / Anderen Account wählen
+                                </button>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- ⭐ AUTOMATISCHER BROWSER LOGIN (MÖGLICHKEIT 1) -->
+                        <div class="p-4 bg-gradient-to-r from-pink-950/70 via-slate-900 to-slate-900 border border-slate-800 rounded-lg text-center shadow-lg">
+                            <span class="text-2xs font-black text-pink-300 uppercase tracking-wider block mb-1">Automatische 1-Klick Methode (Empfohlen):</span>
+                            <p class="text-xs text-slate-300 mb-3">Öffnet automatisch ein Login-Fenster. Logge dich einfach ein (z. B. <strong>QR-Code mit deiner Handy-TikTok-App scannen</strong>). Das Tool verbindet sich dann automatisch!</p>
+                            
+                            <button type="button" onclick="startTikTokBrowserLogin()" id="btn-tt-browser-login"
+                                class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold text-xs rounded border border-zinc-700 transition flex items-center justify-center gap-2">
+                                 TikTok im Browserfenster verbinden (QR-Code / Login)
+                            </button>
+
+                            <div id="tt-browser-status-box" class="hidden mt-3 p-3 bg-slate-900/95 border border-pink-500/60 rounded text-xs font-semibold text-pink-200 flex items-center justify-center gap-2">
+                                <span class="animate-spin text-base">⏳</span>
+                                <span id="tt-browser-status-text">Warte auf Browser-Login...</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Collapsible: Manuelle Alternative -->
+                        <details class="text-2xs text-slate-400">
+                            <summary class="cursor-pointer hover:text-slate-300 font-semibold mb-2">Alternative: Manuelle sessionid Eingabe (Entwicklertools F12)...</summary>
+                            
+                            <div class="space-y-3 bg-slate-950/70 p-3 rounded border border-slate-800">
+                                <div class="text-2xs text-slate-400 space-y-1">
+                                    <p class="text-slate-300 font-bold">So findest du das Cookie:</p>
+                                    <ol class="list-decimal list-inside space-y-0.5">
+                                        <li>Öffne <a href="https://www.tiktok.com" target="_blank" class="text-zinc-300 underline">tiktok.com</a> und logge dich ein.</li>
+                                        <li>Drücke <strong>F12</strong> &rarr; Tab <strong>Anwendung / Cookies</strong>.</li>
+                                        <li>Kopiere den Wert von <code>sessionid</code> und füge ihn unten ein:</li>
+                                    </ol>
+                                </div>
+
+                                <form action="/api/accounts/tiktok/save-session" method="POST" class="space-y-2">
+                                    <input type="password" name="session_id" placeholder="z. B. 7a8f9c0e1b2d3..." value="{{ account_status.tiktok.session_id_preview }}"
+                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono">
+                                    <div class="flex items-center gap-2">
+                                        <select name="upload_mode" class="flex-1 bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5">
+                                            <option value="draft" {% if account_status.tiktok.upload_mode == 'draft' %}selected{% endif %}>Entwurf (Draft)</option>
+                                            <option value="public" {% if account_status.tiktok.upload_mode == 'public' %}selected{% endif %}>Öffentlich</option>
+                                        </select>
+                                        <button type="submit" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 font-bold text-xs rounded-lg text-slate-200 transition">
+                                            Speichern
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </details>
+                    </div>
+
+                    {% if account_status.tiktok.is_connected %}
+                    <div class="pt-6 border-t border-slate-800 mt-6 space-y-3">
+                        <div class="text-xs text-slate-400 flex items-center justify-between">
+                            <span>Modus: <strong>{{ account_status.tiktok.upload_mode|upper }}</strong></span>
+                            <span class="font-mono text-2xs text-slate-500">{{ account_status.tiktok.session_id_preview }}</span>
+                        </div>
+                        <form action="/api/accounts/tiktok/disconnect" method="POST" onsubmit="return confirm('TikTok-Verbindung trennen?');">
+                            <button type="submit" class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded-lg transition">
+                                TikTok Verbindung trennen
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB 5: STREAMER VERWALTEN (FULL PAGE) -->
+        <div id="tab-streamers" class="tab-content hidden space-y-6">
+            <!-- Header Banner -->
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400 shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-lg font-bold text-white">Überwachte Streamer verwalten</h2>
+                            <span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                <span id="fullpage-streamer-count">{{ streamers|length }}</span> Kanäle aktiv
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1 max-w-2xl">
+                            Passe Mindest-Views und Clip-Limits gezielt an und definiere visuelle Cam- & Gameplay-Zuschnitte. Profilbilder werden automatisch live von Twitch geladen.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Schnellsuche -->
+                <div class="w-full md:w-72">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500 text-xs"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
+                        <input type="text" id="streamer-search-input" oninput="if (window.filterStreamersList) window.filterStreamersList(this.value);" placeholder="Streamer suchen..." 
+                               class="w-full bg-slate-950/80 border border-slate-700/80 rounded-md pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Grid: Neuen Streamer hinzufügen & Massen-Einstellungen -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                <!-- Card 1: Neuen Streamer hinzufügen (7 cols) -->
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-sm flex flex-col justify-between">
+                    <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                                <span>Neuen Twitch-Streamer hinzufügen</span>
+                            </span>
+                            <span class="text-2xs text-slate-500">Profilbild wird automatisch von Twitch bezogen</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="sm:col-span-1">
+                                <label class="block text-2xs font-semibold text-slate-300 mb-1">Twitch Kanalname:</label>
+                                <input type="text" name="name" required placeholder="z. B. rewinside, trymacs..." 
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold shadow-inner">
+                            </div>
+                            <div>
+                                <label class="block text-2xs font-semibold text-slate-300 mb-1">Min. Views:</label>
+                                <input type="number" name="min_views" value="30" min="5" max="100000"
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500 shadow-inner">
+                            </div>
+                            <div>
+                                <label class="block text-2xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
+                                <input type="number" name="max_clips" value="2" min="1" max="10"
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded-md transition shadow-sm flex items-center justify-center gap-2">
+                            <span>Streamer hinzufügen & überwachen</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Card 2: Globale Mindest-Views für alle (5 cols) -->
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-lg p-5 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2.5 mb-1.5">
+                            <span class="text-xs font-semibold text-slate-200">Mindest-Views für alle Streamer</span>
+                        </div>
+                        <p class="text-2xs text-slate-400 leading-relaxed">
+                            Überschreibt die Mindestanzahl Views für alle aktuell überwachten Streamer auf einen festen Wert.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-3">
+                        <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-md px-3 py-2 flex-1 shadow-inner">
+                            <span class="text-2xs text-slate-400 font-mono">Views:</span>
+                            <input type="number" id="bulk-min-views-input-fullpage" value="25" min="1" max="100000" class="w-full bg-transparent text-xs text-amber-300 font-bold text-center focus:outline-none">
+                        </div>
+                        <button type="button" onclick="if (window.applyBulkMinViewsFromInput) window.applyBulkMinViewsFromInput('bulk-min-views-input-fullpage'); else applyBulkMinViews();" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded-md transition whitespace-nowrap shadow-sm">
+                            Für alle setzen
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Streamers Grid (Spacious Full Page Grid) -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Aktive Kanäle</span>
+                    <span id="streamer-filter-count" class="text-2xs text-slate-500 font-mono">{{ streamers|length }} angezeigt</span>
+                </div>
+                
+                <div id="streamer-grid-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for s in streamers %}
+                    <div class="streamer-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg p-4 shadow-sm transition flex flex-col justify-between gap-3.5" data-streamer="{{ s.name|lower }}">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="relative shrink-0">
+                                    <img src="{{ s.avatar_url or 'https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png' }}" 
+                                         alt="{{ s.name }}" 
+                                         onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/cdd517fe-def4-11e9-948e-784f43822e80-profile_image-300x300.png'"
+                                         class="w-12 h-12 rounded-full border border-slate-700 object-cover shadow-sm bg-slate-950">
+                                    <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Überwachung aktiv"></span>
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="font-semibold text-sm text-white truncate block">{{ s.display_name or s.name }}</span>
+                                    <a href="https://twitch.tv/{{ s.name }}" target="_blank" class="text-2xs text-slate-400 hover:text-slate-200 font-mono flex items-center gap-1 hover:underline">
+                                        <span>twitch.tv/{{ s.name }}</span>
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    </a>
+                                    <div class="mt-1">
+                                        {% if s.custom_crops %}
+                                        <span class="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded">
+                                            <span>Eigener Rahmen gespeichert</span>
+                                        </span>
+                                        {% else %}
+                                        <span class="inline-flex items-center gap-1 text-2xs font-medium text-slate-400 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded">
+                                            <span>Layout:</span> {{ s.layout or 'auto' }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="removeStreamer('{{ s.name }}')" class="text-slate-500 hover:text-rose-400 p-1.5 hover:bg-rose-950/40 rounded-md transition shrink-0" title="Streamer entfernen">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2.5 rounded-md border border-slate-800/80 text-xs">
+                            <div>
+                                <label class="block text-2xs font-medium text-slate-400 mb-1">Min. Views:</label>
+                                <input type="number" value="{{ s.min_clip_views }}" min="1" max="100000"
+                                       onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
+                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-2xs font-medium text-slate-400 mb-1">Max Clips/Run:</label>
+                                <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
+                                       onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
+                                       class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-white font-semibold focus:outline-none">
+                            </div>
+                            <div class="col-span-2 mt-0.5">
+                                <label class="block text-2xs font-medium text-slate-400 mb-1">Standard Clip-Layout:</label>
+                                <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
+                                        class="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 rounded-md px-2 py-1 text-xs text-amber-300 font-semibold focus:outline-none">
+                                    <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>Auto (KI Facecam-Scan)</option>
+                                    <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>Split-Screen (Cam oben + Game unten)</option>
+                                    <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>Keine Cam (Gameplay mit Blur)</option>
+                                    <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>9:16 Vollbild (IRL)</option>
+                                    <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>Eigener gespeicherter Rahmen</option>
+                                    <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>Cam: Oben Links</option>
+                                    <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>Cam: Oben Rechts</option>
+                                    <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>Cam: Unten Links</option>
+                                    <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>Cam: Unten Rechts</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                            <button type="button" onclick="loadSampleClipDirect('{{ s.name }}', this)" class="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-semibold text-xs rounded-md transition flex items-center justify-center gap-1.5 shadow-sm" title="Lädt automatisch einen Test-Clip herunter und öffnet den visuellen 16:9 zu 9:16 Rahmen-Editor">
+                                <span>Test-Clip & Rahmen einstellen</span>
+                            </button>
+                            <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold rounded-md transition shrink-0" title="Erweiterte Einstellungen">
+                                <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- POP-UP MODAL: Lokalen Rohclip vorab ansehen -->
+    <div id="preview-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closePreviewModal();">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-lg max-w-4xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/60">
+                <div>
+                    <span id="modal-streamer" class="text-xs font-bold text-amber-400 uppercase tracking-wider block">STREAMER</span>
+                    <h3 id="modal-title" class="text-base font-bold text-white truncate max-w-xl">Clip Titel</h3>
+                </div>
+                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+            
+            <div class="relative bg-black aspect-video w-full flex items-center justify-center overflow-hidden group">
+                <img id="modal-video-poster" src="" class="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none" alt="" style="display: none;">
+                <video id="modal-video-player" controls autoplay class="w-full h-full object-contain relative z-10">
+                    <source id="modal-video-source" src="" type="video/mp4">
+                    Dein Browser unterstützt dieses Video nicht.
+                </video>
+            </div>
+            
+            <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <span id="modal-stats" class="text-xs text-slate-400 font-medium">Views & Dauer</span>
+                <div class="flex items-center gap-2">
+                    <button id="modal-download-raw" type="button" onclick="downloadRawVideo(currentPreviewClipId, this, event)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-xs text-slate-200 rounded transition flex items-center gap-1.5 cursor-pointer" title="Speicherort wählen & Rohdatei sichern (Shift-Klick für Downloads-Ordner)">
+                        <span>Rohdatei speichern unter...</span>
+                    </button>
+                    <button type="button" onclick="closePreviewModal(); openCropModal(currentPreviewClipId, currentPreviewStreamer, currentPreviewTitle);" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-zinc-200 hover:text-white rounded transition flex items-center gap-1.5 shadow" title="Cam & Gameplay Rahmen visuell festlegen">
+                        <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg> Zuschnitt festlegen
+                    </button>
+                    <form id="modal-delete-form" action="" method="POST" class="inline" onsubmit="return confirm('Clip unwiderruflich löschen? Er wird NIE wieder von Twitch heruntergeladen.');">
+                        <button type="submit" class="px-4 py-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 font-bold text-xs text-rose-300 rounded transition">
+                            <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Clip löschen
+                        </button>
+                    </form>
+                    <form id="modal-process-form" action="" method="POST" class="inline">
+                        <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0L12 12zm0 0L9.121 9.121a3 3 0 10-4.242 4.242 3 3 0 004.242 0L12 12z"/></svg> Jetzt in Studio übernehmen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Streamer verwalten & hinzufügen -->
+    <div id="streamer-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeStreamerModal();">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-2xl w-full overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/70">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <h3 class="text-base font-bold text-white">Überwachte Streamer verwalten ({{ streamers|length }})</h3>
+                </div>
+                <button onclick="closeStreamerModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto space-y-6">
+                <!-- Neuer Streamer Formular -->
+                <form action="/api/streamers/add" method="POST" onsubmit="event.preventDefault(); if (window.addStreamerFromForm) window.addStreamerFromForm(this); else this.submit();" class="bg-slate-950/80 border border-zinc-700 p-4 rounded space-y-3 shadow-inner">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Neuen Streamer hinzufügen</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="sm:col-span-1">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Twitch Kanalname:</label>
+                            <input type="text" name="name" required placeholder="z. B. rewinside, xqc..." 
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Min. Views:</label>
+                            <input type="number" name="min_views" value="30" min="5" 
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
+                            <input type="number" name="max_clips" value="2" min="1" max="10" 
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition shadow-sm">
+                        Streamer hinzufügen & dauerhaft speichern
+                    </button>
+                </form>
+
+                <!-- Massen-Einstellung für alle Streamer -->
+                <div class="bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 border border-amber-500/30 rounded-lg p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                    <div class="flex items-center gap-2.5">
+                        
+                        <div>
+                            <span class="text-xs font-bold text-amber-300 block">Mindest-Views für ALLE Streamer setzen</span>
+                            <span class="text-2xs text-slate-400">Überschreibt die Mindest-Views für alle derzeit aktiven Streamer mit einem Klick</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded px-2 py-1">
+                            <span class="text-2xs text-slate-400 font-mono">Views:</span>
+                            <input type="number" id="bulk-min-views-input" value="25" min="1" max="10000" class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                        </div>
+                        <button type="button" onclick="applyBulkMinViews()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded transition whitespace-nowrap shadow-sm">
+                            Für alle übernehmen
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Aktive Streamer Liste -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Aktuell überwachte Streamer</span>
+                        <span class="text-xs text-slate-500 font-mono">{{ streamers|length }} aktiv</span>
+                    </div>
+                    <div id="streamer-modal-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                        {% for s in streamers %}
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/80 border border-slate-700/80 p-3 rounded-lg hover:border-slate-600 transition gap-3">
+                            <div class="min-w-0">
+                                <span class="font-bold text-sm text-amber-400 block truncate">{{ s.name }}</span>
+                                <span class="text-2xs text-slate-400 font-mono">Twitch</span>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <button type="button" onclick="openStreamerConfigModal('{{ s.name }}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5" title="Streamer-Einstellungen & Rahmen konfigurieren">
+                                    <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> <span>Konfigurieren</span>
+                                </button>
+                                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Layout:</span>
+                                    <select onchange="updateStreamerLayout('{{ s.name }}', this.value)"
+                                            class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-2xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
+                                        <option value="auto" {% if s.layout == 'auto' or not s.layout %}selected{% endif %}>Auto (KI)</option>
+                                        <option value="split_cam_top" {% if s.layout == 'split_cam_top' %}selected{% endif %}>Split-Cam (Oben)</option>
+                                        <option value="blur_stack" {% if s.layout == 'blur_stack' %}selected{% endif %}>Keine Cam (Blur)</option>
+                                        <option value="single_916" {% if s.layout == 'single_916' %}selected{% endif %}>9:16 Vollbild</option>
+                                        <option value="custom" {% if s.layout == 'custom' %}selected{% endif %}>Eigener Rahmen {% if s.custom_crops %}(Gespeichert){% endif %}</option>
+                                        <option value="top_left" {% if s.layout == 'top_left' %}selected{% endif %}>Cam: Oben Links</option>
+                                        <option value="top_right" {% if s.layout == 'top_right' %}selected{% endif %}>Cam: Oben Rechts</option>
+                                        <option value="bottom_left" {% if s.layout == 'bottom_left' %}selected{% endif %}>Cam: Unten Links</option>
+                                        <option value="bottom_right" {% if s.layout == 'bottom_right' %}selected{% endif %}>Cam: Unten Rechts</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Min. Views:</span>
+                                    <input type="number" value="{{ s.min_clip_views }}" min="1" max="10000"
+                                           onchange="updateStreamerMinViews('{{ s.name }}', this.value)"
+                                           class="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-amber-300 font-bold text-center focus:border-amber-500 focus:outline-none">
+                                </div>
+                                <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded px-2 py-1">
+                                    <span class="text-2xs text-slate-400 font-medium whitespace-nowrap">Max Clips:</span>
+                                    <input type="number" value="{{ s.max_clips_per_run }}" min="1" max="10"
+                                           onchange="updateStreamerMaxClips('{{ s.name }}', this.value)"
+                                           class="w-12 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-white font-bold text-center focus:border-amber-500 focus:outline-none">
+                                </div>
+                                <button onclick="removeStreamer('{{ s.name }}')" class="p-1 px-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition" title="Streamer aus Überwachung entfernen">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Streamer Konfiguration & Test-Clip Rahmen -->
+    <div id="streamer-config-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeStreamerConfigModal();">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>Streamer Konfiguration:</span>
+                            <span id="cfg-modal-streamer-name" class="text-amber-400 font-mono"></span>
+                        </h3>
+                        <p class="text-2xs text-slate-400">Filter, Limits und visuelle Standard-Rahmen anpassen</p>
+                    </div>
+                </div>
+                <button onclick="closeStreamerConfigModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <form id="streamer-config-form" onsubmit="saveStreamerConfig(event)" class="p-5 overflow-y-auto space-y-4">
+                <input type="hidden" id="cfg-streamer-hidden-name" name="name">
+                
+                <!-- Views & Clip Limits -->
+                <div class="grid grid-cols-2 gap-3 bg-slate-950/70 p-3.5 rounded-md border border-slate-800">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Min. Views Clips:</label>
+                        <input type="number" id="cfg-streamer-min-views" name="min_clip_views" min="1" max="10000" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-bold focus:border-amber-500 focus:outline-none">
+                        <span class="text-2xs text-slate-500 mt-1 block">Clips unter diesem Wert werden übersprungen.</span>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Max Clips/Run:</label>
+                        <input type="number" id="cfg-streamer-max-clips" name="max_clips_per_run" min="1" max="10" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold focus:border-amber-500 focus:outline-none">
+                        <span class="text-2xs text-slate-500 mt-1 block">Maximale Clips pro Durchlauf.</span>
+                    </div>
+                </div>
+
+                <!-- Layout Schnellwahl -->
+                <div class="bg-slate-950/70 p-3.5 rounded-md border border-slate-800 space-y-2">
+                    <label class="block text-xs font-semibold text-slate-300">Standard Clip-Layout:</label>
+                    <select id="cfg-streamer-layout" name="layout" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-semibold focus:border-amber-500 focus:outline-none">
+                        <option value="auto">Auto (KI Facecam-Scan)</option>
+                        <option value="split_cam_top">Split-Screen (Cam oben + Gameplay unten)</option>
+                        <option value="blur_stack">Keine Cam (Gameplay mit Blur-Hintergrund)</option>
+                        <option value="single_916">Reines 9:16 Vollbild (IRL)</option>
+                        <option value="custom">Eigener gespeicherter Rahmen</option>
+                        <option value="top_left">Cam: Oben Links</option>
+                        <option value="top_right">Cam: Oben Rechts</option>
+                        <option value="bottom_left">Cam: Unten Links</option>
+                        <option value="bottom_right">Cam: Unten Rechts</option>
+                    </select>
+                    <div id="cfg-streamer-custom-badge" class="hidden text-2xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1 rounded-md font-mono items-center gap-1.5">
+                        <span>✓</span> <span>Eigener visueller Rahmen für diesen Streamer hinterlegt</span>
+                    </div>
+                </div>
+
+                <!-- Test-Clip & Rahmenkonfiguration -->
+                <div class="bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border border-amber-500/40 p-4 rounded-md space-y-2.5 shadow-md">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg>
+                        <div>
+                            <span class="text-xs font-bold text-amber-300 block">Visueller Rahmen-Editor für diesen Streamer</span>
+                            <span class="text-2xs text-slate-400">Lädt automatisch einen Test-Clip des Streamers herunter. Du richtest Cam und Gameplay ein und das Tool merkt sich die Rahmen dauerhaft.</span>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-load-streamer-sample" onclick="loadSampleClipForStreamer()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow">
+                        <span id="btn-sample-spinner" class="hidden w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin inline-block"></span>
+                        <span id="btn-sample-text">Test-Clip laden & Rahmen visuell einstellen</span>
+                    </button>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+                    <button type="button" onclick="closeStreamerConfigModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">Abbrechen</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition shadow">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Einstellungen & Autopilot -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4" style="display: none !important;" onclick="if (event.target === this) closeSettingsModal();">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-5 h-5 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <div>
+                        <h3 class="text-base font-bold text-white">System & Autopilot Einstellungen</h3>
+                        <p class="text-2xs text-slate-400">Prüfintervalle, Clip-Filter und Hardware anpassen</p>
+                    </div>
+                </div>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <form id="settings-form" onsubmit="return saveSettingsFromForm(event)" class="p-5 overflow-y-auto space-y-5">
+                <!-- Autopilot Intervall Sektion -->
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Automatischer Autopilot</span>
+                            <span class="text-2xs text-slate-400">Sucht im Hintergrund selbstständig nach neuen Clips</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="autopilot_enabled" class="sr-only peer" {% if settings.enabled %}checked{% endif %}>
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+
+                    <!-- Prüfintervall -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Prüf-Intervall der automatischen Prüfung:</label>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 15" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">15 Min</button>
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 30" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">30 Min (Empf.)</button>
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 60" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">1 Stunde</button>
+                            <button type="button" onclick="document.getElementById('setting-interval').value = 120" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded border border-slate-700 text-center font-mono">2 Stunden</button>
+                        </div>
+                        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+                            <span class="text-xs text-slate-400">Genaues Intervall:</span>
+                            <input type="number" id="setting-interval" name="interval_minutes" value="{{ settings.interval_minutes }}" min="5" max="1440" class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-amber-300 font-bold text-center">
+                            <span class="text-xs text-slate-400">Minuten</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zeitfenster & Fallback Sektion -->
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-3.5">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Clip-Suche & Zeitfenster</span>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Standard-Zeitfenster auf Twitch:</label>
+                        <select name="time_filter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 font-medium">
+                            <option value="LAST_DAY" {% if settings.time_filter == 'LAST_DAY' %}selected{% endif %}>Letzte 24 Stunden (LAST_DAY) - Frischeste Clips</option>
+                            <option value="LAST_WEEK" {% if settings.time_filter == 'LAST_WEEK' %}selected{% endif %}>Letzte 7 Tage (LAST_WEEK) - Große Auswahl</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-start gap-3 pt-1">
+                        <input type="checkbox" id="setting-fallback" name="fallback_to_week" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4" {% if settings.fallback_to_week %}checked{% endif %}>
+                        <label for="setting-fallback" class="text-xs text-slate-300 cursor-pointer">
+                            <span class="font-bold text-white block">Intelligenter Wochen-Fallback</span>
+                            <span class="text-slate-400 block text-2xs mt-0.5">Falls in den letzten 24h nicht genug Clips die Mindest-Views erreichen, restliche Plätze mit Top-Clips der Woche auffüllen. Frische Clips haben immer Vorrang!</span>
+                        </label>
+                    </div>
+
+                    <div class="flex items-start gap-3 pt-1 border-t border-slate-800/80">
+                        <input type="checkbox" id="setting-autorender" name="auto_render" class="mt-0.5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0 w-4 h-4" {% if settings.auto_render %}checked{% endif %}>
+                        <label for="setting-autorender" class="text-xs text-slate-300 cursor-pointer">
+                            <span class="font-bold text-white block">Vollautomatisches Rendering</span>
+                            <span class="text-slate-400 block text-2xs mt-0.5">Neu gefundene Clips sofort transkribieren & schneiden, statt sie nur in der Warteschlange abzulegen.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Hardware & Video-Encoder Sektion -->
+                <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-md space-y-3">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider block">Hardware & Engine</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Video-Encoder:</label>
+                            <select name="hardware_encoder" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500">
+                                <option value="auto" {% if settings.hardware_encoder == 'auto' %}selected{% endif %}>Automatische Erkennung (Empfohlen)</option>
+                                <option value="nvenc" {% if settings.hardware_encoder == 'nvenc' %}selected{% endif %}>NVIDIA NVENC (RTX/GTX)</option>
+                                <option value="amf" {% if settings.hardware_encoder == 'amf' %}selected{% endif %}>AMD AMF (Radeon)</option>
+                                <option value="qsv" {% if settings.hardware_encoder == 'qsv' %}selected{% endif %}>Intel QuickSync (QSV)</option>
+                                <option value="cpu" {% if settings.hardware_encoder == 'cpu' %}selected{% endif %}>Software / CPU (libx264)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Whisper KI-Modell:</label>
+                            <select name="whisper_model" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500">
+                                <option value="tiny" {% if settings.whisper_model == 'tiny' %}selected{% endif %}>Tiny (Ultraschnell)</option>
+                                <option value="base" {% if settings.whisper_model == 'base' %}selected{% endif %}>Base (Schnell)</option>
+                                <option value="small" {% if settings.whisper_model == 'small' %}selected{% endif %}>Small (Empfohlen - Beste Balance)</option>
+                                <option value="medium" {% if settings.whisper_model == 'medium' %}selected{% endif %}>Medium (Hohe Genauigkeit)</option>
+                                <option value="large-v3" {% if settings.whisper_model in ['large', 'large-v3'] %}selected{% endif %}>Large v3 (Maximale Präzision)</option>
+                                <option value="turbo" {% if settings.whisper_model == 'turbo' %}selected{% endif %}>Turbo (Schnell & Präzise)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                        <span>Einstellungen speichern</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Update Assistent -->
+    <div id="update-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden items-center justify-center p-4 select-none" style="display: none !important;">
+        <div class="bg-slate-900 border border-amber-500/50 rounded-lg max-w-lg w-full overflow-hidden shadow-2xl flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-start justify-between mb-4 pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <svg class="w-7 h-7 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>Neues Update verfügbar!</span>
+                            <span id="modal-update-ver" class="text-xs font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-bold">v0.1.x</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Aktuelle Version: <span class="font-mono text-slate-300">v{{ app_version }}</span></p>
+                    </div>
+                </div>
+                <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-0.5 rounded hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <div class="space-y-3 mb-5">
+                <div class="bg-slate-950 p-3.5 rounded-md border border-slate-800/90 text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1.5" id="modal-update-notes">
+                    <p class="font-bold text-amber-400">Änderungen in dieser Version:</p>
+                    <p class="text-slate-400 whitespace-pre-line" id="modal-update-notes-body">Lade Release-Details von GitHub...</p>
+                </div>
+                <div id="update-status-msg" class="text-xs text-center font-semibold text-slate-400"></div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 pt-2">
+                <a id="modal-github-link" href="https://github.com/xNotLikex/clip-farming/releases/latest" target="_blank" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-300 rounded-lg transition flex items-center gap-1.5">
+                    <span>Auf GitHub ansehen</span>
+                </a>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeUpdateModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-400 rounded-lg transition">Später</button>
+                    <button onclick="performUpdate(this)" id="btn-perform-update" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-lg transition flex items-center gap-2 shadow-lg cursor-pointer">
+                        <span>Jetzt 1-Klick aktualisieren</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP MODAL: Visueller Zuschnitt (Cam & Gameplay Rahmen ziehen) -->
+    <div id="crop-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 hidden items-center justify-center p-2 sm:p-4" style="display: none !important;" onclick="if (event.target === this) closeCropModal();">
+        <div class="bg-slate-900 border border-slate-700/90 rounded-lg max-w-6xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[96vh]">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950/80">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 inline-block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>Clip Editor</span>
+                            <span id="crop-modal-clip-badge" class="text-xs bg-zinc-800 text-amber-400 border border-zinc-700 px-2 py-0.5 rounded font-mono truncate max-w-[200px]">Clip</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Bildausschnitt, Layout, Filter, Hook, Titel und Untertitel an einem Ort bearbeiten. Die 9:16 Vorschau aktualisiert sich live!</p>
+                    </div>
+                </div>
+                <button onclick="closeCropModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <!-- Main Content Area: 16:9 Editor (Left) & 9:16 Live Smartphone Preview (Right) -->
+            <div class="p-4 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                <!-- Left Column: 16:9 Raw Video + Draggable Overlay Boxes (8 cols) -->
+                <div class="lg:col-span-8 flex flex-col gap-3">
+                    
+                    <!-- Mode Switcher: Split vs. Reines 9:16 IRL Vollbild -->
+                    <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded border border-slate-800 shadow-inner">
+                        <button type="button" onclick="switchCropMode('split')" id="btn-mode-split" 
+                            class="flex-1 py-2 px-3 rounded text-xs font-semibold transition flex items-center justify-center gap-2 bg-zinc-700 text-zinc-100 border border-zinc-600">
+                            <span>Split-Screen</span> (Cam oben + Gameplay unten)
+                        </button>
+                        <button type="button" onclick="switchCropMode('single_916')" id="btn-mode-single" 
+                            class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300">
+                            <span>Reines 9:16 Vollbild</span> (IRL / Einzelfokus ohne Trennung)
+                        </button>
+                    </div>
+
+                    <!-- Stage Container (Aspect 16:9) -->
+                    <div id="crop-stage-container" class="relative w-full aspect-video bg-black rounded overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center select-none">
+                        <!-- Instant Visible 16:9 Stage Image to guarantee frame is never black -->
+                        <img id="crop-stage-img" src="" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-0" alt="">
+
+                        <!-- Video element (muted for instant scrubbing) -->
+                        <video id="crop-stage-video" muted playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10"></video>
+
+                        <!-- Draggable Overlay Boxes Container -->
+                        <div id="crop-overlay-layer" class="absolute inset-0 select-none pointer-events-none z-20">
+                            <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
+                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                                <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                                    <span>Facecam</span>
+                                    <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
+                                </div>
+                                <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center shadow">
+                                    <span class="text-2xs text-white font-black">✚</span>
+                                </div>
+                                <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 3:2 Seitenverhältnis -->
+                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Größe anpassen (3:2)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Größe anpassen (3:2)"></div>
+                            </div>
+
+                            <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
+                            <div id="crop-box-game" class="absolute select-none border-2 border-sky-400 bg-sky-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 24%; top: 0%; width: 52%; height: 100%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                                <div class="absolute -top-6 left-0 bg-sky-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                                    <span>Gameplay</span>
+                                    <span id="crop-game-format-badge" class="text-sky-200 text-2xs font-normal">(Festes 9:10 Format)</span>
+                                </div>
+                                <div class="w-5 h-5 rounded-full border border-white/70 bg-sky-500/60 pointer-events-none flex items-center justify-center shadow">
+                                    <span class="text-2xs text-white font-black">✚</span>
+                                </div>
+                                <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 9:10 Seitenverhältnis -->
+                                <div class="crop-game-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Gameplay-Größe anpassen (9:10)"></div>
+                                <div class="crop-game-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-sky-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Gameplay-Größe anpassen (9:10)"></div>
+                            </div>
+
+                            <!-- 🟪 Reiner 9:16 IRL Vollbild-Rahmen (Festes 9:16 Format, horizontal verschiebbar) -->
+                            <div id="crop-box-single" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/10 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 34%; top: 0%; width: 32%; height: 100%; display: none;">
+                                <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-bold text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
+                                    <span>9:16 IRL Bildausschnitt</span>
+                                    <span class="text-fuchsia-200 text-2xs font-normal">(Festes 9:16 Vollbild)</span>
+                                </div>
+                                <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center">
+                                    <span class="text-xs text-white font-black">↔</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video Scrubber / Timeline Bar -->
+                    <div class="bg-slate-950/90 border border-slate-800 rounded p-3 flex flex-col sm:flex-row items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <button onclick="seekCropVideo(-2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden zurück">-2s</button>
+                            <button onclick="toggleCropVideoPlay()" id="crop-play-btn" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg transition">Pause</button>
+                            <button onclick="seekCropVideo(2)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg transition" title="2 Sekunden vor">+2s</button>
+                        </div>
+                        <input type="range" id="crop-time-slider" min="0" max="30" step="0.1" value="0" class="flex-1 accent-amber-500 cursor-pointer" oninput="onCropSliderInput(this.value)">
+                        <span id="crop-time-display" class="text-xs font-mono font-bold text-slate-300 min-w-[90px] text-right">00:00 / 00:00</span>
+                    </div>
+
+                    <!-- Presets & Quick Action Toolbar (Split vs Single 9:16) -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded p-3 space-y-2.5">
+                        <!-- Toolbar für Split-Screen Modus -->
+                        <div id="toolbar-split" class="space-y-2.5">
+                            <div class="space-y-1.5">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs font-bold text-emerald-400 min-w-[100px]">Cam-Position:</span>
+                                    <button onclick="applyPreset('cam_br')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Unten Rechts</button>
+                                    <button onclick="applyPreset('cam_tl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Oben Links</button>
+                                    <button onclick="applyPreset('cam_tr')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Oben Rechts</button>
+                                    <button onclick="applyPreset('cam_bl')" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-500 text-xs rounded-lg text-slate-200 transition">Unten Links</button>
+                                    <button onclick="detectFacecamInCropModal()" id="btn-crop-detect" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1">
+                                         KI Auto-Erkennen
+                                    </button>
+                                    <button type="button" onclick="switchCropMode('single_916')" id="btn-crop-toggle-cam" class="px-2.5 py-1 bg-slate-800 hover:bg-rose-900/60 border border-slate-700 text-xs rounded-lg text-slate-300 transition" title="Facecam entfernen und zu reinem 9:16 Vollbild (1 Rahmen) wechseln">
+                                        Keine Cam (Vollbild / 1 Rahmen)
+                                    </button>
+                                </div>
+                                <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
+                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded border border-slate-800/80">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-emerald-400 min-w-[90px] flex items-center gap-1">
+                                             Cam-Größe:
+                                        </span>
+                                        <input type="range" id="crop-cam-size-slider" min="200" max="1100" step="5" value="540" 
+                                            class="w-36 sm:w-48 accent-emerald-500 cursor-pointer" 
+                                            oninput="setCamPixelWidth(this.value)"
+                                            title="Stufenlose Größenregelung (3:2 bleibt immer gesperrt)">
+                                        <span id="crop-cam-size-display" class="font-mono text-xs text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60 min-w-[95px] text-center shadow-inner">
+                                            540 x 360 px
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+                                        <span class="text-2xs text-slate-400">Schnellwahl:</span>
+                                        <button type="button" onclick="setCamPixelWidth(420)" id="btn-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Kompakt (420px)</button>
+                                        <button type="button" onclick="setCamPixelWidth(540)" id="btn-size-normal" class="px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition">Standard (540px)</button>
+                                        <button type="button" onclick="setCamPixelWidth(680)" id="btn-size-large" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Groß (680px)</button>
+                                        <span class="text-2xs text-slate-500 hidden md:inline ml-1">3:2 fest • Mausrad / Ecken ziehen</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-800/60">
+                                    <span class="text-xs font-semibold text-emerald-400 min-w-[100px] flex items-center gap-1">
+                                         Snapchat-Filter:
+                                    </span>
+                                    <select id="crop-cam-filter-select" onchange="draw916Preview()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1 focus:border-emerald-500 flex-1 max-w-sm">
+                                        {% for f_key, f_label in cam_filters.items() %}
+                                        <option value="{{ f_key }}">{{ f_label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Gameplay-Bereich: Position & Stufenlose Größe mit festem 9:10 Seitenverhältnis -->
+                            <div class="space-y-2 pt-2 border-t border-slate-800/80">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs font-bold text-sky-400 min-w-[100px] flex items-center gap-1">
+                                         Game-Position:
+                                    </span>
+                                    <button onclick="applyPreset('game_center')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
+                                    <button onclick="applyPreset('game_left')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Links</button>
+                                    <button onclick="applyPreset('game_right')" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-500 text-xs rounded-lg text-slate-200 transition">Rechts</button>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded border border-slate-800/80">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-sky-400 min-w-[90px] flex items-center gap-1">
+                                             Game-Größe:
+                                        </span>
+                                        <input type="range" id="crop-game-size-slider" min="360" max="1200" step="5" value="972" 
+                                            class="w-36 sm:w-48 accent-sky-500 cursor-pointer" 
+                                            oninput="setGamePixelWidth(this.value)"
+                                            title="Stufenlose Größenregelung (9:10 bleibt immer gesperrt)">
+                                        <span id="crop-game-size-display" class="font-mono text-xs text-sky-300 font-bold bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/60 min-w-[95px] text-center shadow-inner">
+                                            972 x 1080 px
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+                                        <span class="text-2xs text-slate-400">Schnellwahl:</span>
+                                        <button type="button" onclick="setGamePixelWidth(648)" id="btn-game-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition">Zoom (648px)</button>
+                                        <button type="button" onclick="setGamePixelWidth(810)" id="btn-game-size-medium" class="px-2 py-0.5 bg-slate-800 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 text-2xs rounded text-slate-200 transition">Mittel (810px)</button>
+                                        <button type="button" onclick="setGamePixelWidth(972)" id="btn-game-size-max" class="px-2 py-0.5 bg-sky-900/80 border border-sky-500 text-2xs font-bold rounded text-sky-200 shadow transition">Voll (972px)</button>
+                                        <span id="crop-game-hint-text" class="text-2xs text-slate-500 hidden md:inline ml-1">9:10 fest (Split) • Mausrad / Ecken ziehen</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Toolbar für Reines 9:16 IRL Vollbild -->
+                        <div id="toolbar-single" class="hidden flex flex-wrap items-center gap-2.5">
+                            <span class="text-xs font-bold text-emerald-400 min-w-[110px]">9:16 Vollbild:</span>
+                            <button type="button" onclick="applyPreset('single_center')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Mitte (Zentriert)</button>
+                            <button type="button" onclick="applyPreset('single_left')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Links</button>
+                            <button type="button" onclick="applyPreset('single_right')" class="px-3 py-1.5 bg-slate-800 hover:bg-zinc-700 border border-slate-700 hover:border-zinc-500 text-xs font-bold rounded-lg text-slate-200 transition">Rechts</button>
+                            <button type="button" onclick="switchCropMode('split')" class="px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-600/80 text-xs font-bold rounded-lg text-emerald-300 hover:text-white transition flex items-center gap-1.5 shadow" title="Zurück zu 2 Rahmen (Facecam oben + Gameplay unten)">
+                                <span>Facecam hinzufügen</span> (Split-Screen)
+                            </button>
+                            <span class="text-2xs text-zinc-400 ml-auto bg-zinc-800 px-2 py-1 rounded border border-zinc-700">1 Rahmen (608x1080 px Vollbild)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: 9:16 Live Smartphone Mockup Preview (4 cols) -->
+                <div class="lg:col-span-4 flex flex-col items-center justify-between bg-slate-950/70 border border-slate-800 rounded-lg p-4">
+                    <div class="text-center mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Live 9:16 Vorschau</span>
+                        <span class="text-2xs text-slate-400">Aktualisiert in Echtzeit beim Verschieben</span>
+                    </div>
+
+                    <!-- Smartphone Bezel Mockup -->
+                    <div class="relative bg-slate-950 p-3 rounded-[38px] border-4 border-slate-700 shadow-2xl flex flex-col items-center">
+                        <!-- Top Notch -->
+                        <div class="w-16 h-3 bg-slate-800 rounded-full mb-2"></div>
+                        <!-- Canvas Screen (270x480 -> 9:16) -->
+                        <canvas id="crop-preview-canvas" width="270" height="480" class="w-[225px] h-[400px] bg-black rounded-[22px] overflow-hidden shadow-inner border border-slate-800"></canvas>
+                        <!-- Bottom Bar -->
+                        <div class="w-24 h-1 bg-slate-700 rounded-full mt-2"></div>
+                    </div>
+
+                    <!-- Coordinates Readout & Info -->
+                    <div class="mt-3 text-center w-full">
+                        <div id="crop-coords-readout" class="text-2xs font-mono text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 truncate">
+                            Cam: 480x360 • Game: 972x1080
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clip Editor Settings: Titel, Hook, Layout, Untertitel-Platzierung & Untertiteltext (12 cols) -->
+                <div class="lg:col-span-12 bg-slate-950/70 border border-slate-800 rounded-lg p-4 space-y-3">
+                    <div class="text-xs font-bold uppercase tracking-wider text-amber-400">Clip-Texte, Layout & Untertitel</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Titel (YouTube / TikTok)</label>
+                            <input type="text" id="crop-title-input" placeholder="Clip-Titel..."
+                                class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
+                                <span>TikTok / Shorts Sprechblasen-Hook</span>
+                                <span class="text-slate-500 font-normal">Mitte</span>
+                            </label>
+                            <input type="text" id="crop-sticker-text-input" placeholder="z. B. Was macht er da?!"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Untertitel-Platzierung</label>
+                            <select id="crop-sub-position-select" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                                <option value="bottom">Unten (Standard, über Shorts-UI)</option>
+                                <option value="center">Mitte (Unteres Drittel über Game)</option>
+                                <option value="top">Oben (Über Facecam)</option>
+                                <option value="none">Keine Untertitel</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Video-Layout & Aufteilung</label>
+                            <select id="crop-layout-mode-select" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                                <option value="auto">Automatisch (KI erkennt Facecam)</option>
+                                <option value="custom">Benutzerdefiniert (Visuelle Schnittrahmen)</option>
+                                <option value="single_916">Reines 9:16 Vollbild (IRL / Einzelfokus)</option>
+                                <option value="split_cam_top">Split-Screen (Cam oben, Gameplay unten)</option>
+                                <option value="blur_stack">Blur-Stack (Hintergrund unscharf)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1 flex justify-between">
+                            <span>Untertiteltext (hier bearbeiten & korrigieren)</span>
+                            <span class="text-slate-500 font-normal">Wird ins Video übernommen</span>
+                        </label>
+                        <textarea id="crop-transcript-textarea" rows="3" placeholder="Hier Untertiteltext bearbeiten oder eingeben..."
+                            class="w-full min-h-[76px] bg-slate-900 border border-slate-700 hover:border-amber-500/70 focus:border-amber-400 rounded-lg p-2.5 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none transition"></textarea>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-800 bg-slate-950/80 gap-3">
+                <button onclick="closeCropModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded transition">
+                    Abbrechen
+                </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="if (window.saveAsDefaultStreamerLayout) window.saveAsDefaultStreamerLayout();" class="px-3.5 py-2 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 font-bold text-xs rounded transition flex items-center gap-1.5 shadow" title="Speichert diesen Zuschnitt als Standard-Layout für alle zukünftigen Clips dieses Streamers">
+                        <span>Als Standard für Streamer merken</span>
+                    </button>
+                    <button onclick="saveCropCoordinates(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded transition">
+                        Nur Speichern
+                    </button>
+                    <button onclick="saveCropCoordinates(true)" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
+                        <svg class="w-3.5 h-3.5 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> Zuschnitt speichern & Jetzt Rendern
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js?v={{ app_version }}"></script>
+</body>
+</html>
+"""
