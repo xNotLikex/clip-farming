@@ -39,19 +39,82 @@ def cancel_active_render(clip_id: str) -> bool:
                     print(f"[!] Fehler beim Abbruch von {clip_id}: {e}")
     return False
 
-def get_video_duration(video_path: Path) -> float:
-    """Ermittelt die exakte Laenge des Videos in Sekunden via ffprobe."""
+def _parse_fps(rate_str: str) -> float:
+    """Parst ffprobe r_frame_rate/avg_frame_rate (z.B. '60/1' oder '30000/1001')."""
+    if not rate_str or rate_str == "0/0":
+        return 30.0
+    if "/" in rate_str:
+        num_s, den_s = rate_str.split("/", 1)
+        try:
+            den = float(den_s)
+            return float(num_s) / den if den > 0 else 30.0
+        except ValueError:
+            return 30.0
+    try:
+        return float(rate_str)
+    except ValueError:
+        return 30.0
+
+
+def probe_video(video_path: Path) -> dict[str, Any]:
+    """Liest Dauer, Auflösung, FPS und Audio-Existenz in einem einzigen ffprobe-Aufruf."""
+    defaults: dict[str, Any] = {
+        "duration": 30.0,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0,
+        "has_audio": True,
+    }
     cmd = [
-        "ffprobe", "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        str(video_path)
+        "ffprobe",
+        "-v",
+        "error",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        str(video_path),
     ]
     try:
-        out = subprocess.check_output(cmd, text=True, timeout=10).strip()
-        return float(out)
-    except Exception:
-        return 30.0
+        out = subprocess.check_output(cmd, text=True, timeout=10)
+        data = json.loads(out)
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError):
+        return defaults
+
+    fmt = data.get("format") or {}
+    try:
+        dur = float(fmt.get("duration") or 0)
+        if dur > 0:
+            defaults["duration"] = dur
+    except (TypeError, ValueError):
+        pass
+
+    streams = data.get("streams") or []
+    video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+    if video_stream:
+        width = int(video_stream.get("width") or 0)
+        height = int(video_stream.get("height") or 0)
+        if width > 0 and height > 0:
+            defaults["width"] = width
+            defaults["height"] = height
+        if defaults["duration"] == 30.0:
+            try:
+                sdur = float(video_stream.get("duration") or 0)
+                if sdur > 0:
+                    defaults["duration"] = sdur
+            except (TypeError, ValueError):
+                pass
+        defaults["fps"] = _parse_fps(
+            video_stream.get("avg_frame_rate") or video_stream.get("r_frame_rate") or ""
+        )
+
+    defaults["has_audio"] = any(s.get("codec_type") == "audio" for s in streams)
+    return defaults
+
+
+def get_video_duration(video_path: Path) -> float:
+    """Ermittelt die exakte Laenge des Videos in Sekunden via ffprobe."""
+    return probe_video(video_path)["duration"]
 
 def generate_thumbnail(clip_id: str, force: bool = False) -> Optional[Path]:
     """
@@ -218,7 +281,10 @@ class VideoComposer:
 
         output_file = SHORTS_OUTPUT_DIR / f"short_{clip_id}.mp4"
         temp_output_file = SHORTS_OUTPUT_DIR / f"tmp_short_{clip_id}.mp4"
-        total_duration = get_video_duration(raw_video_path)
+        video_info = probe_video(raw_video_path)
+        total_duration = video_info["duration"]
+        vw = video_info["width"]
+        vh = video_info["height"]
         face_box = None
         
         # 0.1 Falls custom_crops nicht direkt uebergeben wurde, aus Metadata oder Streamer-Config laden
@@ -279,14 +345,6 @@ class VideoComposer:
 
         # 1. Base Layout Graph aufbauen
         if is_single_916:
-            # M8 Audit-Fix: Sichere Freigabe des VideoCapture-Handles via try/finally
-            cap = cv2.VideoCapture(str(raw_video_path))
-            try:
-                vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1920
-                vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1080
-            finally:
-                cap.release()
-
             single_data = {}
             if custom_crops:
                 single_data = custom_crops.get("single") or custom_crops.get("single_916") or custom_crops.get("game") or {}
@@ -314,13 +372,6 @@ class VideoComposer:
         elif custom_crops and custom_crops.get("enabled", True):
             cam_data = custom_crops.get("cam", {})
             game_data = custom_crops.get("game", {})
-            
-            cap = cv2.VideoCapture(str(raw_video_path))
-            try:
-                vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1920
-                vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1080
-            finally:
-                cap.release()
 
             has_cam = cam_data.get("enabled", True) and (cam_data.get("w", 0) > 20 or cam_data.get("w_pct", 0) > 0.05)
 
