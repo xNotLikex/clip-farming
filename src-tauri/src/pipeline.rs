@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 use tauri::AppHandle;
 
-use crate::config::{get_metadata_dir, get_raw_clips_dir, load_config};
+use crate::config::{get_autopilot_settings, get_metadata_dir, get_raw_clips_dir, load_config};
 use crate::db::{
     get_clip_by_id, get_pending_clips, update_clip_error, update_clip_rendered, update_clip_status,
 };
@@ -25,6 +25,7 @@ pub async fn run_twitch_harvest(app: Option<AppHandle>) -> Result<usize, String>
     mgr.set_task("harvesting", "Suche neue Twitch Clips...", "", "");
 
     let cfg = load_config();
+    let settings = get_autopilot_settings();
     let active_streamers: Vec<_> = cfg
         .streamers
         .into_iter()
@@ -49,7 +50,7 @@ pub async fn run_twitch_harvest(app: Option<AppHandle>) -> Result<usize, String>
             None,
         );
 
-        match harvest_channel(st, "last_day", true).await {
+        match harvest_channel(st, &settings.time_filter, settings.fallback_to_week).await {
             Ok(count) => {
                 total_harvested += count;
             }
@@ -318,7 +319,9 @@ pub fn start_autopilot_loop(app: AppHandle) {
             drop(worker_lock().try_lock());
 
             let _ = run_twitch_harvest(Some(app.clone())).await;
-            let _ = process_all_pending(Some(app.clone())).await;
+            if cfg_now.autopilot.auto_render {
+                let _ = process_all_pending(Some(app.clone())).await;
+            }
         }
     });
 }
