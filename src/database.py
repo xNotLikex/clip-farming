@@ -87,6 +87,27 @@ def is_clip_already_processed(clip_id: str) -> bool:
         cursor.execute("SELECT 1 FROM clips WHERE clip_id = ?", (clip_id,))
         return cursor.fetchone() is not None
 
+
+def get_processed_ids(clip_ids: list[str]) -> set[str]:
+    """Gibt die Teilmenge der bereits in der Datenbank gespeicherten Clip-IDs zurück."""
+    unique_ids = [cid for cid in dict.fromkeys(clip_ids) if cid]
+    if not unique_ids:
+        return set()
+
+    found: set[str] = set()
+    chunk_size = 900
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        for start in range(0, len(unique_ids), chunk_size):
+            chunk = unique_ids[start : start + chunk_size]
+            placeholders = ",".join("?" for _ in chunk)
+            cursor.execute(
+                f"SELECT clip_id FROM clips WHERE clip_id IN ({placeholders})",
+                chunk,
+            )
+            found.update(row["clip_id"] for row in cursor.fetchall())
+    return found
+
 def save_clip(clip_data: dict[str, Any]):
     """Speichert einen neu gefundenen Clip."""
     with get_db_connection() as conn:

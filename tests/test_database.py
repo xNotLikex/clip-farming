@@ -87,3 +87,22 @@ def test_concurrent_reads_and_writes(tmp_path, monkeypatch):
     with database.get_db_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM clips").fetchone()[0]
         assert count == 60
+
+
+def test_get_processed_ids_empty_and_chunked(tmp_path, monkeypatch):
+    db_file = tmp_path / "test_batch.db"
+    monkeypatch.setattr(database, "DB_PATH", db_file)
+    database.init_db()
+
+    assert database.get_processed_ids([]) == set()
+
+    database.save_clip(
+        {"clip_id": "known-0", "streamer": "s", "title": "t", "url": "https://twitch.tv/0"}
+    )
+    database.save_clip(
+        {"clip_id": "known-950", "streamer": "s", "title": "t", "url": "https://twitch.tv/950"}
+    )
+
+    query_ids = [f"unknown-{i}" for i in range(950)] + ["known-0", "known-950", "known-0"]
+    assert database.get_processed_ids(query_ids) == {"known-0", "known-950"}
+

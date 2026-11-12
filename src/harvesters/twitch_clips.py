@@ -16,7 +16,7 @@ import json
 import time
 
 from src.config import RAW_CLIPS_DIR, load_config, TWITCH_GQL_CLIENT_ID, TWITCH_GQL_URL
-from src.database import is_clip_already_processed, save_clip
+from src.database import get_processed_ids, save_clip
 
 class TwitchClipHarvester:
     def __init__(self):
@@ -362,10 +362,11 @@ class TwitchClipHarvester:
         else:
             all_clips = self.fetch_clips_gql_fallback(channel_name, time_filter=time_filter, limit=50)
 
-        # 2. Filtern: Noch nicht verarbeitet und mind. min_views
+        # 2. Filtern: Noch nicht verarbeitet und mind. min_views (Batch-DB-Check)
+        fresh_processed = get_processed_ids([c["clip_id"] for c in all_clips])
         unprocessed_fresh = [
-            c for c in all_clips 
-            if not is_clip_already_processed(c["clip_id"]) and c["view_count"] >= min_views
+            c for c in all_clips
+            if c["clip_id"] not in fresh_processed and c["view_count"] >= min_views
         ]
 
         # Frische Clips immer zuerst nach Views sortieren und bis zu max_clips übernehmen!
@@ -382,9 +383,12 @@ class TwitchClipHarvester:
             print(f"  [i] {len(selected_clips)}/{max_clips} frische Clips (24h) für {channel_name}. Prüfe beste Clips der Woche für {needed_slots} Rest-Plätze...")
             week_clips = self.fetch_clips_gql_fallback(channel_name, time_filter="LAST_WEEK", limit=50)
             existing_ids = {c["clip_id"] for c in selected_clips}
+            week_processed = get_processed_ids([c["clip_id"] for c in week_clips])
             week_candidates = [
                 c for c in week_clips
-                if c["clip_id"] not in existing_ids and not is_clip_already_processed(c["clip_id"]) and c["view_count"] >= min_views
+                if c["clip_id"] not in existing_ids
+                and c["clip_id"] not in week_processed
+                and c["view_count"] >= min_views
             ]
             week_candidates.sort(key=lambda x: x["view_count"], reverse=True)
             # Nur die tatsächlich noch benötigten Restplätze mit den besten Wochen-Clips auffüllen!
