@@ -22,27 +22,13 @@ const SVG_ICONS = {
 
 
 // ==========================================
-// CLIENT-SIDE REACTIVE SPA ENGINE FOR TAURI & WEB
+// CLIENT-SIDE REACTIVE SPA ENGINE FOR 100% RUST TAURI
 // ==========================================
 
-const BACKEND_BASE = 'http://127.0.0.1:5000';
-
-function getBackendUrl(path) {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    const cleanPath = path.startsWith('/') ? path : '/' + path;
-    return BACKEND_BASE + cleanPath;
-}
+let gDataRoot = '';
 
 function getTauriInvoke() {
     if (typeof window !== 'undefined') {
-        // Auf http://127.0.0.1:5000 blockiert Tauri v2 ACL Standard-IPC ohne Remote-Capability;
-        // direkte Same-Origin REST-Fetches auf Flask sind dort ohnehin nativ verfügbar.
-        const proto = window.location?.protocol || '';
-        const host = window.location?.hostname || '';
-        if (proto === 'http:' && (host === '127.0.0.1' || host === 'localhost')) {
-            return null;
-        }
         if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke.bind(window.__TAURI__.core);
         if (window.__TAURI__?.invoke) return window.__TAURI__.invoke.bind(window.__TAURI__);
         if (window.__TAURI_INTERNALS__?.invoke) return window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
@@ -50,12 +36,78 @@ function getTauriInvoke() {
     return null;
 }
 
-async function apiFetch(url, options = {}) {
-    const isFormBody = typeof FormData !== 'undefined' && (options.body instanceof FormData || options.body instanceof URLSearchParams);
-    const invoke = isFormBody ? null : getTauriInvoke();
+function toTauriAssetUrl(absPath) {
+    const normalized = String(absPath).replace(/\\/g, '/');
+    if (window.__TAURI__?.core?.convertFileSrc) {
+        return window.__TAURI__.core.convertFileSrc(normalized);
+    }
+    if (window.__TAURI_INTERNALS__?.convertFileSrc) {
+        return window.__TAURI_INTERNALS__.convertFileSrc(normalized);
+    }
+    return 'asset://localhost/' + encodeURIComponent(normalized);
+}
+
+async function initDataRoot() {
+    if (gDataRoot) return gDataRoot;
+    const invoke = getTauriInvoke();
     if (invoke) {
         try {
-            const bodyStr = options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : null;
+            gDataRoot = await invoke('get_data_root_path');
+            window.__CF_DATA_ROOT__ = gDataRoot;
+        } catch (e) {
+            console.warn('get_data_root_path failed:', e);
+        }
+    }
+    return gDataRoot;
+}
+
+function getBackendUrl(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('asset://') || path.startsWith('blob:')) {
+        return path;
+    }
+    const cleanPath = path.startsWith('/') ? path : '/' + path;
+    const [routeOnly, query] = cleanPath.split('?');
+    const suffix = query ? ('?' + query) : '';
+
+    if (gDataRoot) {
+        const root = gDataRoot.replace(/[\\/]+$/, '');
+        if (routeOnly.startsWith('/thumbnail/raw/')) {
+            const id = decodeURIComponent(routeOnly.slice('/thumbnail/raw/'.length));
+            return toTauriAssetUrl(`${root}/thumbnails/${id}.jpg`) + suffix;
+        }
+        if (routeOnly.startsWith('/thumbnail/')) {
+            const id = decodeURIComponent(routeOnly.slice('/thumbnail/'.length));
+            return toTauriAssetUrl(`${root}/thumbnails/${id}.jpg`) + suffix;
+        }
+        if (routeOnly.startsWith('/stream/raw/')) {
+            const id = decodeURIComponent(routeOnly.slice('/stream/raw/'.length));
+            return toTauriAssetUrl(`${root}/downloads/raw/${id}.mp4`) + suffix;
+        }
+        if (routeOnly.startsWith('/stream/short/')) {
+            const id = decodeURIComponent(routeOnly.slice('/stream/short/'.length));
+            return toTauriAssetUrl(`${root}/output/shorts/short_${id}.mp4`) + suffix;
+        }
+    }
+    return cleanPath;
+}
+
+window.getBackendUrl = getBackendUrl;
+
+async function apiFetch(url, options = {}) {
+    const invoke = getTauriInvoke();
+    if (invoke) {
+        try {
+            let bodyStr = null;
+            if (options.body instanceof FormData || options.body instanceof URLSearchParams) {
+                const obj = {};
+                for (const [k, v] of options.body.entries()) {
+                    obj[k] = v;
+                }
+                bodyStr = JSON.stringify(obj);
+            } else if (options.body) {
+                bodyStr = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+            }
             const resText = await invoke('api_proxy', {
                 endpoint: url,
                 method: options.method || 'GET',
@@ -68,11 +120,18 @@ async function apiFetch(url, options = {}) {
                 text: async () => resText
             };
         } catch (e) {
-            console.warn('Tauri api_proxy failed, falling back to direct fetch:', e);
+            console.error('Tauri api_proxy error:', e);
+            return {
+                ok: false,
+                status: 500,
+                json: async () => ({ ok: false, error: String(e) }),
+                text: async () => String(e)
+            };
         }
     }
     return fetch(getBackendUrl(url), options);
 }
+window.apiFetch = apiFetch;
 
 // Cam filters catalogue
 const CAM_FILTERS = {'none': 'Kein Filter (Original Facecam)', 'triangle': '3D Dreimacs Pyramide (Prismen-Kopf)', 'inv_triangle': '3D Trichter-Kopf (Megastirn, spitzes Kinn)', 'diamond': '3D Diamant-Kopf (Kristall-Facette)', 'cube': '3D Block-Kopf (Voxel / Steve)', 'gigachad': '3D Gigachad (Breiter Meme-Kiefer)', 'alien': '3D Megamind / Alien (Riesen-Kuppelkopf)', 'hamster': '3D Hamsterbacken (Prall aufgeblasen)', 'pinocchio': '3D Pinocchio (Lange Nase)', 'big_eyes': '3D Glubschaugen (Anime / Manga)', 'tiny_face': '3D Schrumpf-Gesicht (Charlie Kirk Meme)', 'big_mouth': '3D Riesenmund (Scream / Opernsänger)', 'hourglass': '3D Sanduhr (Wespentaille im Gesicht)', 'fisheye': '3D Glaskugel-Bulge (Linsen-Zoom)', 'swirl': '3D Strudel / Wirbel (Vortex-Twist)', 'wave': '3D Wackelpudding (Wobble-Welle)', 'mirror_left': 'Doppel-Links (Alien-Symmetrie)', 'mirror_right': 'Doppel-Rechts (Alien-Symmetrie)', 'stretch_vert': 'Bleistift-Kopf (Langgezogen)', 'squish_wide': 'Wide Meme (Pfannkuchen-Kopf)'};
@@ -3786,8 +3845,17 @@ async function importTwitchClipToStudio(index, mode, btn) {
         });
         window.addEventListener('beforeunload', stopStatusPolling);
 
-        if (document.visibilityState !== 'hidden') {
-            startStatusPolling();
-            pollStatusSafely();
+        initDataRoot().then(() => {
+            refreshDashboard(true);
+            if (document.visibilityState !== 'hidden') {
+                startStatusPolling();
+                pollStatusSafely();
+            }
+        });
+
+        if (window.__TAURI__?.event?.listen) {
+            window.__TAURI__.event.listen('status-update', () => {
+                pollStatusSafely();
+            });
         }
 })();

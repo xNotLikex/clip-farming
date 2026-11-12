@@ -1,48 +1,89 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
 use chrono::{DateTime, Local};
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use serde_json::Value;
 
+use crate::config::{get_data_root, get_db_path, load_config};
 use crate::models::{
     AccountStatus, Counts, DashboardData, PublishedClip, QueueClip, ReadyClip, ScheduledClip,
     StreamerConfig,
 };
 
-fn get_base_dir() -> PathBuf {
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            if exe_dir.join("data").exists() {
-                return exe_dir.to_path_buf();
-            }
-            if let Some(parent) = exe_dir.parent() {
-                if parent.join("data").exists() {
-                    return parent.to_path_buf();
-                }
-            }
-        }
+pub fn open_connection() -> Result<Connection, String> {
+    let db_path = get_db_path();
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("DB dir error: {}", e))?;
     }
-    if Path::new("data").exists() {
-        PathBuf::from(".")
-    } else if Path::new("../data").exists() {
-        PathBuf::from("..")
-    } else {
-        PathBuf::from(".")
-    }
+    let conn = Connection::open(&db_path).map_err(|e| format!("DB Open error: {}", e))?;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA busy_timeout = 5000;",
+    )
+    .map_err(|e| format!("DB PRAGMA error: {}", e))?;
+    init_db(&conn)?;
+    Ok(conn)
 }
 
-fn get_db_path() -> PathBuf {
-    let base = get_base_dir();
-    let p = base.join("data").join("pipeline.db");
-    if p.exists() {
-        return p;
+pub fn init_db(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS clips (
+            clip_id TEXT PRIMARY KEY,
+            streamer TEXT NOT NULL,
+            platform TEXT DEFAULT 'twitch',
+            original_title TEXT,
+            url TEXT,
+            view_count INTEGER,
+            duration REAL,
+            clip_created_at TEXT,
+            harvested_at TEXT,
+            status TEXT DEFAULT 'harvested',
+            raw_path TEXT,
+            short_path TEXT,
+            ai_title TEXT,
+            ai_description TEXT,
+            ai_tags TEXT,
+            error_msg TEXT,
+            scheduled_publish_at TEXT,
+            published_at TEXT,
+            youtube_video_id TEXT,
+            tiktok_publish_id TEXT,
+            is_manually_published INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS streamer_checks (
+            streamer TEXT PRIMARY KEY,
+            last_checked_at TEXT,
+            clips_found INTEGER DEFAULT 0
+        );
+        "#,
+    )
+    .map_err(|e| format!("DB init error: {}", e))?;
+
+    let mut existing_cols: HashSet<String> = HashSet::new();
+    {
+        let mut stmt = conn
+            .prepare("PRAGMA table_info(clips)")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| e.to_string())?;
+        for col in rows.flatten() {
+            existing_cols.insert(col);
+        }
     }
-    let alt = PathBuf::from("../data/pipeline.db");
-    if alt.exists() {
-        return alt;
+    if !existing_cols.contains("scheduled_publish_at") {
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN scheduled_publish_at TEXT", []);
     }
-    p
+    if !existing_cols.contains("is_manually_published") {
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN is_manually_published INTEGER DEFAULT 0",
+            [],
+        );
+    }
+    let _ = conn.execute("PRAGMA user_version = 1", []);
+    Ok(())
 }
 
 pub fn format_relative_time(iso_ts: Option<&str>) -> (String, String) {
@@ -78,10 +119,8 @@ pub fn format_relative_time(iso_ts: Option<&str>) -> (String, String) {
 }
 
 pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
-    let base_dir = get_base_dir();
-    let db_path = get_db_path();
-
-    let conn = Connection::open(&db_path).map_err(|e| format!("DB Open error: {}", e))?;
+    let base_dir = get_data_root();
+    let conn = open_connection()?;
 
     // 1. Counts
     let mut stmt = conn
@@ -310,7 +349,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
 
     // 5. Published Clips
     let mut p_stmt = conn
-        .prepare("SELECT clip_id, streamer, original_title, ai_title, published_at, youtube_video_id, tiktok_video_id FROM clips WHERE status = 'published' ORDER BY rowid DESC")
+        .prepare("SELECT clip_id, streamer, original_title, ai_title, published_at, youtube_video_id, tiktok_publish_id FROM clips WHERE status = 'published' ORDER BY rowid DESC")
         .map_err(|e| e.to_string())?;
 
     let mut published_clips = Vec::new();
@@ -333,67 +372,48 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
     }
 
     // 6. Streamers from config.yaml
-    let config_path = base_dir.join("config").join("config.yaml");
     let avatar_cache_path = base_dir.join("data").join("streamer_avatars.json");
-    let avatar_cache: std::collections::HashMap<String, serde_json::Value> = if avatar_cache_path.exists() {
+    let avatar_cache: HashMap<String, Value> = if avatar_cache_path.exists() {
         fs::read_to_string(&avatar_cache_path)
             .ok()
             .and_then(|c| serde_json::from_str(&c).ok())
             .unwrap_or_default()
     } else {
-        std::collections::HashMap::new()
+        HashMap::new()
     };
 
+    let app_cfg = load_config();
     let mut streamers = Vec::new();
-    if config_path.exists() {
-        if let Ok(content) = fs::read_to_string(&config_path) {
-            if let Ok(val) = serde_yaml::from_str::<Value>(&content) {
-                if let Some(list) = val.get("streamers").and_then(|s| s.as_array()) {
-                    for item in list {
-                        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                        let platform = item.get("platform").and_then(|v| v.as_str()).unwrap_or("twitch").to_string();
-                        let enabled = item.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-                        let min_clip_views = item.get("min_clip_views").and_then(|v| v.as_i64()).unwrap_or(30);
-                        let max_clips_per_run = item.get("max_clips_per_run").and_then(|v| v.as_i64()).unwrap_or(2);
-                        let layout = item.get("layout").and_then(|v| v.as_str()).unwrap_or("auto").to_string();
+    for item in app_cfg.streamers {
+        let clean_login = item.name.to_lowercase();
+        let av_entry = avatar_cache.get(&clean_login);
+        let avatar_url = av_entry
+            .and_then(|v| v.get("avatar_url"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let display_name = av_entry
+            .and_then(|v| v.get("display_name"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let has_custom_crops = Some(item.custom_crops.is_some());
 
-                        let clean_login = name.to_lowercase();
-                        let av_entry = avatar_cache.get(&clean_login);
-                        let avatar_url = av_entry
-                            .and_then(|v| v.get("avatar_url"))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string());
-                        let display_name = av_entry
-                            .and_then(|v| v.get("display_name"))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string());
-                        let has_custom_crops = Some(item.get("custom_crops").is_some());
-
-                        streamers.push(StreamerConfig {
-                            name,
-                            platform,
-                            enabled,
-                            min_clip_views,
-                            max_clips_per_run,
-                            layout,
-                            avatar_url,
-                            display_name,
-                            has_custom_crops,
-                        });
-                    }
-                }
-            }
-        }
+        streamers.push(StreamerConfig {
+            name: item.name,
+            platform: item.platform,
+            enabled: item.enabled,
+            min_clip_views: item.min_clip_views,
+            max_clips_per_run: item.max_clips_per_run,
+            layout: item.layout,
+            avatar_url,
+            display_name,
+            has_custom_crops,
+        });
     }
 
-    // 7. Account Status
-    let yt_token_file = base_dir.join("config").join("oauth_token.json");
-    let yt_secrets_file = base_dir.join("config").join("youtube_secrets.json");
-    let youtube_connected = yt_token_file.exists() || yt_secrets_file.exists();
-
+    // 7. Account Status (Upload/Account-Verknüpfung dauerhaft entfernt)
     let account_status = AccountStatus {
-        youtube_connected,
-        youtube_channel: if youtube_connected { "YouTube Kanal verbunden".to_string() } else { "Nicht verknüpft".to_string() },
+        youtube_connected: false,
+        youtube_channel: "Nicht verknüpft".to_string(),
         tiktok_connected: false,
         tiktok_user: "Nicht verknüpft".to_string(),
     };
@@ -411,19 +431,180 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
     })
 }
 
+#[derive(Debug, Clone)]
+pub struct ClipRecord {
+    pub clip_id: String,
+    pub streamer: String,
+    pub original_title: String,
+    pub url: String,
+    pub view_count: i64,
+    pub duration: f64,
+    pub status: String,
+    pub raw_path: Option<String>,
+    pub short_path: Option<String>,
+    pub ai_title: Option<String>,
+}
+
+pub fn get_clip_by_id(clip_id: &str) -> Result<Option<ClipRecord>, String> {
+    let conn = open_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT clip_id, streamer, original_title, url, view_count, duration, status, raw_path, short_path, ai_title FROM clips WHERE clip_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query_map([clip_id], |row| {
+            Ok(ClipRecord {
+                clip_id: row.get(0)?,
+                streamer: row.get(1)?,
+                original_title: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                url: row.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                view_count: row.get::<_, Option<i64>>(4)?.unwrap_or(0),
+                duration: row.get::<_, Option<f64>>(5)?.unwrap_or(30.0),
+                status: row.get::<_, Option<String>>(6)?.unwrap_or_else(|| "harvested".to_string()),
+                raw_path: row.get(7)?,
+                short_path: row.get(8)?,
+                ai_title: row.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    if let Some(r) = rows.next() {
+        return r.map(Some).map_err(|e| e.to_string());
+    }
+    Ok(None)
+}
+
+pub fn get_pending_clips() -> Result<Vec<ClipRecord>, String> {
+    let conn = open_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT clip_id, streamer, original_title, url, view_count, duration, status, raw_path, short_path, ai_title FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ClipRecord {
+                clip_id: row.get(0)?,
+                streamer: row.get(1)?,
+                original_title: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                url: row.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                view_count: row.get::<_, Option<i64>>(4)?.unwrap_or(0),
+                duration: row.get::<_, Option<f64>>(5)?.unwrap_or(30.0),
+                status: row.get::<_, Option<String>>(6)?.unwrap_or_else(|| "harvested".to_string()),
+                raw_path: row.get(7)?,
+                short_path: row.get(8)?,
+                ai_title: row.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(rows.flatten().collect())
+}
+
+pub fn update_clip_status(clip_id: &str, status: &str) -> Result<(), String> {
+    let conn = open_connection()?;
+    conn.execute(
+        "UPDATE clips SET status = ?1 WHERE clip_id = ?2",
+        params![status, clip_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn update_clip_rendered(clip_id: &str, short_path: &str, ai_title: Option<&str>) -> Result<(), String> {
+    let conn = open_connection()?;
+    if let Some(title) = ai_title {
+        conn.execute(
+            "UPDATE clips SET status = 'ready', short_path = ?1, ai_title = ?2, error_msg = NULL WHERE clip_id = ?3",
+            params![short_path, title, clip_id],
+        )
+        .map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "UPDATE clips SET status = 'ready', short_path = ?1, error_msg = NULL WHERE clip_id = ?2",
+            params![short_path, clip_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub fn update_clip_error(clip_id: &str, err_msg: &str) -> Result<(), String> {
+    let conn = open_connection()?;
+    conn.execute(
+        "UPDATE clips SET status = 'failed', error_msg = ?1 WHERE clip_id = ?2",
+        params![err_msg, clip_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn toggle_manually_published(clip_id: &str) -> Result<bool, String> {
+    let conn = open_connection()?;
+    let cur: i64 = conn
+        .query_row(
+            "SELECT COALESCE(is_manually_published, 0) FROM clips WHERE clip_id = ?1",
+            [clip_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    let next = if cur == 0 { 1 } else { 0 };
+    conn.execute(
+        "UPDATE clips SET is_manually_published = ?1 WHERE clip_id = ?2",
+        params![next, clip_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(next == 1)
+}
+
+pub fn get_processed_ids(clip_ids: &[String]) -> Result<HashSet<String>, String> {
+    if clip_ids.is_empty() {
+        return Ok(HashSet::new());
+    }
+    let conn = open_connection()?;
+    let mut out = HashSet::new();
+    for chunk in clip_ids.chunks(500) {
+        let placeholders = vec!["?"; chunk.len()].join(",");
+        let sql = format!("SELECT clip_id FROM clips WHERE clip_id IN ({})", placeholders);
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let params_refs: Vec<&dyn rusqlite::ToSql> = chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let rows = stmt
+            .query_map(params_refs.as_slice(), |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+        for r in rows.flatten() {
+            out.insert(r);
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_fetch_dashboard() {
-        let res = fetch_dashboard_data();
-        assert!(res.is_ok(), "fetch_dashboard_data failed: {:?}", res.err());
-        let data = res.unwrap();
-        println!("Fetched counts: {:?}", data.counts);
-        println!("Queue clips count: {}", data.queue_clips.len());
-        println!("Ready clips count: {}", data.ready_clips.len());
-        println!("Streamers count: {}", data.streamers.len());
-        assert!(!data.streamers.is_empty(), "Should load streamers from config.yaml");
+    fn test_db_init_insert_and_fetch_dashboard_isolated() {
+        let tmp = std::env::temp_dir().join(format!("cf_db_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        unsafe {
+            std::env::set_var("CLIP_FARMING_DATA_DIR", &tmp);
+        }
+
+        let conn = open_connection().unwrap();
+        conn.execute(
+            "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, status) VALUES ('c1', 'trymacs', 'Test Clip', 150, 25.0, 'harvested')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let dash = fetch_dashboard_data().unwrap();
+        assert_eq!(dash.counts.harvested, 1);
+        assert_eq!(dash.queue_clips.len(), 1);
+        assert_eq!(dash.queue_clips[0].clip_id, "c1");
+
+        assert!(toggle_manually_published("c1").unwrap());
+        assert!(!toggle_manually_published("c1").unwrap());
+
+        unsafe {
+            std::env::remove_var("CLIP_FARMING_DATA_DIR");
+        }
+        let _ = fs::remove_dir_all(&tmp);
     }
 }

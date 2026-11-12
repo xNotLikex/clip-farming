@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
+use crate::config::resolve_binary;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GpuInfo {
     pub name: String,
@@ -20,17 +22,23 @@ pub struct EncoderProfile {
 }
 
 pub fn test_ffmpeg_encoder(codec: &str) -> bool {
-    let output = Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-f", "lavfi",
-            "-i", "testsrc=duration=0.1:size=320x240:rate=10",
-            "-c:v", codec,
-            "-f", "null", "-",
-        ])
-        .output();
+    let ffmpeg_bin = resolve_binary("ffmpeg");
+    let mut cmd = Command::new(ffmpeg_bin);
+    cmd.args([
+        "-y",
+        "-f", "lavfi",
+        "-i", "testsrc=duration=0.1:size=1080x1920:rate=30",
+        "-c:v", codec,
+        "-pix_fmt", "yuv420p",
+        "-f", "null", "-",
+    ]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
 
-    match output {
+    match cmd.output() {
         Ok(out) => out.status.success(),
         Err(_) => false,
     }
@@ -178,6 +186,44 @@ pub fn select_best_encoder(preferred: &str) -> EncoderProfile {
     catalog.iter().find(|p| p.id == "cpu").unwrap().clone()
 }
 
+/// Liefert die Runtime-Fallback-Kette ausgehend vom primären Encoder (`primary -> mf -> cpu`).
+pub fn build_runtime_fallback_chain(primary: &EncoderProfile) -> Vec<EncoderProfile> {
+    let mut chain = vec![primary.clone()];
+    if primary.codec == "libx264" {
+        return chain;
+    }
+    let catalog = get_encoder_catalog_without_probe();
+    for id in ["mf", "cpu"] {
+        if let Some(prof) = catalog.iter().find(|p| p.id == id).cloned() {
+            if !chain.iter().any(|c| c.codec == prof.codec) {
+                chain.push(prof);
+            }
+        }
+    }
+    chain
+}
+
+fn get_encoder_catalog_without_probe() -> Vec<EncoderProfile> {
+    vec![
+        EncoderProfile {
+            id: "mf".to_string(),
+            name: "Windows Media Foundation".to_string(),
+            codec: "h264_mf".to_string(),
+            description: "Universelle Hardware-Beschleunigung (AMD Onboard, Intel & NVIDIA)".to_string(),
+            ffmpeg_args: vec!["-c:v".to_string(), "h264_mf".to_string(), "-b:v".to_string(), "6M".to_string()],
+            is_supported: true,
+        },
+        EncoderProfile {
+            id: "cpu".to_string(),
+            name: "CPU (x264)".to_string(),
+            codec: "libx264".to_string(),
+            description: "Multi-Core CPU Software-Encoding (Maximale Kompatibilität)".to_string(),
+            ffmpeg_args: vec!["-c:v".to_string(), "libx264".to_string(), "-preset".to_string(), "fast".to_string(), "-crf".to_string(), "22".to_string(), "-threads".to_string(), "0".to_string()],
+            is_supported: true,
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,5 +240,32 @@ mod tests {
         let best = select_best_encoder("auto");
         println!("Best Encoder Selected: {} ({})", best.name, best.codec);
         assert!(best.is_supported, "Selected encoder must be supported");
+    }
+
+    #[test]
+    fn test_runtime_fallback_chain_order() {
+        let qsv = EncoderProfile {
+            id: "qsv".to_string(),
+            name: "Intel QuickSync".to_string(),
+            codec: "h264_qsv".to_string(),
+            description: String::new(),
+            ffmpeg_args: vec![],
+            is_supported: true,
+        };
+        let chain = build_runtime_fallback_chain(&qsv);
+        let codecs: Vec<&str> = chain.iter().map(|p| p.codec.as_str()).collect();
+        assert_eq!(codecs, vec!["h264_qsv", "h264_mf", "libx264"]);
+
+        let cpu = EncoderProfile {
+            id: "cpu".to_string(),
+            name: "CPU (x264)".to_string(),
+            codec: "libx264".to_string(),
+            description: String::new(),
+            ffmpeg_args: vec![],
+            is_supported: true,
+        };
+        let cpu_chain = build_runtime_fallback_chain(&cpu);
+        assert_eq!(cpu_chain.len(), 1);
+        assert_eq!(cpu_chain[0].codec, "libx264");
     }
 }

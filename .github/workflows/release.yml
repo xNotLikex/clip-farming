@@ -37,6 +37,33 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      - name: Download Windows Sidecars (ffmpeg, ffprobe, whisper-cli)
+        shell: pwsh
+        run: |
+          $binDir = "src-tauri/binaries"
+          New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+
+          Write-Host "Downloading FFmpeg (BtbN win64-gpl)..."
+          $ffZip = "$env:TEMP/ffmpeg.zip"
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile $ffZip
+          Expand-Archive -Path $ffZip -DestinationPath "$env:TEMP/ffmpeg_extract" -Force
+          Get-ChildItem -Path "$env:TEMP/ffmpeg_extract" -Recurse -Include "ffmpeg.exe","ffprobe.exe" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $binDir -Force
+          }
+
+          Write-Host "Downloading whisper.cpp Windows x64 binaries..."
+          $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest" -Headers @{ "User-Agent" = "Clip-Farming-CI" }
+          $asset = $rel.assets | Where-Object { $_.name -match "whisper-bin-x64\.zip$" } | Select-Object -First 1
+          if (-not $asset) { throw "whisper-bin-x64.zip asset not found in latest whisper.cpp release" }
+          $whZip = "$env:TEMP/whisper.zip"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $whZip
+          Expand-Archive -Path $whZip -DestinationPath "$env:TEMP/whisper_extract" -Force
+          Get-ChildItem -Path "$env:TEMP/whisper_extract" -Recurse -Include "whisper-cli.exe","*.dll" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $binDir -Force
+          }
+
+          Get-ChildItem -Path $binDir
+
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -44,7 +71,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Clip-Farming ${{ github.ref_name }}'
-          releaseBody: 'Clip-Farming Native Windows Release'
+          releaseBody: 'Clip-Farming Native Windows Release (100% Rust)'
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
