@@ -1,235 +1,86 @@
-# 🎬 Clip-Farming Studio & Autopilot (Twitch → 9:16 Shorts)
+# 🎬 Clip-Farming Studio (Twitch → 9:16 Shorts)
 
-Eine vollautomatische Windows-Desktop-App (**Tauri v2 + Rust** & **Python/Flask-Backend**) zum Finden, Zuschneiden, Untertiteln und Exportieren vertikaler 9:16 Kurzvideos aus Twitch-Clips (kein automatischer Upload).
+Eine **100 % portable Windows-Desktop-App in Rust (Tauri v2)** zum Finden, Zuschneiden, Untertiteln und Exportieren vertikaler 9:16-Kurzvideos aus Twitch-Clips – komplett ohne Python, ohne Installer und ohne AppData-Müll.
 
 ---
 
 ## ✨ Highlights & Funktionen
 
-### 🖥️ Desktop-App & Web-Dashboard
-Die Anwendung kombiniert eine native Windows-Oberfläche (`clip-farming.exe`) mit einem lokalen Studio-Backend (`http://127.0.0.1:5000`) und bietet einen Live-Status inklusive Fortschrittsanzeige für Harvesting, Transkription und Rendering:
-
-1. **📥 Warteschlange (`Warteschlange`):**
+1. **📥 Clip-Eingang (`Clip-Eingang`):**
    * Listet automatisch geerntete Twitch-Clips sortiert nach Views auf (inkl. Rohvideo-Vorschau).
-   * Einzelübernahme oder Massenimport (*„Alle ins Studio übernehmen“*).
-   * Aufräumfunktion für alte Rohclips (*„Gestern & älter löschen“*) sowie dauerhaftes Löschen/Ignorieren (`status = 'deleted'`).
+   * Einzelübernahme ins Studio, Massenimport oder Aufräumfunktion für alte Rohclips.
 
 2. **🎬 Studio & Freigabe (`Studio & Freigabe`):**
-   * **9:16 Video-Vorschau & HQ Download:** Direktes Abspielen gerenderter Shorts im Studio sowie Download/Export in voller Qualität.
-   * **Manuelle Twitch-Clip-Suche:** Suche nach beliebigen Twitch-Streamern mit wählbarem Zeitfenster (**24 Stunden**, **7 Tage**, **30 Tage**, **All Time**) und direktem Import in die Warteschlange oder ins Studio.
+   * **Originalclip & 9:16-Vorschau:** Zeigt importierte Originalclips zur direkten Bearbeitung und gerenderte 9:16-Shorts mit **HQ Download** (inkl. Speicherort-Auswahl).
    * **Clip-Editor pro Karte:**
-     * **Sprechblasen-Hook:** TikTok/Shorts-Header-Sticker (`sticker_text`).
-     * **Titel & Untertiteltext:** Bearbeitbares Transkript (`transcript`), das beim **„Speichern & Neu Rendern“** direkt neu in die Video-Untertitel ausgerichtet wird.
-     * **Untertitel-Platzierung:** `bottom` (Standard), `center`, `top` oder `none`.
-     * **Layout-Modi:**
-       * `auto` – KI erkennt Facecam automatisch (Split-Cam oder Blur-Stack).
-       * `custom` – Benutzerdefinierte Schnittrahmen aus dem **visuellen Crop-Editor**.
-       * `single_916` – Reines 9:16 Vollbild (IRL / Fullscreen).
-       * `split_cam_top` – Facecam oben, Gameplay unten.
-       * `blur_stack` – 16:9-Clip mittig auf unscharfem Hintergrund.
-     * **3D-Mesh-Cam-Filter (20 Effekte):** Facecam Fun-Warps wie Pyramide, Trichter-Kopf, Diamant, Voxel-Cube, Gigachad, Megamind/Alien, Hamsterbacken, Pinocchio, Glubschaugen, Schrumpf-Gesicht, Riesenmund, Sanduhr, Glaskugel-Bulge, Vortex-Wirbel, Wackelpudding u. v. m.
-   * **Streamer-Filter-Pills**, Status-Markierung (*„Veröffentlicht?“*) und **Löschen & Ignorieren** (entfernt auch aktive Streams & die fertige `.mp4`).
+     * Titel, Untertitel-Platzierung (`bottom`, `center`, `top`, `none`) und Layout-Modi (`auto`, `custom`, `single_916`, `split_cam_top`, `blur_stack`).
+     * Visueller **Crop-Editor** für benutzerdefinierte Facecam-/Gameplay-Ausschnitte.
+     * **20 Facecam-Fun-Filter** (u. a. Pyramide, Trichter-Kopf, Diamant, Voxel-Cube, Gigachad, Alien, Hamsterbacken, Pinocchio, Glubschaugen, Vortex-Wirbel, Wackelpudding).
+   * **Streamer-Filter**, Status-Markierung (*„Veröffentlicht?“*) und **Löschen & Ignorieren**.
 
-3. **👥 Streamer-Verwaltung (`Streamer`):**
-   * Überwachte Twitch-Kanäle hinzufügen, aktivieren/deaktivieren, Mindest-Views (`min_clip_views`), Clip-Limit (`max_clips_per_run`), Standard-Layout und gespeicherte Crop-Bereiche pro Streamer verwalten.
-   * Beispielclip direkt laden, um Schnittrahmen vorab einzustellen.
+3. **🔍 Clip Explorer (`Clip Explorer`):**
+   * Manuelle Suche nach beliebigen Twitch-Streamern mit wählbarem Zeitfenster (**24h**, **7 Tage**, **30 Tage**, **All-Time**).
+   * Direkt-Import als Originalclip ins **Studio** (ohne erzwungene Vorab-Umwandlung) oder in den **Clip-Eingang**.
 
-6. **⚙️ Autopilot & Hardware-Einstellungen (`Einstellungen`):**
-   * Konfigurierbares Prüf-Intervall (z. B. 15 / 30 / 60 / 120 Min), Standard-Zeitfenster, intelligenter Wochen-Fallback und optionales vollautomatisches Rendering.
-   * Automatische GPU-Erkennung & Live-Encoder-Test (`src/video/gpu.py`):
-     * **NVIDIA NVENC** (`h264_nvenc`)
-     * **AMD AMF** (`h264_amf`)
-     * **Intel QuickSync** (`h264_qsv`)
-     * **Windows Media Foundation** (`h264_mf`)
-     * **CPU Software Fallback** (`libx264`)
-   * Auswahl des `faster-whisper` KI-Modells für die Transkription.
+4. **👥 Streamer (`Streamer`):**
+   * Überwachte Twitch-Kanäle verwalten (aktivieren/deaktivieren, Mindest-Views, Clip-Limit, Standard-Layout und gespeicherte Crop-Bereiche).
+
+5. **⚙️ Autopilot & Hardware-Einstellungen:**
+   * Konfigurierbares Prüf-Intervall, Zeitfenster, Wochen-Fallback und optionales automatisches Rendering.
+   * Automatische GPU-Erkennung & Hardware-Encoder (`h264_nvenc`, `h264_amf`, `h264_qsv`, `h264_mf`, Software-Fallback `libx264`).
+   * Lokale Whisper-Transkription (`whisper-cli.exe`, Modelle werden automatisch in `models/` geladen).
 
 ---
 
-## 🚀 Installation & Start
+## 🚀 Starten (Portable ZIP – Empfohlen)
 
-### Variante A: Windows-Installer (Empfohlen)
-1. Die aktuelle `Clip-Farming-Installer.exe` von den [GitHub Releases](https://github.com/xNotLikex/clip-farming/releases) herunterladen.
-2. Installer ausführen (vollständig autark – enthält Desktop-Binary, eingebettete Python-Runtime sowie `ffmpeg.exe` & `ffprobe.exe`).
-3. **Clip Farming Studio** starten.
+1. Die aktuelle **`Clip-Farming-v0.1.0-Portable-Windows-x64.zip`** unter [GitHub Releases](https://github.com/xNotLikex/clip-farming/releases) herunterladen.
+2. In einen beliebigen Ordner entpacken (z. B. `D:\Clip-Farming\`).
+3. **`clip-farming.exe`** starten – fertig!
 
-### Variante B: Direkt aus dem Repository (Entwicklung / Portabel)
-**Voraussetzungen:** Python 3.10+, FFmpeg (`bin/ffmpeg.exe`), optional Rust/Cargo für Tauri-Builds.
-
-1. **Umgebung einrichten (einmalig):**
-   ```bat
-   setup.bat
-   ```
-   *(Installiert alle Abhängigkeiten aus `requirements.txt` in `.venv/`.)*
-2. **Desktop-App starten:**
-   ```bat
-   start-desktop.bat
-   ```
-   *(Oder direkt `clip-farming.exe` – der integrierte Setup-Wizard prüft die Umgebung und öffnet anschließend das Studio.)*
-3. **Alternativ nur das Web-Dashboard im Browser:**
-   ```bat
-   dashboard.bat
-   ```
-   *(Startet Flask unter `http://127.0.0.1:5000`.)*
-4. **Headless / 24/7 Autopilot per Konsole:**
-   ```bat
-   run.bat --daemon
-   ```
+> **100 % Portabel:** Alle Daten (`config/`, `data/`, `downloads/`, `output/`, `models/`, `logs/`, `data/webview2/`) werden direkt neben `clip-farming.exe` gespeichert. Es wird nichts installiert und nichts in `%APPDATA%` oder `%LOCALAPPDATA%` abgelegt.  
+> **Systemvoraussetzung:** Windows 10/11 (x64) mit Microsoft Edge WebView2 Runtime (auf Windows 11 vorinstalliert).
 
 ---
 
-## ⚙️ Konfiguration (`config/config.yaml`)
+## 🛠️ Aus dem Quellcode bauen (Entwicklung)
 
-Zentrale Einstellungen liegen in `config/config.yaml` (oder lassen sich direkt im Studio unter **Einstellungen** und **Streamer** anpassen):
+**Voraussetzungen:** Rust (Edition 2024 / `1.90+`), Node.js (nur falls `ui/tailwind.css` neu generiert wird).
 
-```yaml
-streamers:
-  - name: "eliasn97"
-    platform: "twitch"
-    enabled: true
-    min_clip_views: 50        # Mindestanzahl an Views
-    max_clips_per_run: 3      # Maximale Clips pro Durchlauf
-    layout: "auto"            # "auto", "custom", "single_916", "split_cam_top", "blur_stack"
-
-twitch:
-  client_id: ""
-  client_secret: ""
-  time_filter: "LAST_DAY"
-  hours_back: 12
-
-autopilot:
-  enabled: true
-  interval_minutes: 30
-  time_filter: "LAST_DAY"
-  fallback_to_week: false
-  auto_render: false
-
-video:
-  hardware_encoder: "nvenc"   # "auto", "nvenc", "amf", "qsv", "mf", "cpu"
-  use_nvenc: true
-  whisper_model: "large-v3"   # z. B. "small", "medium", "large-v3"
-  device: "cuda"
-  audio_normalize: true       # Dynamische Kompression + EBU R128 Loudness
-  subtitles:
-    enabled: true
-    font_name: "Arial Black"
-    font_size: 24
-    max_words_per_segment: 3
-
-ai_copywriter:
-  provider: "gemini"          # "gemini", "openai" oder lokaler Fallback
-  model: "gemini-2.5-flash"
-  api_key: ""
-  language: "de"
-
-publishing:
-  drip_feed_hours: 3
-  youtube:
-    enabled: true
-    privacy_status: "private"
-    client_secrets_file: "config/youtube_secrets.json"
-  tiktok:
-    enabled: true
-    upload_mode: "public"
-    session_id: ""
-
-storage:
-  auto_cleanup_raw: true
-  database_path: "data/pipeline.db"
+```powershell
+# Release-Binary bauen
+cargo build --release --manifest-path src-tauri/Cargo.toml
 ```
 
-### YouTube & TikTok einrichten
-* **YouTube Shorts:** Google Cloud OAuth2 `client_secrets.json` unter `config/youtube_secrets.json` ablegen und im Tab **Konten** verbinden. Das Refresh-Token wird dauerhaft in `data/youtube_token.json` gespeichert.
-* **TikTok:** Im Tab **Konten** anmelden bzw. Session in `data/tiktok_session.json` hinterlegen.
+Das fertige Binary liegt anschließend unter `src-tauri/target/release/clip-farming.exe`. Für den portablen Betrieb müssen `ffmpeg.exe`, `ffprobe.exe` und `whisper-cli.exe` (inkl. DLLs) im Unterordner `binaries/` neben der `.exe` liegen.
 
 ---
 
-## 🛠️ CLI-Befehle (`main.py`)
-
-```bash
-python main.py                        # Einzelnen Harvesting- & Render-Durchlauf starten
-python main.py --daemon               # 24/7 Autopilot im Hintergrund starten
-python main.py --daemon --interval 30 # Prüf-Intervall auf 30 Minuten setzen
-python main.py --status               # Pipeline-Statistiken nach Status & Streamer anzeigen
-python main.py --harvest-only         # Nur neue Clips laden, ohne zu rendern
-python main.py --reset-failed         # Fehlgeschlagene Clips wieder auf 'harvested' setzen
-```
-
----
-
-## 🏗️ Architektur & Ordnerstruktur
+## 🏗️ Projektstruktur
 
 ```text
 Clip-Farming/
-├── src-tauri/                  # Native Tauri v2 Desktop-App (Rust)
+├── src-tauri/                  # Tauri v2 Desktop-App & komplette Pipeline in Rust
 │   ├── src/
-│   │   ├── main.rs             # Einstiegspunkt & Cache-/Backend-Bootstrap
-│   │   ├── lib.rs              # Tauri Builder & Command-Handler
-│   │   ├── commands.rs         # Desktop-Kommandos (DB, GPU, Ordner, Proxy)
-│   │   ├── setup.rs            # Setup-Wizard & Python-Studio-Launcher
-│   │   ├── db.rs / models.rs   # SQLite Dashboard-Queries
-│   │   ├── gpu.rs / twitch.rs  # Hardware- & Twitch-Helfer
+│   │   ├── main.rs / lib.rs    # Einstiegspunkt, WebView2-Portable-Pfad & Tauri-Setup
+│   │   ├── commands.rs         # In-Process API-Dispatcher & Tauri-Commands
+│   │   ├── config.rs           # Portabler Pfad-Manager & config/config.yaml
+│   │   ├── db.rs / models.rs   # SQLite-Datenbank & Dashboard-Datenmodelle
+│   │   ├── twitch.rs           # Twitch GraphQL Clip-Suche & Downloader
+│   │   ├── pipeline.rs         # Autopilot & Verarbeitungs-Pipeline
+│   │   ├── layout.rs           # 9:16 FFmpeg-Compositor, Filter & Thumbnails
+│   │   ├── whisper.rs          # Lokale whisper-cli Integration & Modell-Download
+│   │   ├── subtitles.rs        # ASS-Untertitel-Generator
+│   │   ├── sticker.rs          # Header-/Sprechblasen-Overlay
+│   │   ├── gpu.rs              # GPU-Erkennung & Encoder-Auswahl
+│   │   ├── state.rs            # Live-Status & Render-Abbruch
+│   │   └── updater.rs          # GitHub Release Update-Check
+│   ├── binaries/               # Sidecars (ffmpeg, ffprobe, whisper-cli + DLLs)
 │   ├── tauri.conf.json
 │   └── Cargo.toml
-├── ui/                         # Frontend SPA (HTML/Tailwind + Vanilla JS)
-│   ├── index.html              # Desktop-Setup & Studio-Einstieg
-│   ├── setup.html
-│   └── app.js                  # Reaktive Dashboard-, Studio-, Crop- & Such-Logik
-├── src/                        # Python Pipeline & Flask Web-Studio
-│   ├── web_studio.py           # REST API, Video-Streaming (HTTP Range) & UI-Server
-│   ├── config.py               # Portabler Pfad- & YAML-Config-Manager
-│   ├── database.py             # SQLite Deduplizierung & Clip-Lifecycle
-│   ├── scheduler.py            # Autopilot & Publishing-Zeitplaner
-│   ├── state.py                # Status- & Fortschritts-Manager + Crash-Recovery
-│   ├── updater.py              # GitHub Release Auto-Update-Prüfung
-│   ├── harvesters/             # Twitch Clip Downloader (yt-dlp / GraphQL / Helix)
-│   ├── video/
-│   │   ├── layout.py           # 9:16 Compositor & FFmpeg-Pipeline (+faststart)
-│   │   ├── subtitles.py        # Karaoke ASS-Untertitel & Text-Alignment
-│   │   ├── transcriber.py      # faster-whisper Transkription
-│   │   ├── filters.py          # 3D-Mesh-Deformation Facecam-Filter
-│   │   ├── sticker.py          # Sprechblasen-Hook Overlay
-│   │   └── gpu.py              # GPU-Erkennung & Encoder-Auswahl
-│   ├── meta/                   # KI-Titel-, Beschreibungs- & Tag-Generator
-│   └── uploaders/              # YouTube Shorts & TikTok Uploader
-├── scripts/                    # Installer- & Build-Skripte (Inno Setup + Py-Runtime)
-├── config/                     # config.yaml & OAuth Secrets
-├── data/                       # pipeline.db, Thumbnails & Account-Sessions
-├── downloads/raw/              # Temporäre Rohclips & Transkripte
-├── output/
-│   ├── shorts/                 # Render-fertige 9:16 MP4-Dateien
-│   └── metadata/               # Clip-Metadaten (Crop, Filter, Titel, Hook)
-├── main.py                     # CLI-Einstiegspunkt
-├── requirements.txt            # Python-Abhängigkeiten
-└── setup.bat / run.bat / dashboard.bat / start-desktop.bat
+├── ui/                         # Eingebettete Frontend-SPA (HTML, Tailwind CSS, JS)
+│   ├── index.html
+│   ├── app.js
+│   └── tailwind.css
+└── .github/workflows/          # CI & Release-Workflows
 ```
-
----
-
-## 📦 Desktop-Binary & Installer selbst bauen
-
-```bash
-# 1. Tauri Release-Binary bauen
-cargo build --release --manifest-path src-tauri/Cargo.toml
-copy src-tauri\target\release\clip-farming.exe clip-farming.exe
-
-# 2. Autarken Windows-Installer (Inno Setup) erzeugen
-.\.venv\Scripts\python.exe scripts\build_installer.py
-```
-
-Der fertige Installer landet anschließend unter `dist/Clip-Farming-Installer.exe`.
-
----
-
-## ⚙️ Konfiguration & Secrets
-
-* Beim ersten Start wird `config/config.example.yaml` automatisch nach `config/config.yaml` kopiert (`config/config.yaml`, `data/` und Token-Dateien sind über `.gitignore` ausgeschlossen).
-* Secrets können alternativ über Umgebungsvariablen überschrieben werden: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `GEMINI_API_KEY`.
-
----
-
-## ⚖️ Rechtliches & Hinweise
-
-* **Urheberrecht & Plattformregeln:** Twitch-Clips gehören den jeweiligen Streamern/Rechteinhabern. Die App dient ausschließlich zum Herunterladen und Bearbeiten von Clips (kein automatischer Upload zu YouTube oder TikTok).
-* **Twitch-Schnittstellen:** Die offizielle **Twitch Helix API** mit eigenen Client-Credentials ist der empfohlene Weg. Der öffentliche GQL-Fallback (`TWITCH_GQL_CLIENT_ID`) ist eine inoffizielle Schnittstelle **ohne Garantie** und kann sich jederzeit ändern.
-
