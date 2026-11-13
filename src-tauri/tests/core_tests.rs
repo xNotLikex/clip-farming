@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
-use clip_farming_lib::{config, db, gpu, layout, state, sticker, subtitles, twitch, whisper};
+use clip_farming_lib::{commands, config, db, gpu, layout, state, sticker, subtitles, twitch, whisper};
 
 fn env_lock() -> &'static Mutex<()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -221,4 +221,56 @@ fn test_whisper_json_parsing_with_subword_merge() {
     assert!((segs[0].words[0].start - 0.15).abs() < 0.001);
     assert!((segs[0].words[0].end - 0.65).abs() < 0.001);
     assert_eq!(segs[0].words[1].word, "Clutch!");
+}
+
+#[test]
+fn test_delete_older_queue_clips_isolated() {
+    let _guard = env_lock().lock().unwrap();
+    let tmp = std::env::temp_dir().join(format!("cf_del_older_test_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(&tmp).unwrap();
+    unsafe {
+        std::env::set_var("CLIP_FARMING_DATA_DIR", &tmp);
+    }
+
+    let conn = db::open_connection().unwrap();
+    conn.execute(
+        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, status) VALUES ('c_old', 'trymacs', 'Old Clip', 150, 25.0, '2020-01-01T12:00:00Z', 'harvested')",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, status) VALUES ('c_new', 'trymacs', 'New Clip', 200, 25.0, '2099-01-01T12:00:00Z', 'harvested')",
+        [],
+    ).unwrap();
+
+    let raw_dir = config::get_raw_clips_dir();
+    fs::create_dir_all(&raw_dir).unwrap();
+    let old_raw = raw_dir.join("c_old.mp4");
+    let new_raw = raw_dir.join("c_new.mp4");
+    fs::write(&old_raw, b"dummy old").unwrap();
+    fs::write(&new_raw, b"dummy new").unwrap();
+
+    let ids: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT clip_id FROM clips WHERE status = 'harvested' AND date(COALESCE(clip_created_at, harvested_at), 'localtime') < date('now', 'localtime')")
+            .unwrap();
+        let rows = stmt.query_map([], |row| row.get(0)).unwrap();
+        rows.filter_map(Result::ok).collect()
+    };
+    assert_eq!(ids, vec!["c_old".to_string()]);
+
+    for cid in ids {
+        commands::delete_queue_clip(cid).unwrap();
+    }
+
+    assert!(!old_raw.exists());
+    assert!(new_raw.exists());
+
+    let remaining: i64 = conn.query_row("SELECT COUNT(*) FROM clips", [], |r| r.get(0)).unwrap();
+    assert_eq!(remaining, 1);
+
+    unsafe {
+        std::env::remove_var("CLIP_FARMING_DATA_DIR");
+    }
+    let _ = fs::remove_dir_all(&tmp);
 }

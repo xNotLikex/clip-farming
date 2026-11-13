@@ -810,11 +810,13 @@ pub async fn api_proxy(
     }
 
     // 9. Updater
-    if clean_path == "/api/system/check-update" {
+    if clean_path == "/api/check-update" || clean_path == "/api/system/check-update" {
         let res = check_for_update().await?;
         return Ok(res.to_string());
     }
-    if clean_path == "/api/system/perform-update" && req_method == "POST" {
+    if (clean_path == "/api/apply-update" || clean_path == "/api/system/perform-update")
+        && req_method == "POST"
+    {
         let url = payload
             .get("download_url")
             .and_then(|v| v.as_str())
