@@ -140,8 +140,10 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         raw_counts.insert(r.0, r.1);
     }
 
-    let harvested_count = *raw_counts.get("harvested").unwrap_or(&0);
-    let ready_count = *raw_counts.get("ready").unwrap_or(&0) + *raw_counts.get("completed").unwrap_or(&0);
+    let harvested_count = *raw_counts.get("harvested").unwrap_or(&0) + *raw_counts.get("processing").unwrap_or(&0);
+    let ready_count = *raw_counts.get("ready").unwrap_or(&0)
+        + *raw_counts.get("completed").unwrap_or(&0)
+        + *raw_counts.get("failed").unwrap_or(&0);
     let scheduled_count = *raw_counts.get("scheduled").unwrap_or(&0);
     let published_count = *raw_counts.get("published").unwrap_or(&0);
 
@@ -154,7 +156,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
 
     // 2. Queue Clips
     let mut q_stmt = conn
-        .prepare("SELECT clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
+        .prepare("SELECT clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at FROM clips WHERE status IN ('harvested', 'processing') ORDER BY view_count DESC")
         .map_err(|e| e.to_string())?;
 
     let today_local = Local::now().date_naive();
@@ -213,7 +215,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
 
     // 3. Ready Clips (Studio)
     let mut r_stmt = conn
-        .prepare("SELECT clip_id, streamer, original_title, ai_title, view_count, is_manually_published, clip_created_at, harvested_at FROM clips WHERE status IN ('ready', 'completed') ORDER BY LOWER(streamer) ASC, rowid DESC")
+        .prepare("SELECT clip_id, streamer, original_title, ai_title, view_count, is_manually_published, clip_created_at, harvested_at FROM clips WHERE status IN ('ready', 'completed', 'failed') ORDER BY LOWER(streamer) ASC, rowid DESC")
         .map_err(|e| e.to_string())?;
 
     let mut ready_clips = Vec::new();

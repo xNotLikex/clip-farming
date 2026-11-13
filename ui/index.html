@@ -339,6 +339,9 @@
         var cropFallbackImg = new Image();
 
         function openCropModal(clipId, streamer, title) {
+            if (window.__realOpenCropModal) {
+                return window.__realOpenCropModal(clipId, streamer, title);
+            }
             if (!clipId) return;
             currentCropClipId = clipId;
             currentCropStreamer = streamer || '';
@@ -421,6 +424,9 @@
         }
 
         function closeCropModal() {
+            if (window.__realCloseCropModal) {
+                return window.__realCloseCropModal();
+            }
             var vid = document.getElementById('crop-stage-video');
             if (vid) {
                 vid.pause();
@@ -1191,6 +1197,9 @@
         var currentPreviewTitle = '';
 
         function openRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull) {
+            if (window.__realOpenRawPreview) {
+                return window.__realOpenRawPreview(clipId, streamer, title, views, duration, createdAgo, createdFull);
+            }
             if (!clipId) return;
             currentPreviewClipId = clipId;
             currentPreviewStreamer = streamer || '';
@@ -1237,6 +1246,9 @@
             }
         }
         function closePreviewModal() {
+            if (window.__realClosePreviewModal) {
+                return window.__realClosePreviewModal();
+            }
             var player = document.getElementById('modal-video-player');
             if (player) {
                 player.pause();

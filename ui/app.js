@@ -461,10 +461,17 @@ function renderQueue(clips, olderCount) {
 
 async function processOneClip(clipId) {
     try {
+        const renderCard = document.getElementById('render-progress-card');
+        if (renderCard) renderCard.classList.remove('hidden');
+        showToast('Clip wird ins Studio übernommen & gerendert...', 'info');
         await apiFetch('/process-one/' + clipId, { method: 'POST' });
+        if (typeof switchTab === 'function') {
+            switchTab('studio');
+        }
         updateStatus();
     } catch (e) {
         console.error(e);
+        showToast('Fehler beim Übernehmen: ' + e, 'error');
     }
 }
 
@@ -3677,11 +3684,14 @@ async function importTwitchClipToStudio(index, mode, btn) {
             refreshDashboard();
         } else {
             clip.db_status = 'ready';
-            showToast(`✓ "${clip.title}" als Originalclip ins Studio importiert!`, 'success');
+            showToast(`✓ "${clip.title}" ins Studio importiert & Rendering gestartet!`, 'success');
             if (badgeEl) badgeEl.innerHTML = getDbStatusBadgeHtml('ready');
             if (btn) {
                 btn.innerHTML = '✓ Im Studio';
                 btn.disabled = false;
+            }
+            if (typeof switchTab === 'function') {
+                switchTab('studio');
             }
             refreshDashboard(true);
         }
@@ -3821,9 +3831,13 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.showToast = showToast;
         window.processAll = processAll;
         window.openCropModal = openCropModal;
+        window.__realOpenCropModal = openCropModal;
         window.closeCropModal = closeCropModal;
+        window.__realCloseCropModal = closeCropModal;
         window.openRawPreview = openRawPreview;
+        window.__realOpenRawPreview = openRawPreview;
         window.closePreviewModal = closePreviewModal;
+        window.__realClosePreviewModal = closePreviewModal;
         window.deleteSingleQueueClip = deleteSingleQueueClip;
         window.deleteOlderQueue = deleteOlderQueue;
         window.processOneClip = processOneClip;

@@ -280,6 +280,17 @@ fn test_save_clip_crop_subtitles_and_transcript_persistence() {
     ).unwrap();
     drop(conn);
 
+    let initial_meta = serde_json::json!({
+        "layout_mode": "split",
+        "custom_crops": {
+            "mode": "split",
+            "cam": { "x": 100, "y": 100, "w": 300, "h": 200 }
+        }
+    });
+    fs::create_dir_all(config::get_metadata_dir()).unwrap();
+    let meta_path = config::get_metadata_dir().join("c_sub_test.json");
+    fs::write(&meta_path, serde_json::to_string(&initial_meta).unwrap()).unwrap();
+
     let payload = serde_json::json!({
         "title": "Neuer Titel",
         "sub_position": "none",
@@ -289,7 +300,6 @@ fn test_save_clip_crop_subtitles_and_transcript_persistence() {
 
     assert!(commands::save_clip_crop("c_sub_test".to_string(), payload).unwrap());
 
-    let meta_path = config::get_metadata_dir().join("c_sub_test.json");
     assert!(meta_path.exists());
     let meta_str = fs::read_to_string(&meta_path).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&meta_str).unwrap();
@@ -299,6 +309,9 @@ fn test_save_clip_crop_subtitles_and_transcript_persistence() {
     assert_eq!(meta["subtitles_enabled"], false);
     assert_eq!(meta["transcript"], "Mein eigener bearbeiteter Untertitel Text!");
     assert_eq!(meta["edited_transcript"], "Mein eigener bearbeiteter Untertitel Text!");
+    assert_eq!(meta["layout_mode"], "split");
+    assert_eq!(meta["custom_crops"]["mode"], "split");
+    assert_eq!(meta["custom_crops"]["cam"]["x"], 100);
 
     // Verify dashboard reads this correctly
     let dash = db::fetch_dashboard_data().unwrap();

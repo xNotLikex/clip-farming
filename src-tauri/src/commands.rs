@@ -91,21 +91,19 @@ pub fn save_clip_crop(clip_id: String, payload: Value) -> Result<bool, String> {
     };
 
     if let Some(obj) = meta.as_object_mut() {
-        let crops = if payload.get("custom_crops").is_some() {
-            payload.get("custom_crops").cloned().unwrap_or(payload.clone())
-        } else {
-            payload.clone()
-        };
+        if let Some(crops_val) = payload.get("custom_crops") {
+            if crops_val.is_object() && !crops_val.as_object().unwrap().is_empty() {
+                obj.insert("custom_crops".to_string(), crops_val.clone());
+            }
+        } else if payload.get("cam").is_some() || payload.get("game").is_some() || payload.get("single").is_some() {
+            obj.insert("custom_crops".to_string(), payload.clone());
+        }
 
-        obj.insert("custom_crops".to_string(), crops.clone());
-
-        let mode = payload
-            .get("layout_mode")
-            .and_then(|m| m.as_str())
-            .or_else(|| crops.get("mode").and_then(|m| m.as_str()))
-            .unwrap_or("custom")
-            .to_string();
-        obj.insert("layout_mode".to_string(), Value::String(mode));
+        if let Some(mode) = payload.get("layout_mode").and_then(|m| m.as_str()) {
+            obj.insert("layout_mode".to_string(), Value::String(mode.to_string()));
+        } else if let Some(mode) = payload.get("custom_crops").and_then(|c| c.get("mode")).and_then(|m| m.as_str()) {
+            obj.insert("layout_mode".to_string(), Value::String(mode.to_string()));
+        }
 
         if let Some(st) = payload.get("sticker_text").and_then(|s| s.as_str()) {
             obj.insert("sticker_text".to_string(), Value::String(st.to_string()));
@@ -789,6 +787,11 @@ pub async fn api_proxy(
 
         if mode != "queue" {
             update_clip_status(&clip_id, "ready")?;
+            let cid_clone = clip_id.clone();
+            let app_clone = app.clone();
+            tokio::spawn(async move {
+                let _ = process_single_clip(&cid_clone, Some(app_clone)).await;
+            });
         }
         return Ok(json!({ "success": true, "ok": true, "clip_id": clip_id }).to_string());
     }
