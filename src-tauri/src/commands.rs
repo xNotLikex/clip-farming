@@ -190,6 +190,89 @@ fn url_decode_simple(s: &str) -> String {
     String::from_utf8_lossy(&bytes).to_string()
 }
 
+fn get_user_downloads_dir() -> PathBuf {
+    if let Ok(profile) = std::env::var("USERPROFILE") {
+        let p = PathBuf::from(profile).join("Downloads");
+        if p.exists() {
+            return p;
+        }
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let p = PathBuf::from(home).join("Downloads");
+        if p.exists() {
+            return p;
+        }
+    }
+    std::env::temp_dir()
+}
+
+async fn handle_clip_export(cid: &str, is_raw: bool, is_quick: bool) -> Result<String, String> {
+    let (src, default_name) = if is_raw {
+        let raw = get_raw_clips_dir().join(format!("{cid}.mp4"));
+        (raw, format!("{cid}.mp4"))
+    } else {
+        let short = get_shorts_dir().join(format!("short_{cid}.mp4"));
+        let final_src = if short.exists() {
+            short
+        } else if let Ok(Some(clip)) = get_clip_by_id(cid) {
+            if let Some(ref sp) = clip.short_path {
+                if !sp.is_empty() && PathBuf::from(sp).exists() {
+                    PathBuf::from(sp)
+                } else {
+                    get_raw_clips_dir().join(format!("{cid}.mp4"))
+                }
+            } else {
+                get_raw_clips_dir().join(format!("{cid}.mp4"))
+            }
+        } else {
+            get_raw_clips_dir().join(format!("{cid}.mp4"))
+        };
+        (final_src, format!("short_{cid}.mp4"))
+    };
+
+    if !src.exists() {
+        return Ok(json!({
+            "success": false,
+            "error": if is_raw { "Rohvideo nicht auf Festplatte gefunden." } else { "Short-Datei wurde noch nicht fertig gerendert." }
+        }).to_string());
+    }
+
+    if is_quick {
+        let target_dir = get_user_downloads_dir();
+        let dst = target_dir.join(&default_name);
+        std::fs::copy(&src, &dst).map_err(|e| format!("Konnte Datei nicht nach Downloads kopieren: {e}"))?;
+        return Ok(json!({
+            "success": true,
+            "ok": true,
+            "filename": default_name,
+            "path": dst.to_string_lossy()
+        }).to_string());
+    }
+
+    let default_name_clone = default_name.clone();
+    let save_path = tokio::task::spawn_blocking(move || {
+        rfd::FileDialog::new()
+            .set_file_name(&default_name_clone)
+            .add_filter("MP4 Video", &["mp4"])
+            .save_file()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let Some(dst) = save_path else {
+        return Ok(json!({ "success": false, "cancelled": true, "ok": false }).to_string());
+    };
+
+    std::fs::copy(&src, &dst).map_err(|e| format!("Export-Fehler: {e}"))?;
+    let saved_name = dst.file_name().and_then(|f| f.to_str()).unwrap_or(&default_name).to_string();
+    Ok(json!({
+        "success": true,
+        "ok": true,
+        "filename": saved_name,
+        "path": dst.to_string_lossy()
+    }).to_string())
+}
+
 /// 100% Rust In-Process API-Dispatcher für alle Studio-UI Endpunkte (kein Flask/Port 5000).
 #[tauri::command]
 pub async fn api_proxy(
@@ -246,6 +329,22 @@ pub async fn api_proxy(
         return Ok(json!({ "success": true, "ok": true, "started": true }).to_string());
     }
     if let Some(rest) = clean_path.strip_prefix("/api/clip/") {
+        if let Some(cid) = rest.strip_suffix("/export-dialog") {
+            let res = handle_clip_export(&url_decode_simple(cid), false, false).await?;
+            return Ok(res);
+        }
+        if let Some(cid) = rest.strip_suffix("/export-to-downloads") {
+            let res = handle_clip_export(&url_decode_simple(cid), false, true).await?;
+            return Ok(res);
+        }
+        if let Some(cid) = rest.strip_suffix("/export-raw-dialog") {
+            let res = handle_clip_export(&url_decode_simple(cid), true, false).await?;
+            return Ok(res);
+        }
+        if let Some(cid) = rest.strip_suffix("/export-raw-to-downloads") {
+            let res = handle_clip_export(&url_decode_simple(cid), true, true).await?;
+            return Ok(res);
+        }
         if let Some(cid) = rest.strip_suffix("/cancel") {
             let ok = cancel_active_render(&url_decode_simple(cid));
             return Ok(json!({ "success": ok, "ok": ok }).to_string());
@@ -642,37 +741,8 @@ pub async fn api_proxy(
     }
 
     if let Some(cid) = clean_path.strip_prefix("/api/export/") {
-        let cid = url_decode_simple(cid);
-        let clip = get_clip_by_id(&cid)?
-            .ok_or_else(|| format!("Clip nicht gefunden: {cid}"))?;
-        let src = if let Some(ref sp) = clip.short_path {
-            if !sp.is_empty() {
-                PathBuf::from(sp)
-            } else {
-                get_shorts_dir().join(format!("short_{cid}.mp4"))
-            }
-        } else {
-            get_shorts_dir().join(format!("short_{cid}.mp4"))
-        };
-        if !src.exists() {
-            return Err("Short-Datei wurde noch nicht gerendert.".to_string());
-        }
-
-        let default_name = format!("short_{cid}.mp4");
-        let save_path = tokio::task::spawn_blocking(move || {
-            rfd::FileDialog::new()
-                .set_file_name(&default_name)
-                .add_filter("MP4 Video", &["mp4"])
-                .save_file()
-        })
-        .await
-        .map_err(|e| e.to_string())?;
-
-        let Some(dst) = save_path else {
-            return Ok(json!({ "ok": false, "cancelled": true }).to_string());
-        };
-        std::fs::copy(&src, &dst).map_err(|e| format!("Export-Fehler: {e}"))?;
-        return Ok(json!({ "success": true, "ok": true, "path": dst.to_string_lossy() }).to_string());
+        let res = handle_clip_export(&url_decode_simple(cid), false, false).await?;
+        return Ok(res);
     }
 
     // 8. Twitch Clip-Explorer (Manuelle Suche & Direkt-Import)

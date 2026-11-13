@@ -377,3 +377,32 @@ fn test_delete_older_queue_clips_isolated() {
     }
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn test_export_endpoints_and_shorts_dir() {
+    let _guard = env_lock().lock().unwrap();
+    let tmp = std::env::temp_dir().join(format!("cf_export_test_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(&tmp).unwrap();
+    unsafe {
+        std::env::set_var("CLIP_FARMING_DATA_DIR", &tmp);
+    }
+
+    let shorts_dir = config::get_shorts_dir();
+    fs::create_dir_all(&shorts_dir).unwrap();
+    let sample_short = shorts_dir.join("short_c_exp.mp4");
+    fs::write(&sample_short, b"sample short video content").unwrap();
+
+    let raw_dir = config::get_raw_clips_dir();
+    fs::create_dir_all(&raw_dir).unwrap();
+    let sample_raw = raw_dir.join("c_exp.mp4");
+    fs::write(&sample_raw, b"sample raw video content").unwrap();
+
+    assert!(sample_short.exists());
+    assert!(sample_raw.exists());
+
+    unsafe {
+        std::env::remove_var("CLIP_FARMING_DATA_DIR");
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}

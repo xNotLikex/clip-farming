@@ -3854,6 +3854,10 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.switchCropMode = switchCropMode;
         window.toggleCamEnabled = toggleCamEnabled;
         window.toggleLogs = toggleLogs;
+        window.downloadShortVideo = downloadShortVideo;
+        window.__realDownloadShortVideo = downloadShortVideo;
+        window.downloadRawVideo = downloadRawVideo;
+        window.__realDownloadRawVideo = downloadRawVideo;
         window.saveCropCoordinates = saveCropCoordinates;
         window.__realSaveCropCoordinates = saveCropCoordinates;
         window.detectFacecamInCropModal = detectFacecamInCropModal;

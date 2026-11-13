@@ -1008,7 +1008,10 @@
         }
         window.showToast = showToast;
 
-        async function downloadShortVideo(clipId, btn, evt) {
+        function downloadShortVideo(clipId, btn, evt) {
+            if (window.__realDownloadShortVideo) {
+                return window.__realDownloadShortVideo(clipId, btn, evt);
+            }
             if (!clipId) return;
             var isQuick = evt && evt.shiftKey;
             var origContent = btn ? btn.innerHTML : '';
@@ -1049,7 +1052,10 @@
             }
         }
 
-        async function downloadRawVideo(clipId, btn, evt) {
+        function downloadRawVideo(clipId, btn, evt) {
+            if (window.__realDownloadRawVideo) {
+                return window.__realDownloadRawVideo(clipId, btn, evt);
+            }
             if (!clipId) return;
             var isQuick = evt && evt.shiftKey;
             var origContent = btn ? btn.innerHTML : '';
