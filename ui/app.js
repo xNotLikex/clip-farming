@@ -618,6 +618,21 @@ function buildStudioCardHtml(clip, cardSig) {
                         <input type="text" name="title" value="${escapeHtml(clip.title || '')}" class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
                     </div>
 
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-medium text-slate-300">
+                                Untertitel (Text & Position)
+                            </label>
+                            <select name="sub_position" class="bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-300 px-1.5 py-0.5 focus:outline-none focus:border-amber-500" title="Untertitel-Position oder ausschalten">
+                                <option value="bottom" ${clip.sub_position === 'bottom' ? 'selected' : ''}>Unten</option>
+                                <option value="middle" ${clip.sub_position === 'middle' ? 'selected' : ''}>Mitte</option>
+                                <option value="top" ${clip.sub_position === 'top' ? 'selected' : ''}>Oben</option>
+                                <option value="none" ${clip.sub_position === 'none' ? 'selected' : ''}>Keine Untertitel</option>
+                            </select>
+                        </div>
+                        <textarea name="transcript" rows="2" placeholder="Untertiteltext bearbeiten..." class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">${escapeHtml(clip.transcript || '')}</textarea>
+                    </div>
+
                     <button type="button" onclick="openCropModal('${clip.clip_id}', '${escapeJs(clip.streamer)}', '${escapeJs(clip.title || '')}')" class="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded text-xs font-semibold transition flex items-center justify-center gap-2">
                         ${SVG_ICONS.crop} Clip Editor
                     </button>
@@ -2114,6 +2129,8 @@ async function downloadRawVideo(clipId, btn, evt) {
 
             const cachedClip = (cachedStudioClips || []).find(c => c.clip_id === clipId);
             const cardTitleEl = document.querySelector(`#form-${clipId} input[name="title"]`);
+            const cardTranscriptEl = document.querySelector(`#form-${clipId} textarea[name="transcript"]`);
+            const cardSubPosSelect = document.querySelector(`#form-${clipId} select[name="sub_position"]`);
             const modalTitleInput = document.getElementById('crop-title-input');
             const modalStickerInput = document.getElementById('crop-sticker-text-input');
             const modalSubPosSelect = document.getElementById('crop-sub-position-select');
@@ -2123,10 +2140,10 @@ async function downloadRawVideo(clipId, btn, evt) {
 
             if (modalTitleInput) modalTitleInput.value = (cardTitleEl ? cardTitleEl.value : '') || (cachedClip ? cachedClip.title : '') || title || '';
             if (modalStickerInput) modalStickerInput.value = (cachedClip && cachedClip.sticker_text) ? cachedClip.sticker_text : '';
-            if (modalSubPosSelect) modalSubPosSelect.value = (cachedClip && cachedClip.sub_position) ? cachedClip.sub_position : 'bottom';
+            if (modalSubPosSelect) modalSubPosSelect.value = (cardSubPosSelect ? cardSubPosSelect.value : '') || (cachedClip && cachedClip.sub_position) ? cachedClip.sub_position : 'bottom';
             if (modalLayoutSelect) modalLayoutSelect.value = (cachedClip && cachedClip.layout_mode) ? cachedClip.layout_mode : 'auto';
             if (modalFilterSelect) modalFilterSelect.value = (cachedClip && cachedClip.cam_filter) ? cachedClip.cam_filter : 'none';
-            if (modalTranscriptEl) modalTranscriptEl.value = (cachedClip && cachedClip.transcript) ? cachedClip.transcript : '';
+            if (modalTranscriptEl) modalTranscriptEl.value = (cardTranscriptEl ? cardTranscriptEl.value : '') || (cachedClip && cachedClip.transcript) ? cachedClip.transcript : '';
 
             const modal = document.getElementById('crop-modal');
             if (modal) {
@@ -2236,8 +2253,12 @@ async function downloadRawVideo(clipId, btn, evt) {
                     if (modalStickerInput && meta.sticker_text !== undefined) {
                         modalStickerInput.value = meta.sticker_text || '';
                     }
-                    if (modalSubPosSelect && meta.sub_position) {
-                        modalSubPosSelect.value = meta.sub_position;
+                    if (modalSubPosSelect) {
+                        if (meta.subtitles_enabled === false) {
+                            modalSubPosSelect.value = 'none';
+                        } else if (meta.sub_position) {
+                            modalSubPosSelect.value = meta.sub_position;
+                        }
                     }
                     if (modalLayoutSelect && meta.layout_mode) {
                         modalLayoutSelect.value = meta.layout_mode;
@@ -2245,8 +2266,9 @@ async function downloadRawVideo(clipId, btn, evt) {
                     if (meta.cam_filter && modalFilterSelect) {
                         modalFilterSelect.value = meta.cam_filter;
                     }
-                    if (modalTranscriptEl && typeof meta.transcript === 'string') {
-                        modalTranscriptEl.value = meta.transcript;
+                    const loadedTr = meta.edited_transcript || meta.transcript;
+                    if (modalTranscriptEl && typeof loadedTr === 'string' && loadedTr.trim()) {
+                        modalTranscriptEl.value = loadedTr;
                     }
                 }
             } catch (e) {
@@ -3361,9 +3383,18 @@ async function downloadRawVideo(clipId, btn, evt) {
             }
             if (modalSubPosSelect) {
                 payload.sub_position = modalSubPosSelect.value;
+                if (modalSubPosSelect.value === 'none') {
+                    payload.subtitles_enabled = false;
+                } else {
+                    payload.subtitles_enabled = true;
+                }
+                const cardSubPosEl = document.querySelector(`#form-${currentCropClipId} select[name="sub_position"]`);
+                if (cardSubPosEl) cardSubPosEl.value = modalSubPosSelect.value;
             }
             if (typeof editedTranscript === 'string') {
                 payload.transcript = editedTranscript;
+                const cardTxEl = document.querySelector(`#form-${currentCropClipId} textarea[name="transcript"]`);
+                if (cardTxEl) cardTxEl.value = editedTranscript;
             }
             if (modalFilterSelect) {
                 payload.cam_filter = modalFilterSelect.value;
@@ -3810,6 +3841,7 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.toggleCamEnabled = toggleCamEnabled;
         window.toggleLogs = toggleLogs;
         window.saveCropCoordinates = saveCropCoordinates;
+        window.__realSaveCropCoordinates = saveCropCoordinates;
         window.detectFacecamInCropModal = detectFacecamInCropModal;
         window.refreshDashboard = refreshDashboard;
         window.updateStatus = updateStatus;

@@ -113,6 +113,17 @@ pub fn save_clip_crop(clip_id: String, payload: Value) -> Result<bool, String> {
         }
         if let Some(sp) = payload.get("sub_position").and_then(|s| s.as_str()) {
             obj.insert("sub_position".to_string(), Value::String(sp.to_string()));
+            if sp == "none" {
+                obj.insert("subtitles_enabled".to_string(), Value::Bool(false));
+            } else {
+                obj.insert("subtitles_enabled".to_string(), Value::Bool(true));
+            }
+        }
+        if let Some(se) = payload.get("subtitles_enabled").and_then(|s| s.as_bool()) {
+            obj.insert("subtitles_enabled".to_string(), Value::Bool(se));
+            if !se {
+                obj.insert("sub_position".to_string(), Value::String("none".to_string()));
+            }
         }
         if let Some(cf) = payload.get("cam_filter").and_then(|s| s.as_str()) {
             obj.insert("cam_filter".to_string(), Value::String(cf.to_string()));
@@ -128,6 +139,7 @@ pub fn save_clip_crop(clip_id: String, payload: Value) -> Result<bool, String> {
         }
         if let Some(tr) = payload.get("transcript").and_then(|s| s.as_str()) {
             obj.insert("edited_transcript".to_string(), Value::String(tr.to_string()));
+            obj.insert("transcript".to_string(), Value::String(tr.to_string()));
         }
     }
 
@@ -307,36 +319,8 @@ pub async fn api_proxy(
                 return Ok(json!({ "success": true, "ok": true }).to_string());
             }
 
-            if let Some(title_val) = payload.get("title").and_then(|v| v.as_str()) {
-                let conn = open_connection()?;
-                conn.execute(
-                    "UPDATE clips SET ai_title = ?1 WHERE clip_id = ?2",
-                    rusqlite::params![title_val, &cid],
-                )
-                .map_err(|e| e.to_string())?;
-
-                let meta_dir = get_metadata_dir();
-                std::fs::create_dir_all(&meta_dir).map_err(|e| e.to_string())?;
-                let meta_path = meta_dir.join(format!("{cid}.json"));
-                let mut meta: Value = if meta_path.exists() {
-                    std::fs::read_to_string(&meta_path)
-                        .ok()
-                        .and_then(|s| serde_json::from_str(&s).ok())
-                        .unwrap_or_else(|| json!({}))
-                } else {
-                    json!({})
-                };
-                if let Some(obj) = meta.as_object_mut() {
-                    obj.insert("title".to_string(), Value::String(title_val.to_string()));
-                }
-                if let Ok(pretty) = serde_json::to_string_pretty(&meta) {
-                    let _ = std::fs::write(&meta_path, pretty);
-                }
-            }
-
-            if let Some(crops_val) = payload.get("custom_crops") {
-                save_clip_crop(cid.clone(), crops_val.clone())?;
-            }
+            // Speichere alle Metadaten (Titel, Zuschnitte, Untertitel-Position, Transkript, etc.)
+            let _ = save_clip_crop(cid.clone(), payload.clone());
 
             match action {
                 "rerender" => {

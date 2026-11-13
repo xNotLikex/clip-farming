@@ -703,6 +703,9 @@
         }
 
         function saveCropCoordinates(renderNow) {
+            if (window.__realSaveCropCoordinates) {
+                return window.__realSaveCropCoordinates(renderNow);
+            }
             if (!currentCropClipId) return;
             var payload = {
                 layout_mode: currentCropMode === 'single_916' ? 'single_916' : 'custom',

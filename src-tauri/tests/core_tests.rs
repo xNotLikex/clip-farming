@@ -224,6 +224,96 @@ fn test_whisper_json_parsing_with_subword_merge() {
 }
 
 #[test]
+fn test_whisper_reaction_and_sound_effect_filtering() {
+    assert!(whisper::is_reaction_or_sound_effect("*lachen*"));
+    assert!(whisper::is_reaction_or_sound_effect("[Lachen]"));
+    assert!(whisper::is_reaction_or_sound_effect("(laughter)"));
+    assert!(whisper::is_reaction_or_sound_effect("[GELÄCHTER]"));
+    assert!(whisper::is_reaction_or_sound_effect("[Musik]"));
+    assert!(!whisper::is_reaction_or_sound_effect("Hallo"));
+    assert!(!whisper::is_reaction_or_sound_effect("Twitch"));
+
+    let sample_with_reactions = r#"{
+        "transcription": [
+            {
+                "offsets": { "from": 100, "to": 1200 },
+                "text": " *lachen* Das war gut! [laughter]",
+                "tokens": [
+                    { "text": " *lachen*", "offsets": { "from": 100, "to": 300 }, "p": 0.9 },
+                    { "text": " Das", "offsets": { "from": 350, "to": 550 }, "p": 0.95 },
+                    { "text": " war", "offsets": { "from": 600, "to": 800 }, "p": 0.95 },
+                    { "text": " gut!", "offsets": { "from": 850, "to": 1100 }, "p": 0.98 },
+                    { "text": " [laughter]", "offsets": { "from": 1100, "to": 1200 }, "p": 0.85 }
+                ]
+            },
+            {
+                "offsets": { "from": 1300, "to": 1600 },
+                "text": "[Lachen]",
+                "tokens": []
+            }
+        ]
+    }"#;
+
+    let segs = whisper::parse_whisper_json(sample_with_reactions).unwrap();
+    assert_eq!(segs.len(), 1);
+    assert_eq!(segs[0].text, "Das war gut!");
+    assert_eq!(segs[0].words.len(), 3);
+    assert_eq!(segs[0].words[0].word, "Das");
+    assert_eq!(segs[0].words[1].word, "war");
+    assert_eq!(segs[0].words[2].word, "gut!");
+}
+
+#[test]
+fn test_save_clip_crop_subtitles_and_transcript_persistence() {
+    let _guard = env_lock().lock().unwrap();
+    let tmp = std::env::temp_dir().join(format!("cf_crop_save_test_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(&tmp).unwrap();
+    unsafe {
+        std::env::set_var("CLIP_FARMING_DATA_DIR", &tmp);
+    }
+
+    let conn = db::open_connection().unwrap();
+    conn.execute(
+        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, status) VALUES ('c_sub_test', 'streamer_x', 'Orig Title', 500, 30.0, 'ready')",
+        [],
+    ).unwrap();
+    drop(conn);
+
+    let payload = serde_json::json!({
+        "title": "Neuer Titel",
+        "sub_position": "none",
+        "transcript": "Mein eigener bearbeiteter Untertitel Text!",
+        "sticker_text": "Top Clip"
+    });
+
+    assert!(commands::save_clip_crop("c_sub_test".to_string(), payload).unwrap());
+
+    let meta_path = config::get_metadata_dir().join("c_sub_test.json");
+    assert!(meta_path.exists());
+    let meta_str = fs::read_to_string(&meta_path).unwrap();
+    let meta: serde_json::Value = serde_json::from_str(&meta_str).unwrap();
+
+    assert_eq!(meta["title"], "Neuer Titel");
+    assert_eq!(meta["sub_position"], "none");
+    assert_eq!(meta["subtitles_enabled"], false);
+    assert_eq!(meta["transcript"], "Mein eigener bearbeiteter Untertitel Text!");
+    assert_eq!(meta["edited_transcript"], "Mein eigener bearbeiteter Untertitel Text!");
+
+    // Verify dashboard reads this correctly
+    let dash = db::fetch_dashboard_data().unwrap();
+    let ready_clip = dash.ready_clips.into_iter().find(|c| c.clip_id == "c_sub_test").unwrap();
+    assert_eq!(ready_clip.title, "Neuer Titel");
+    assert_eq!(ready_clip.sub_position, "none");
+    assert_eq!(ready_clip.transcript, "Mein eigener bearbeiteter Untertitel Text!");
+
+    unsafe {
+        std::env::remove_var("CLIP_FARMING_DATA_DIR");
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
 fn test_delete_older_queue_clips_isolated() {
     let _guard = env_lock().lock().unwrap();
     let tmp = std::env::temp_dir().join(format!("cf_del_older_test_{}", std::process::id()));

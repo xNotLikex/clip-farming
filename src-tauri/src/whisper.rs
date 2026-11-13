@@ -97,6 +97,52 @@ pub fn extract_wav_16k(video_path: &Path, wav_path: &Path) -> Result<(), String>
     Ok(())
 }
 
+/// Prüft, ob ein Wort oder Token ein nicht-verbaler Sound- oder Reaktionseffekt ist (z.B. *lachen*, [Lachen], [laughter], [Musik]).
+pub fn is_reaction_or_sound_effect(s: &str) -> bool {
+    let t = s
+        .trim()
+        .trim_matches(|c: char| c == '*' || c == '[' || c == ']' || c == '(' || c == ')' || c == '{' || c == '}' || c == '.' || c == '!' || c == '?' || c == ',' || c == '"' || c == '\'');
+    let lower = t.to_lowercase();
+    matches!(
+        lower.as_str(),
+        "lachen"
+            | "gelächter"
+            | "gelaechter"
+            | "kichern"
+            | "gekicher"
+            | "schluchzen"
+            | "weinen"
+            | "husten"
+            | "applaus"
+            | "beifall"
+            | "musik"
+            | "music"
+            | "blank_audio"
+            | "laughter"
+            | "laughing"
+            | "laughs"
+            | "giggle"
+            | "giggles"
+            | "chuckle"
+            | "chuckles"
+            | "applause"
+            | "cough"
+            | "coughing"
+            | "sigh"
+            | "sighs"
+            | "groan"
+            | "groans"
+            | "gasp"
+            | "gasps"
+            | "cheering"
+            | "screaming"
+            | "snicker"
+            | "snickering"
+            | "clearing throat"
+            | "throat clearing"
+    )
+}
+
 /// Parst die JSON-Ausgabe (`-ojf`) von whisper.cpp in Wort-Segmente.
 pub fn parse_whisper_json(json_str: &str) -> Result<Vec<TranscriptSegment>, String> {
     let root: Value = serde_json::from_str(json_str)
@@ -120,6 +166,7 @@ pub fn parse_whisper_json(json_str: &str) -> Result<Vec<TranscriptSegment>, Stri
         if seg_text.is_empty()
             || seg_text.eq_ignore_ascii_case("[BLANK_AUDIO]")
             || seg_text.eq_ignore_ascii_case("[MUSIK]")
+            || is_reaction_or_sound_effect(&seg_text)
         {
             continue;
         }
@@ -144,6 +191,7 @@ pub fn parse_whisper_json(json_str: &str) -> Result<Vec<TranscriptSegment>, Stri
                 if trimmed.is_empty()
                     || (trimmed.starts_with("[_") && trimmed.ends_with(']'))
                     || trimmed.starts_with("<|")
+                    || is_reaction_or_sound_effect(trimmed)
                 {
                     continue;
                 }
@@ -177,8 +225,16 @@ pub fn parse_whisper_json(json_str: &str) -> Result<Vec<TranscriptSegment>, Stri
             }
         }
 
+        words.retain(|w| !is_reaction_or_sound_effect(&w.word));
+
         if words.is_empty() {
-            let split_words: Vec<&str> = seg_text.split_whitespace().collect();
+            let split_words: Vec<&str> = seg_text
+                .split_whitespace()
+                .filter(|w| !is_reaction_or_sound_effect(w))
+                .collect();
+            if split_words.is_empty() {
+                continue;
+            }
             let count = split_words.len().max(1) as f64;
             let start_s = seg_from_ms / 1000.0;
             let end_s = (seg_to_ms / 1000.0).max(start_s + 0.2);
@@ -195,10 +251,20 @@ pub fn parse_whisper_json(json_str: &str) -> Result<Vec<TranscriptSegment>, Stri
             }
         }
 
+        if words.is_empty() {
+            continue;
+        }
+
+        let clean_text = words
+            .iter()
+            .map(|w| w.word.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+
         segments.push(TranscriptSegment {
             start: seg_from_ms / 1000.0,
             end: seg_to_ms / 1000.0,
-            text: seg_text,
+            text: clean_text,
             words,
         });
     }
@@ -228,7 +294,7 @@ pub async fn transcribe_video(video_path: &Path) -> Result<Vec<TranscriptSegment
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .unwrap_or("de")
+        .unwrap_or("auto")
         .to_string();
 
     let model_path = ensure_whisper_model(&model_name).await?;

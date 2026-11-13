@@ -138,7 +138,8 @@ pub async fn process_single_clip_inner(
     let sub_enabled = meta_val
         .get("subtitles_enabled")
         .and_then(|v| v.as_bool())
-        .unwrap_or(true);
+        .unwrap_or(true)
+        && sub_position != "none";
     let hook_text = meta_val
         .get("hook_text")
         .or_else(|| meta_val.get("sticker_text"))

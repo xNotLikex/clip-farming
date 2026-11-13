@@ -259,6 +259,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         let mut sub_position = "bottom".to_string();
         let mut layout_mode = "auto".to_string();
         let mut cam_filter = "none".to_string();
+        let mut transcript = String::new();
 
         let meta_file = meta_dir.join(format!("{}.json", clip_id));
         if meta_file.exists() {
@@ -269,6 +270,11 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
                     }
                     if let Some(sp) = v.get("sub_position").and_then(|s| s.as_str()) {
                         sub_position = sp.to_string();
+                    }
+                    if let Some(se) = v.get("subtitles_enabled").and_then(|s| s.as_bool()) {
+                        if !se {
+                            sub_position = "none".to_string();
+                        }
                     }
                     if let Some(lm) = v.get("layout_mode").and_then(|s| s.as_str()) {
                         layout_mode = lm.to_string();
@@ -284,12 +290,23 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
                             title = t.to_string();
                         }
                     }
+                    if let Some(tr) = v
+                        .get("edited_transcript")
+                        .and_then(|s| s.as_str())
+                        .or_else(|| v.get("transcript").and_then(|s| s.as_str()))
+                    {
+                        transcript = tr.to_string();
+                    }
                 }
             }
         }
 
-        let txt_path = raw_dir.join(format!("{}_transcript.txt", clip_id));
-        let transcript = fs::read_to_string(&txt_path).unwrap_or_default();
+        if transcript.is_empty() {
+            let txt_path = raw_dir.join(format!("{}_transcript.txt", clip_id));
+            if txt_path.exists() {
+                transcript = fs::read_to_string(&txt_path).unwrap_or_default();
+            }
+        }
         let short_file = shorts_dir.join(format!("short_{}.mp4", clip_id));
         let raw_file = raw_dir.join(format!("{}.mp4", clip_id));
         let thumb_file = base_dir.join("thumbnails").join(format!("{}.jpg", clip_id));
