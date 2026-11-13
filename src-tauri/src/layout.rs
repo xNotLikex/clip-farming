@@ -169,18 +169,39 @@ pub fn probe_video(video_path: &Path) -> VideoInfo {
 }
 
 fn resolve_rect(rect: &Value, vw: u32, vh: u32) -> (i64, i64, i64, i64) {
-    let rx = rect.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let ry = rect.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let rw = rect.get("w").and_then(|v| v.as_f64()).unwrap_or(0.3);
-    let rh = rect.get("h").and_then(|v| v.as_f64()).unwrap_or(0.3);
+    let rx = rect
+        .get("x_pct")
+        .or_else(|| rect.get("x"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let ry = rect
+        .get("y_pct")
+        .or_else(|| rect.get("y"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let rw = rect
+        .get("w_pct")
+        .or_else(|| rect.get("w"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.3);
+    let rh = rect
+        .get("h_pct")
+        .or_else(|| rect.get("h"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.3);
 
-    let x = ((rx * vw as f64) as i64).clamp(0, (vw as i64 - 2).max(0));
-    let y = ((ry * vh as f64) as i64).clamp(0, (vh as i64 - 2).max(0));
-    let mut w = even((rw * vw as f64) as i64, 2);
-    let mut h = even((rh * vh as f64) as i64, 2);
-    w = w.min(even((vw as i64 - x).max(2), 2));
-    h = h.min(even((vh as i64 - y).max(2), 2));
-    (x, y, w.max(2), h.max(2))
+    let x_norm = if rx > 1.0 { (rx / (vw as f64)).clamp(0.0, 1.0) } else { rx.clamp(0.0, 1.0) };
+    let y_norm = if ry > 1.0 { (ry / (vh as f64)).clamp(0.0, 1.0) } else { ry.clamp(0.0, 1.0) };
+    let w_norm = if rw > 1.0 { (rw / (vw as f64)).clamp(0.02, 1.0) } else { rw.clamp(0.02, 1.0) };
+    let h_norm = if rh > 1.0 { (rh / (vh as f64)).clamp(0.02, 1.0) } else { rh.clamp(0.02, 1.0) };
+
+    let x = even(((x_norm * vw as f64).round() as i64).clamp(0, (vw as i64 - 4).max(0)), 2);
+    let y = even(((y_norm * vh as f64).round() as i64).clamp(0, (vh as i64 - 4).max(0)), 2);
+    let max_w = even((vw as i64 - x).max(2), 2);
+    let max_h = even((vh as i64 - y).max(2), 2);
+    let w = even(((w_norm * vw as f64).round() as i64).clamp(2, max_w), 2);
+    let h = even(((h_norm * vh as f64).round() as i64).clamp(2, max_h), 2);
+    (x, y, w, h)
 }
 
 /// Baut den deterministischen 9:16 FFmpeg-Filtergraph auf.
@@ -213,38 +234,50 @@ pub fn build_filter_graph(
         .unwrap_or(true);
 
     let (base_graph, sticker_y) = if is_single_916 {
-        let sw = even(((vh as f64 * 9.0 / 16.0) as i64).min(vw as i64), 2);
-        let sh = even(vh as i64, 2);
-        let sx = ((vw as i64 - sw) / 2).max(0);
+        let single = custom_crops.and_then(|c| c.get("single")).filter(|v| !v.is_null());
+        let (sx, sy, sw, sh) = if let Some(s) = single {
+            resolve_rect(s, vw, vh)
+        } else {
+            let sw = even(((vh as f64 * 9.0 / 16.0) as i64).min(vw as i64), 2);
+            let sh = even(vh as i64, 2);
+            let sx = even(((vw as i64 - sw) / 2).max(0), 2);
+            (sx, 0, sw, sh)
+        };
         (
-            format!("[0:v]crop={sw}:{sh}:{sx}:0,scale=1080:1920[base]"),
+            format!("[0:v]crop={sw}:{sh}:{sx}:{sy},scale=1080:1920[base]"),
             480u32,
         )
     } else if let Some(crops) = custom_crops.filter(|_| custom_enabled) {
         let cam = crops.get("cam").filter(|v| !v.is_null());
         let game = crops.get("game").filter(|v| !v.is_null());
         let has_cam = cam
-            .and_then(|c| c.get("w"))
-            .and_then(|w| w.as_f64())
-            .map(|w| w > 0.0)
+            .map(|c| {
+                let enabled = c.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+                let w = c
+                    .get("w_pct")
+                    .or_else(|| c.get("w"))
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                enabled && w > 0.0
+            })
             .unwrap_or(false);
 
         if has_cam {
             let (cx, cy, cw, ch) = resolve_rect(cam.unwrap(), vw, vh);
             let cam_stream = format!(
-                "[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:675:force_original_aspect_ratio=increase,crop=1080:675[cam]"
+                "[0:v]crop={cw}:{ch}:{cx}:{cy},scale=1080:676:force_original_aspect_ratio=increase,crop=1080:676[cam]"
             );
             let game_filter = if let Some(g) = game {
                 let (gx, gy, gw, gh) = resolve_rect(g, vw, vh);
                 format!(
-                    "[0:v]crop={gw}:{gh}:{gx}:{gy},scale=1080:1245:force_original_aspect_ratio=increase,crop=1080:1245[game];"
+                    "[0:v]crop={gw}:{gh}:{gx}:{gy},scale=1080:1244:force_original_aspect_ratio=increase,crop=1080:1244[game];"
                 )
             } else {
                 let gw = even(((vw as f64) * 0.52) as i64, 2);
                 let gh = even(vh as i64, 2);
-                let gx = ((vw as i64 - gw) / 2).max(0);
+                let gx = even(((vw as i64 - gw) / 2).max(0), 2);
                 format!(
-                    "[0:v]crop={gw}:{gh}:{gx}:0,scale=1080:1245:force_original_aspect_ratio=increase,crop=1080:1245[game];"
+                    "[0:v]crop={gw}:{gh}:{gx}:0,scale=1080:1244:force_original_aspect_ratio=increase,crop=1080:1244[game];"
                 )
             };
             (
@@ -270,17 +303,17 @@ pub fn build_filter_graph(
             (fw as f64 * 2.6).max(vw as f64 * 0.18).min(vw as f64 * 0.45) as i64,
             2,
         );
-        let cam_h = even((cam_w as f64 * 675.0 / 1080.0) as i64, 2);
-        let cx = (fx + fw / 2 - cam_w / 2).clamp(0, (vw as i64 - cam_w).max(0));
-        let cy = (fy + fh / 2 - cam_h / 2).clamp(0, (vh as i64 - cam_h).max(0));
+        let cam_h = even((cam_w as f64 * 676.0 / 1080.0) as i64, 2);
+        let cx = even((fx + fw / 2 - cam_w / 2).clamp(0, (vw as i64 - cam_w).max(0)), 2);
+        let cy = even((fy + fh / 2 - cam_h / 2).clamp(0, (vh as i64 - cam_h).max(0)), 2);
         let cam_stream = format!(
-            "[0:v]crop={cam_w}:{cam_h}:{cx}:{cy},scale=1080:675:force_original_aspect_ratio=increase,crop=1080:675[cam]"
+            "[0:v]crop={cam_w}:{cam_h}:{cx}:{cy},scale=1080:676:force_original_aspect_ratio=increase,crop=1080:676[cam]"
         );
         let gw = even((vw as f64 * 0.52) as i64, 2);
         let gh = even(vh as i64, 2);
-        let gx = ((vw as i64 - gw) / 2).max(0);
+        let gx = even(((vw as i64 - gw) / 2).max(0), 2);
         let game_stream = format!(
-            "[0:v]crop={gw}:{gh}:{gx}:0,scale=1080:1245:force_original_aspect_ratio=increase,crop=1080:1245[game]"
+            "[0:v]crop={gw}:{gh}:{gx}:0,scale=1080:1244:force_original_aspect_ratio=increase,crop=1080:1244[game]"
         );
         (
             format!("{cam_stream};{game_stream};[cam][game]vstack=inputs=2[base]"),
@@ -308,9 +341,13 @@ pub fn build_filter_graph(
 
     if let Some(sub) = ass_subtitle_path.filter(|p| p.exists()) {
         let escaped = escape_ffmpeg_filter_path(sub);
-        filter_complex.push_str(&format!(";[{current_label}]subtitles='{escaped}'[v]"));
+        filter_complex.push_str(&format!(
+            ";[{current_label}]subtitles='{escaped}',scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[v]"
+        ));
     } else {
-        filter_complex.push_str(&format!(";[{current_label}]copy[v]"));
+        filter_complex.push_str(&format!(
+            ";[{current_label}]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[v]"
+        ));
     }
 
     FilterGraphResult {

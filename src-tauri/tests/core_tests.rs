@@ -131,7 +131,7 @@ fn test_build_filter_graph_layouts() {
     };
 
     let fg_single = layout::build_filter_graph(raw, &info, "single_916", None, None, None, None);
-    assert!(fg_single.filter_complex.contains("crop=606:1080:657:0,scale=1080:1920[base]"));
+    assert!(fg_single.filter_complex.contains("crop=606:1080:656:0,scale=1080:1920[base]"));
     assert_eq!(fg_single.sticker_y, 480);
 
     let crops = serde_json::json!({
