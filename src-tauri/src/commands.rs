@@ -364,14 +364,36 @@ pub async fn api_proxy(
         return Ok(json!({ "success": true, "ok": true }).to_string());
     }
     if clean_path == "/queue/delete-older" && req_method == "POST" {
-        let days = payload.get("days").and_then(|v| v.as_i64()).unwrap_or(7);
+        let days = payload.get("days").and_then(|v| v.as_i64());
         let conn = open_connection()?;
-        let deleted = conn
-            .execute(
-                "DELETE FROM clips WHERE status = 'harvested' AND datetime(created_at) < datetime('now', ?1)",
-                [format!("-{days} days")],
-            )
-            .map_err(|e| e.to_string())?;
+        let ids: Vec<String> = if let Some(d) = days {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT clip_id FROM clips WHERE status = 'harvested' AND date(COALESCE(clip_created_at, harvested_at), 'localtime') < date('now', 'localtime', ?1)",
+                )
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([format!("-{d} days")], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            rows.filter_map(Result::ok).collect()
+        } else {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT clip_id FROM clips WHERE status = 'harvested' AND date(COALESCE(clip_created_at, harvested_at), 'localtime') < date('now', 'localtime')",
+                )
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            rows.filter_map(Result::ok).collect()
+        };
+
+        let mut deleted = 0;
+        for cid in ids {
+            if delete_queue_clip(cid).is_ok() {
+                deleted += 1;
+            }
+        }
         return Ok(json!({ "success": true, "ok": true, "deleted": deleted }).to_string());
     }
 
@@ -471,7 +493,7 @@ pub async fn api_proxy(
             let conn = open_connection()?;
             let existing_id: Option<String> = conn
                 .query_row(
-                    "SELECT clip_id FROM clips WHERE LOWER(streamer) = LOWER(?1) ORDER BY created_at DESC LIMIT 1",
+                    "SELECT clip_id FROM clips WHERE LOWER(streamer) = LOWER(?1) ORDER BY COALESCE(clip_created_at, harvested_at) DESC, rowid DESC LIMIT 1",
                     [&sname],
                     |row| row.get(0),
                 )
@@ -492,7 +514,7 @@ pub async fn api_proxy(
             let _ = harvest_channel(&temp_entry, "last_week", true).await?;
             let new_id: Option<String> = conn
                 .query_row(
-                    "SELECT clip_id FROM clips WHERE LOWER(streamer) = LOWER(?1) ORDER BY created_at DESC LIMIT 1",
+                    "SELECT clip_id FROM clips WHERE LOWER(streamer) = LOWER(?1) ORDER BY COALESCE(clip_created_at, harvested_at) DESC, rowid DESC LIMIT 1",
                     [&sname],
                     |row| row.get(0),
                 )

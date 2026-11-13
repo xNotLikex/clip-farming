@@ -500,8 +500,11 @@ async function deleteSingleQueueClip(clipId) {
 async function deleteOlderQueue() {
     if (!confirm('Wirklich alle Roh-Clips von gestern und älter löschen?\n\n(Clips von heute bleiben vollständig erhalten)')) return;
     try {
-        await apiFetch('/queue/delete-older', { method: 'POST' });
-        refreshDashboard();
+        const res = await apiFetch('/queue/delete-older', { method: 'POST' });
+        await refreshDashboard();
+        if (window.showToast) {
+            window.showToast(`${res.deleted || 0} ältere Roh-Clips gelöscht.`, 'info');
+        }
     } catch (e) {
         alert('Fehler: ' + e);
     }
