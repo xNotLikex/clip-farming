@@ -58,8 +58,8 @@ pub async fn check_for_update() -> Result<Value, String> {
     let mut download_url = String::new();
     let mut asset_name = String::new();
     if let Some(assets) = data.get("assets").and_then(|a| a.as_array()) {
-        // Bevorzuge NSIS setup.exe, fallback auf .msi
-        for ext in [".exe", ".msi"] {
+        // Bevorzuge NSIS setup.exe, fallback auf .msi, fallback auf .zip (Portable)
+        for ext in [".exe", ".msi", ".zip"] {
             if let Some(found) = assets.iter().find(|a| {
                 a.get("name")
                     .and_then(|n| n.as_str())
@@ -87,13 +87,20 @@ pub async fn check_for_update() -> Result<Value, String> {
         .unwrap_or("")
         .to_string();
 
+    let html_url = data
+        .get("html_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("https://github.com/xNotLikex/clip-farming/releases/latest")
+        .to_string();
+
     Ok(json!({
         "update_available": update_available,
         "current_version": current,
         "latest_version": latest,
         "download_url": download_url,
         "asset_name": asset_name,
-        "release_notes": release_notes
+        "release_notes": release_notes,
+        "html_url": html_url
     }))
 }
 
@@ -105,8 +112,8 @@ pub async fn download_and_launch_update(download_url: &str) -> Result<Value, Str
     let filename = download_url
         .split('/')
         .next_back()
-        .filter(|s| s.ends_with(".exe") || s.ends_with(".msi"))
-        .unwrap_or("clip-farming-setup.exe");
+        .filter(|s| s.ends_with(".exe") || s.ends_with(".msi") || s.ends_with(".zip"))
+        .unwrap_or("clip-farming-update.exe");
 
     let target = std::env::temp_dir().join(filename);
     let client = reqwest::Client::builder()
@@ -138,10 +145,12 @@ pub async fn download_and_launch_update(download_url: &str) -> Result<Value, Str
             .arg(&target)
             .spawn()
             .map_err(|e| format!("MSI-Installer konnte nicht gestartet werden: {e}"))?;
-    } else {
+    } else if filename.ends_with(".exe") {
         Command::new(&target)
             .spawn()
             .map_err(|e| format!("Setup-Installer konnte nicht gestartet werden: {e}"))?;
+    } else {
+        let _ = Command::new("explorer").arg(format!("/select,{}", target.display())).spawn();
     }
 
     tokio::spawn(async {

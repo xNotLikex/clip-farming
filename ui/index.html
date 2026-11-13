@@ -1099,7 +1099,8 @@
                 var currentUpdateData = null;
 
         function checkForUpdates() {
-            fetch('/api/check-update')
+            var fetchFn = window.apiFetch || fetch;
+            fetchFn('/api/check-update')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (data && data.update_available) {
@@ -1161,7 +1162,8 @@
                 statusMsg.innerHTML = '<span class="text-amber-400">Lade Installer von GitHub herunter... Bitte kurz warten.</span>';
             }
 
-            fetch('/api/apply-update', {
+            var fetchFn = window.apiFetch || fetch;
+            fetchFn('/api/apply-update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ download_url: currentUpdateData.download_url })
@@ -1400,7 +1402,7 @@
                 <div class="flex items-center gap-3">
                     <h1 class="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
                         <span>CLIP-FARMING</span><span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">STUDIO</span>
-                        <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v0.1.0</span>
+                        <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v0.1.1</span>
                     </h1>
                     <button id="update-badge" style="display: none;" onclick="openUpdateModal()" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 transition shadow-sm animate-pulse cursor-pointer">
                         <span>Update <span id="update-badge-v"></span> verfügbar</span>
@@ -2311,7 +2313,7 @@
                             <span>Neues Update verfügbar!</span>
                             <span id="modal-update-ver" class="text-xs font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-bold">v0.1.x</span>
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Aktuelle Version: <span class="font-mono text-slate-300">v0.1.0</span></p>
+                        <p class="text-xs text-slate-400 mt-0.5">Aktuelle Version: <span class="font-mono text-slate-300">v0.1.1</span></p>
                     </div>
                 </div>
                 <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-0.5 rounded hover:bg-slate-800 transition">&times;</button>

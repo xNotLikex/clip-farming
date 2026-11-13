@@ -34,7 +34,7 @@ Eine **100 % portable Windows-Desktop-App in Rust (Tauri v2)** zum Finden, Zusch
 
 ## 🚀 Starten (Portable ZIP – Empfohlen)
 
-1. Die aktuelle **`Clip-Farming-v0.1.0-Portable-Windows-x64.zip`** unter [GitHub Releases](https://github.com/xNotLikex/clip-farming/releases) herunterladen.
+1. Die aktuelle **`Clip-Farming-v0.1.1-Portable-Windows-x64.zip`** unter [GitHub Releases](https://github.com/xNotLikex/clip-farming/releases) herunterladen.
 2. In einen beliebigen Ordner entpacken (z. B. `D:\Clip-Farming\`).
 3. **`clip-farming.exe`** starten – fertig!
 
