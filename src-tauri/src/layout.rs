@@ -16,7 +16,7 @@ use crate::gpu::{build_runtime_fallback_chain, select_best_encoder};
 use crate::state::{
     clear_active_render, consume_render_cancelled, is_render_cancelled, register_active_render,
 };
-use crate::sticker::create_tiktok_sticker;
+use crate::sticker::create_styled_banner;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -204,8 +204,8 @@ fn resolve_rect(rect: &Value, vw: u32, vh: u32) -> (i64, i64, i64, i64) {
     (x, y, w, h)
 }
 
-/// Baut den deterministischen 9:16 FFmpeg-Filtergraph auf.
-pub fn build_filter_graph(
+/// Baut den deterministischen 9:16 FFmpeg-Filtergraph auf mit erweiterten Banner-Optionen.
+pub fn build_filter_graph_ext(
     raw_video_path: &Path,
     video_info: &VideoInfo,
     layout_mode: &str,
@@ -213,6 +213,7 @@ pub fn build_filter_graph(
     face_box: Option<(i64, i64, i64, i64)>,
     sticker_path: Option<&Path>,
     ass_subtitle_path: Option<&Path>,
+    banner_position: Option<&str>,
 ) -> FilterGraphResult {
     let vw = video_info.width.max(2);
     let vh = video_info.height.max(2);
@@ -329,12 +330,18 @@ pub fn build_filter_graph(
     let mut filter_complex = base_graph;
     let mut current_label = "base";
 
+    let banner_y = match banner_position.unwrap_or("middle") {
+        "top" => 130u32,
+        "bottom" => 1200u32,
+        _ => sticker_y,
+    };
+
     if let Some(sp) = sticker_path.filter(|p| p.exists()) {
         let sticker_idx = inputs.len() / 2;
         inputs.push("-i".to_string());
         inputs.push(sp.to_string_lossy().to_string());
         filter_complex.push_str(&format!(
-            ";[{current_label}][{sticker_idx}:v]overlay=(W-w)/2:{sticker_y}[with_sticker]"
+            ";[{current_label}][{sticker_idx}:v]overlay=(W-w)/2:{banner_y}[with_sticker]"
         ));
         current_label = "with_sticker";
     }
@@ -353,8 +360,30 @@ pub fn build_filter_graph(
     FilterGraphResult {
         filter_complex,
         inputs,
-        sticker_y,
+        sticker_y: banner_y,
     }
+}
+
+/// Baut den deterministischen 9:16 FFmpeg-Filtergraph auf (Rückwärtskompatibel).
+pub fn build_filter_graph(
+    raw_video_path: &Path,
+    video_info: &VideoInfo,
+    layout_mode: &str,
+    custom_crops: Option<&Value>,
+    face_box: Option<(i64, i64, i64, i64)>,
+    sticker_path: Option<&Path>,
+    ass_subtitle_path: Option<&Path>,
+) -> FilterGraphResult {
+    build_filter_graph_ext(
+        raw_video_path,
+        video_info,
+        layout_mode,
+        custom_crops,
+        face_box,
+        sticker_path,
+        ass_subtitle_path,
+        None,
+    )
 }
 
 /// Erzeugt ein 9:16 JPEG-Vorschaubild aus dem fertigen Short (oder Rohclip als Fallback).
@@ -410,6 +439,9 @@ pub struct RenderOptions {
     pub layout_mode: String,
     pub custom_crops: Option<Value>,
     pub header_sticker_text: Option<String>,
+    pub banner_style: Option<String>,
+    pub banner_position: Option<String>,
+    pub banner_size: Option<String>,
     pub streamer_name: Option<String>,
 }
 
@@ -509,14 +541,21 @@ where
 
     let sticker_png = if let Some(ref txt) = opts.header_sticker_text {
         let trimmed = txt.trim();
-        if !trimmed.is_empty() {
+        let b_style = opts.banner_style.as_deref().unwrap_or("badge_white");
+        if !trimmed.is_empty() && b_style != "none" {
+            let b_size = opts.banner_size.as_deref().unwrap_or("normal");
             let p = opts
                 .raw_video_path
                 .parent()
                 .unwrap_or(&shorts_dir)
                 .join(format!("sticker_{}.png", opts.clip_id));
-            create_tiktok_sticker(trimmed, &p)?;
-            Some(p)
+            match create_styled_banner(trimmed, &p, b_style, b_size) {
+                Ok(path) => Some(path),
+                Err(e) => {
+                    eprintln!("[!] Banner-Erstellung: {e}");
+                    None
+                }
+            }
         } else {
             None
         }
@@ -524,7 +563,7 @@ where
         None
     };
 
-    let fg = build_filter_graph(
+    let fg = build_filter_graph_ext(
         &opts.raw_video_path,
         &video_info,
         &layout_mode,
@@ -532,6 +571,7 @@ where
         face_box,
         sticker_png.as_deref(),
         opts.ass_subtitle_path.as_deref(),
+        opts.banner_position.as_deref(),
     );
 
     let audio_filter = if audio_normalize {

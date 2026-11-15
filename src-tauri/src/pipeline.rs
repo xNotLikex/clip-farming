@@ -8,7 +8,9 @@ use crate::db::{
 };
 use crate::layout::{generate_thumbnail, probe_video, render_short, RenderOptions};
 use crate::state::{status_manager, worker_lock};
-use crate::subtitles::{align_words_with_edited_text, generate_ass, TranscriptSegment};
+use crate::subtitles::{
+    align_words_with_edited_text, generate_ass_with_options, SubtitleOptions, TranscriptSegment,
+};
 use crate::twitch::{harvest_channel, refresh_streamer_avatars};
 use crate::whisper::transcribe_video;
 
@@ -140,6 +142,26 @@ pub async fn process_single_clip_inner(
         .and_then(|v| v.as_str())
         .unwrap_or("yellow")
         .to_string();
+    let sub_size = meta_val
+        .get("sub_size")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let sub_case = meta_val
+        .get("sub_case")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let banner_style = meta_val
+        .get("banner_style")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let banner_position = meta_val
+        .get("banner_position")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let banner_size = meta_val
+        .get("banner_size")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let sub_enabled = meta_val
         .get("subtitles_enabled")
         .and_then(|v| v.as_bool())
@@ -219,7 +241,13 @@ pub async fn process_single_clip_inner(
 
         if !segments.is_empty() {
             let p = get_metadata_dir().join(format!("{clip_id}.ass"));
-            match generate_ass(&segments, &p, &sub_position, &sub_style) {
+            let sub_opts = SubtitleOptions {
+                position: sub_position.clone(),
+                style_preset: sub_style.clone(),
+                font_size_preset: sub_size.clone(),
+                text_case: sub_case.clone(),
+            };
+            match generate_ass_with_options(&segments, &p, &sub_opts) {
                 Ok(ass) => Some(ass),
                 Err(e) => {
                     mgr.log(&format!("[!] ASS-Fehler für {clip_id}: {e}"));
@@ -247,6 +275,9 @@ pub async fn process_single_clip_inner(
         layout_mode,
         custom_crops,
         header_sticker_text: hook_text.clone(),
+        banner_style,
+        banner_position,
+        banner_size,
         streamer_name: Some(clip.streamer.clone()),
     };
 

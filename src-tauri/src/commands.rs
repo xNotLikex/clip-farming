@@ -126,6 +126,24 @@ pub fn save_clip_crop(clip_id: String, payload: Value) -> Result<bool, String> {
         if let Some(cf) = payload.get("cam_filter").and_then(|s| s.as_str()) {
             obj.insert("cam_filter".to_string(), Value::String(cf.to_string()));
         }
+        if let Some(bs) = payload.get("banner_style").and_then(|s| s.as_str()) {
+            obj.insert("banner_style".to_string(), Value::String(bs.to_string()));
+        }
+        if let Some(bp) = payload.get("banner_position").and_then(|s| s.as_str()) {
+            obj.insert("banner_position".to_string(), Value::String(bp.to_string()));
+        }
+        if let Some(bz) = payload.get("banner_size").and_then(|s| s.as_str()) {
+            obj.insert("banner_size".to_string(), Value::String(bz.to_string()));
+        }
+        if let Some(ss) = payload.get("sub_style").and_then(|s| s.as_str()) {
+            obj.insert("sub_style".to_string(), Value::String(ss.to_string()));
+        }
+        if let Some(sz) = payload.get("sub_size").and_then(|s| s.as_str()) {
+            obj.insert("sub_size".to_string(), Value::String(sz.to_string()));
+        }
+        if let Some(sc) = payload.get("sub_case").and_then(|s| s.as_str()) {
+            obj.insert("sub_case".to_string(), Value::String(sc.to_string()));
+        }
         if let Some(t) = payload.get("title").and_then(|s| s.as_str()) {
             obj.insert("title".to_string(), Value::String(t.to_string()));
             if let Ok(conn) = open_connection() {

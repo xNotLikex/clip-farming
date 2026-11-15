@@ -32,6 +32,18 @@ pub struct ReadyClip {
     pub view_count: i64,
     pub layout_mode: String,
     pub cam_filter: String,
+    #[serde(default = "default_banner_style")]
+    pub banner_style: String,
+    #[serde(default = "default_banner_pos")]
+    pub banner_position: String,
+    #[serde(default = "default_banner_size")]
+    pub banner_size: String,
+    #[serde(default = "default_sub_style")]
+    pub sub_style: String,
+    #[serde(default = "default_sub_size")]
+    pub sub_size: String,
+    #[serde(default = "default_sub_case")]
+    pub sub_case: String,
     pub is_manually_published: bool,
     #[serde(default = "default_ready_status")]
     pub status: String,
@@ -46,6 +58,30 @@ pub struct ReadyClip {
 
 fn default_ready_status() -> String {
     "ready".to_string()
+}
+
+fn default_banner_style() -> String {
+    "badge_white".to_string()
+}
+
+fn default_banner_pos() -> String {
+    "middle".to_string()
+}
+
+fn default_banner_size() -> String {
+    "normal".to_string()
+}
+
+fn default_sub_style() -> String {
+    "yellow".to_string()
+}
+
+fn default_sub_size() -> String {
+    "medium".to_string()
+}
+
+fn default_sub_case() -> String {
+    "uppercase".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

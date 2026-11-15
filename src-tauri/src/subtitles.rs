@@ -213,12 +213,19 @@ pub fn align_words_with_edited_text(
     }]
 }
 
-/// Erstellt eine .ass Untertiteldatei im viralen Karaoke-Highlight-Stil.
-pub fn generate_ass(
+#[derive(Debug, Clone, Default)]
+pub struct SubtitleOptions {
+    pub position: String,
+    pub style_preset: String,
+    pub font_size_preset: Option<String>,
+    pub text_case: Option<String>,
+}
+
+/// Erstellt eine .ass Untertiteldatei im viralen Karaoke-Highlight-Stil mit erweiterten Optionen.
+pub fn generate_ass_with_options(
     segments: &[TranscriptSegment],
     output_ass_path: &Path,
-    position: &str,
-    style_preset: &str,
+    opts: &SubtitleOptions,
 ) -> Result<PathBuf, String> {
     let cfg = load_config();
     let sub_val = cfg.video.extra.get("subtitles");
@@ -226,10 +233,15 @@ pub fn generate_ass(
         .and_then(|v| v.get("font_name"))
         .and_then(|v| v.as_str())
         .unwrap_or("Arial Black");
-    let font_size = sub_val
-        .and_then(|v| v.get("font_size"))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(24);
+    let base_font_size = match opts.font_size_preset.as_deref().unwrap_or("medium").to_lowercase().as_str() {
+        "small" => 18,
+        "large" => 30,
+        "xlarge" => 36,
+        _ => sub_val
+            .and_then(|v| v.get("font_size"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(24),
+    };
     let default_hl = sub_val
         .and_then(|v| v.get("highlight_color"))
         .and_then(|v| v.as_str())
@@ -252,10 +264,11 @@ pub fn generate_ass(
         .unwrap_or(3)
         .max(1) as usize;
 
-    let (hl_color, prim_color) = match style_preset.to_lowercase().as_str() {
+    let (hl_color, prim_color) = match opts.style_preset.to_lowercase().as_str() {
         "yellow" => ("&H0000FFFF", "&H00FFFFFF"),
         "cyan" => ("&H00FFFF00", "&H00FFFFFF"),
         "neon" => ("&H0000FF00", "&H00FFFFFF"),
+        "red" => ("&H000000FF", "&H00FFFFFF"),
         "white" => ("&H00FFFFFF", "&H00CCCCCC"),
         _ => (default_hl, default_prim),
     };
@@ -282,8 +295,8 @@ pub fn generate_ass(
         }
     }
 
-    let margin_v = match position.to_lowercase().as_str() {
-        "center" => 820,
+    let margin_v = match opts.position.to_lowercase().as_str() {
+        "center" | "middle" => 820,
         "top" => 1450,
         _ => 380,
     };
@@ -294,8 +307,9 @@ pub fn generate_ass(
         font_name
     };
 
-    let scaled_font_size = (font_size as f64) * 2.8;
+    let scaled_font_size = (base_font_size as f64) * 2.8;
     let scaled_outline = outline_width * 2;
+    let is_uppercase = opts.text_case.as_deref().unwrap_or("uppercase").to_lowercase() != "original";
 
     let mut out = format!(
         "[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,{font},{scaled_font_size:.1},{prim_color},&H000000FF,{outline_color},&H80000000,-1,0,0,0,100,100,1,0,1,{scaled_outline},2,2,40,40,{margin_v},1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
@@ -307,7 +321,11 @@ pub fn generate_ass(
             let end_t = format_ass_time(target_word.end);
             let mut line_parts = Vec::with_capacity(chunk.len());
             for (idx, w) in chunk.iter().enumerate() {
-                let text = w.word.to_uppercase();
+                let text = if is_uppercase {
+                    w.word.to_uppercase()
+                } else {
+                    w.word.clone()
+                };
                 if idx == active_idx {
                     line_parts.push(format!("{{\\c{hl_color}\\b1}}{text}{{\\r}}"));
                 } else {
@@ -326,4 +344,23 @@ pub fn generate_ass(
     }
     std::fs::write(output_ass_path, out).map_err(|e| e.to_string())?;
     Ok(output_ass_path.to_path_buf())
+}
+
+/// Erstellt eine .ass Untertiteldatei im viralen Karaoke-Highlight-Stil (Rückwärtskompatibel).
+pub fn generate_ass(
+    segments: &[TranscriptSegment],
+    output_ass_path: &Path,
+    position: &str,
+    style_preset: &str,
+) -> Result<PathBuf, String> {
+    generate_ass_with_options(
+        segments,
+        output_ass_path,
+        &SubtitleOptions {
+            position: position.to_string(),
+            style_preset: style_preset.to_string(),
+            font_size_preset: None,
+            text_case: None,
+        },
+    )
 }

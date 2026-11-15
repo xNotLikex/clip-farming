@@ -313,6 +313,12 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         let mut sub_position = "bottom".to_string();
         let mut layout_mode = "auto".to_string();
         let mut cam_filter = "none".to_string();
+        let mut banner_style = "badge_white".to_string();
+        let mut banner_position = "middle".to_string();
+        let mut banner_size = "normal".to_string();
+        let mut sub_style = "yellow".to_string();
+        let mut sub_size = "medium".to_string();
+        let mut sub_case = "uppercase".to_string();
         let mut transcript = String::new();
 
         let meta_file = meta_dir.join(format!("{}.json", clip_id));
@@ -335,6 +341,24 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
                     }
                     if let Some(cf) = v.get("cam_filter").and_then(|s| s.as_str()) {
                         cam_filter = cf.to_string();
+                    }
+                    if let Some(bs) = v.get("banner_style").and_then(|s| s.as_str()) {
+                        banner_style = bs.to_string();
+                    }
+                    if let Some(bp) = v.get("banner_position").and_then(|s| s.as_str()) {
+                        banner_position = bp.to_string();
+                    }
+                    if let Some(bz) = v.get("banner_size").and_then(|s| s.as_str()) {
+                        banner_size = bz.to_string();
+                    }
+                    if let Some(ss) = v.get("sub_style").and_then(|s| s.as_str()) {
+                        sub_style = ss.to_string();
+                    }
+                    if let Some(sz) = v.get("sub_size").and_then(|s| s.as_str()) {
+                        sub_size = sz.to_string();
+                    }
+                    if let Some(sc) = v.get("sub_case").and_then(|s| s.as_str()) {
+                        sub_case = sc.to_string();
                     }
                     if let Some(imp) = v.get("is_manually_published").and_then(|s| s.as_bool()) {
                         is_manually_published = imp;
@@ -391,6 +415,12 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
             view_count,
             layout_mode,
             cam_filter,
+            banner_style,
+            banner_position,
+            banner_size,
+            sub_style,
+            sub_size,
+            sub_case,
             is_manually_published,
             status: clip_status,
             has_video,

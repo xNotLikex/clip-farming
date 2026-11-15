@@ -86,8 +86,11 @@ fn test_runtime_fallback_chain_order() {
     assert_eq!(codecs, vec!["h264_qsv", "h264_mf", "libx264"]);
 }
 
+static STATE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn test_state_progress_and_cancellation() {
+    let _lock = STATE_TEST_LOCK.lock().unwrap();
     let mgr = state::status_manager();
     mgr.set_task("rendering", "Rendere...", "Clip", "Streamer");
     mgr.set_progress(150, -5, "2.1x", Some("rendering"), Some("c1"));
@@ -158,6 +161,16 @@ fn test_create_tiktok_sticker_png() {
     assert!(bytes.len() > 500);
     assert_eq!(&bytes[0..8], b"\x89PNG\r\n\x1a\n");
     let _ = fs::remove_file(&res);
+
+    let tmp_dark = std::env::temp_dir().join(format!("cf_dark_test_{}.png", std::process::id()));
+    let res_dark = sticker::create_styled_banner("DARK MODERN", &tmp_dark, "badge_dark", "large").unwrap();
+    assert!(res_dark.exists());
+    let _ = fs::remove_file(&res_dark);
+
+    let tmp_clean = std::env::temp_dir().join(format!("cf_clean_test_{}.png", std::process::id()));
+    let res_clean = sticker::create_styled_banner("CLEAN TEXT", &tmp_clean, "clean_text", "small").unwrap();
+    assert!(res_clean.exists());
+    let _ = fs::remove_file(&res_clean);
 }
 
 #[test]
@@ -190,6 +203,21 @@ fn test_subtitles_ass_and_alignment() {
     assert!(content.contains("&H00FFFF00"));
     assert!(content.contains("Dialogue: 0,"));
     let _ = fs::remove_file(&tmp);
+
+    // Test generate_ass_with_options (custom size & case)
+    let tmp_opts = std::env::temp_dir().join(format!("cf_sub_opts_{}.ass", std::process::id()));
+    let _ = fs::remove_file(&tmp_opts);
+    let sub_opts = subtitles::SubtitleOptions {
+        position: "bottom".to_string(),
+        style_preset: "neon".to_string(),
+        font_size_preset: Some("large".to_string()),
+        text_case: Some("original".to_string()),
+    };
+    subtitles::generate_ass_with_options(&aligned, &tmp_opts, &sub_opts).unwrap();
+    let content_opts = fs::read_to_string(&tmp_opts).unwrap();
+    assert!(content_opts.contains("&H0000FF00"));
+    assert!(content_opts.contains(",380,1"));
+    let _ = fs::remove_file(&tmp_opts);
 }
 
 #[test]
@@ -427,6 +455,7 @@ async fn test_export_endpoints_and_shorts_dir() {
 
 #[tokio::test]
 async fn test_cancel_endpoints_and_status() {
+    let _lock = STATE_TEST_LOCK.lock().unwrap();
     use clip_farming_lib::state::{clear_global_cancel, register_active_render, status_manager};
 
     clear_global_cancel();

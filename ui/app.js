@@ -2217,6 +2217,12 @@ async function downloadRawVideo(clipId, btn, evt) {
             const modalLayoutSelect = document.getElementById('crop-layout-mode-select');
             const modalFilterSelect = document.getElementById('crop-cam-filter-select');
             const modalTranscriptEl = document.getElementById('crop-transcript-textarea');
+            const modalBannerStyle = document.getElementById('crop-banner-style-select');
+            const modalBannerPos = document.getElementById('crop-banner-position-select');
+            const modalBannerSize = document.getElementById('crop-banner-size-select');
+            const modalSubStyle = document.getElementById('crop-sub-style-select');
+            const modalSubSize = document.getElementById('crop-sub-size-select');
+            const modalSubCase = document.getElementById('crop-sub-case-select');
 
             if (modalTitleInput) modalTitleInput.value = (cardTitleEl ? cardTitleEl.value : '') || (cachedClip ? cachedClip.title : '') || title || '';
             if (modalStickerInput) modalStickerInput.value = (cachedClip && cachedClip.sticker_text) ? cachedClip.sticker_text : '';
@@ -2224,6 +2230,32 @@ async function downloadRawVideo(clipId, btn, evt) {
             if (modalLayoutSelect) modalLayoutSelect.value = (cachedClip && cachedClip.layout_mode) ? cachedClip.layout_mode : 'auto';
             if (modalFilterSelect) modalFilterSelect.value = (cachedClip && cachedClip.cam_filter) ? cachedClip.cam_filter : 'none';
             if (modalTranscriptEl) modalTranscriptEl.value = (cardTranscriptEl ? cardTranscriptEl.value : '') || (cachedClip && cachedClip.transcript) ? cachedClip.transcript : '';
+            if (modalBannerStyle) modalBannerStyle.value = (cachedClip && cachedClip.banner_style) ? cachedClip.banner_style : 'badge_white';
+            if (modalBannerPos) modalBannerPos.value = (cachedClip && cachedClip.banner_position) ? cachedClip.banner_position : 'middle';
+            if (modalBannerSize) modalBannerSize.value = (cachedClip && cachedClip.banner_size) ? cachedClip.banner_size : 'normal';
+            if (modalSubStyle) modalSubStyle.value = (cachedClip && cachedClip.sub_style) ? cachedClip.sub_style : 'yellow';
+            if (modalSubSize) modalSubSize.value = (cachedClip && cachedClip.sub_size) ? cachedClip.sub_size : 'medium';
+            if (modalSubCase) modalSubCase.value = (cachedClip && cachedClip.sub_case) ? cachedClip.sub_case : 'uppercase';
+
+            [
+                'crop-title-input',
+                'crop-sticker-text-input',
+                'crop-banner-style-select',
+                'crop-banner-position-select',
+                'crop-banner-size-select',
+                'crop-sub-position-select',
+                'crop-sub-style-select',
+                'crop-sub-size-select',
+                'crop-sub-case-select',
+                'crop-transcript-textarea',
+                'crop-cam-filter-select'
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.oninput = () => draw916Preview();
+                    el.onchange = () => draw916Preview();
+                }
+            });
 
             const modal = document.getElementById('crop-modal');
             if (modal) {
@@ -3161,6 +3193,184 @@ async function downloadRawVideo(clipId, btn, evt) {
             }
         }
 
+        function drawBannerOnPreview(ctx) {
+            const stickerInput = document.getElementById('crop-sticker-text-input');
+            const styleSelect = document.getElementById('crop-banner-style-select');
+            const posSelect = document.getElementById('crop-banner-position-select');
+            const sizeSelect = document.getElementById('crop-banner-size-select');
+
+            const bannerStyle = styleSelect ? styleSelect.value : 'badge_white';
+            if (bannerStyle === 'none') return;
+
+            const rawText = (stickerInput ? stickerInput.value.trim() : '') || currentCropTitle || 'TikTok / Shorts Hook';
+            if (!rawText) return;
+            const bannerText = rawText.length > 34 ? rawText.slice(0, 32) + '…' : rawText;
+
+            const bannerPos = posSelect ? posSelect.value : 'middle';
+            let stickerY = 180;
+            if (bannerPos === 'top') {
+                stickerY = 48;
+            } else if (bannerPos === 'bottom') {
+                stickerY = 320;
+            } else {
+                stickerY = currentCropMode === 'single_916' ? 68 : 180;
+            }
+
+            const bannerSize = sizeSelect ? sizeSelect.value : 'normal';
+            let sizeScale = 1.0;
+            let fontSize = 10;
+            if (bannerSize === 'small') {
+                sizeScale = 0.85;
+                fontSize = 8.5;
+            } else if (bannerSize === 'large') {
+                sizeScale = 1.15;
+                fontSize = 11.5;
+            }
+
+            ctx.save();
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const textWidth = ctx.measureText(bannerText).width;
+            const stickerW = Math.min(250, Math.max(120, (textWidth + 28) * sizeScale));
+            const stickerH = Math.round(24 * sizeScale);
+            const boxX = (270 - stickerW) / 2;
+            const boxY = stickerY - (stickerH / 2);
+
+            if (bannerStyle === 'clean_text') {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3.5;
+                ctx.strokeText(bannerText, 135, stickerY);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(bannerText, 135, stickerY);
+                ctx.restore();
+                return;
+            }
+
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 8;
+
+            let bgColor = '#ffffff';
+            let textColor = '#000000';
+            let borderColor = null;
+
+            if (bannerStyle === 'badge_dark') {
+                bgColor = '#0f172a';
+                textColor = '#ffffff';
+                borderColor = '#f59e0b';
+            } else if (bannerStyle === 'badge_gradient') {
+                const grad = ctx.createLinearGradient(boxX, boxY, boxX + stickerW, boxY);
+                grad.addColorStop(0, '#f59e0b');
+                grad.addColorStop(1, '#ea580c');
+                bgColor = grad;
+                textColor = '#000000';
+            } else if (bannerStyle === 'badge_red') {
+                bgColor = '#e11d48';
+                textColor = '#ffffff';
+                borderColor = 'rgba(255,255,255,0.7)';
+            }
+
+            ctx.fillStyle = bgColor;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(boxX, boxY, stickerW, stickerH, 6);
+            } else {
+                ctx.rect(boxX, boxY, stickerW, stickerH);
+            }
+            ctx.fill();
+
+            if (bannerStyle === 'badge_white') {
+                ctx.beginPath();
+                ctx.moveTo(135 - 7, boxY + stickerH - 1);
+                ctx.lineTo(135 + 7, boxY + stickerH - 1);
+                ctx.lineTo(135, boxY + stickerH + 6);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            if (borderColor) {
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = textColor;
+            ctx.fillText(bannerText, 135, stickerY);
+            ctx.restore();
+        }
+
+        function drawSubtitlesOnPreview(ctx) {
+            const subPosSelect = document.getElementById('crop-sub-position-select');
+            const subPosition = subPosSelect ? subPosSelect.value : 'bottom';
+            if (subPosition === 'none') return;
+
+            const styleSelect = document.getElementById('crop-sub-style-select');
+            const sizeSelect = document.getElementById('crop-sub-size-select');
+            const caseSelect = document.getElementById('crop-sub-case-select');
+            const transcriptEl = document.getElementById('crop-transcript-textarea');
+
+            const subStyle = styleSelect ? styleSelect.value : 'yellow';
+            const subSize = sizeSelect ? sizeSelect.value : 'medium';
+            const subCase = caseSelect ? caseSelect.value : 'uppercase';
+
+            let subY = 432;
+            if (subPosition === 'center' || subPosition === 'middle') {
+                subY = 360;
+            } else if (subPosition === 'top') {
+                subY = 110;
+            }
+
+            let fontSize = 11;
+            if (subSize === 'small') fontSize = 9;
+            else if (subSize === 'large') fontSize = 13;
+            else if (subSize === 'xlarge') fontSize = 15;
+
+            let hlColor = '#facc15';
+            let normalColor = '#ffffff';
+
+            if (subStyle === 'cyan') {
+                hlColor = '#22d3ee';
+            } else if (subStyle === 'neon') {
+                hlColor = '#4ade80';
+            } else if (subStyle === 'red') {
+                hlColor = '#f43f5e';
+            } else if (subStyle === 'white') {
+                hlColor = '#ffffff';
+                normalColor = '#cbd5e1';
+            }
+
+            const rawTranscript = (transcriptEl ? transcriptEl.value.trim() : '') || 'Das ist wirklich krass!';
+            let words = rawTranscript.split(/\s+/).slice(0, 3);
+            if (words.length === 0 || !words[0]) words = ['DAS', 'IST', 'KRASS!'];
+            if (subCase === 'uppercase') {
+                words = words.map(w => w.toUpperCase());
+            }
+
+            ctx.save();
+            ctx.font = `900 ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const spaceW = ctx.measureText(' ').width;
+            const wordWidths = words.map(w => ctx.measureText(w).width);
+            const totalW = wordWidths.reduce((a, b) => a + b, 0) + spaceW * (words.length - 1);
+            let curX = 135 - (totalW / 2);
+
+            words.forEach((w, i) => {
+                const wW = wordWidths[i];
+                const xPos = curX + (wW / 2);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = Math.max(2.5, fontSize * 0.25);
+                ctx.strokeText(w, xPos, subY);
+                ctx.fillStyle = i === 0 ? hlColor : normalColor;
+                ctx.fillText(w, xPos, subY);
+                curX += wW + spaceW;
+            });
+
+            ctx.restore();
+        }
+
         function draw916Preview() {
             const canvas = document.getElementById('crop-preview-canvas');
             if (!canvas) return;
@@ -3195,28 +3405,6 @@ async function downloadRawVideo(clipId, btn, evt) {
                 try {
                     ctx.drawImage(vid, sx, sy, sw, sh, 0, 0, 270, 480);
                 } catch(e) {}
-
-                // Hook Sticker Simulation (oben bei y=120, um Hauptmotiv/Gesicht im Zentrum freizuhalten)
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 6;
-                const stickerW = 200;
-                const stickerH = 24;
-                const stickerY = 120;
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH, 6);
-                } else {
-                    ctx.rect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH);
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : 'TikTok / Shorts Hook';
-                ctx.fillText(titleText, 135, stickerY);
 
             } else if (cropState.cam.enabled) {
                 // 1. Top Section: Facecam (1080x720 in 1080x1920 -> 270x180 px)
@@ -3445,27 +3633,6 @@ async function downloadRawVideo(clipId, btn, evt) {
                     ctx.drawImage(vid, gx, gy, gw, gh, 0, 180, 270, 300);
                 } catch(e) {}
 
-                // Hook Sticker Badge Simulation
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 6;
-                const stickerW = 200;
-                const stickerH = 24;
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect((270 - stickerW) / 2, 180 - (stickerH / 2), stickerW, stickerH, 6);
-                } else {
-                    ctx.rect((270 - stickerW) / 2, 180 - (stickerH / 2), stickerW, stickerH);
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : 'TikTok / Shorts Hook';
-                ctx.fillText(titleText, 135, 180);
-
             } else {
                 // Reines Vollbild-Gameplay (Festes 9:16 Short)
                 const gx = cropState.game.x * vw;
@@ -3476,38 +3643,11 @@ async function downloadRawVideo(clipId, btn, evt) {
                 try {
                     ctx.drawImage(vid, gx, gy, gw, gh, 0, 0, 270, 480);
                 } catch(e) {}
-
-                // Hook Sticker Simulation (oben bei y=120)
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 6;
-                const stickerW = 200;
-                const stickerH = 24;
-                const stickerY = 120;
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH, 6);
-                } else {
-                    ctx.rect((270 - stickerW) / 2, stickerY - (stickerH / 2), stickerW, stickerH);
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const titleText = currentCropTitle ? currentCropTitle.slice(0, 32) : 'TikTok / Shorts Hook';
-                ctx.fillText(titleText, 135, stickerY);
             }
 
-            // Subtitle Preview Simulation
-            ctx.font = 'bold 11px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#fde047';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2.5;
-            ctx.strokeText("[Untertitel Bereich]", 135, 435);
-            ctx.fillText("[Untertitel Bereich]", 135, 435);
+            // Draw Banner and Subtitles with exact styling and position
+            drawBannerOnPreview(ctx);
+            drawSubtitlesOnPreview(ctx);
         }
 
         async function saveCropCoordinates(renderNow) {
@@ -3611,6 +3751,19 @@ async function downloadRawVideo(clipId, btn, evt) {
             if (modalFilterSelect) {
                 payload.cam_filter = modalFilterSelect.value;
             }
+            const modalBannerStyle = document.getElementById('crop-banner-style-select');
+            const modalBannerPos = document.getElementById('crop-banner-position-select');
+            const modalBannerSize = document.getElementById('crop-banner-size-select');
+            const modalSubStyle = document.getElementById('crop-sub-style-select');
+            const modalSubSize = document.getElementById('crop-sub-size-select');
+            const modalSubCase = document.getElementById('crop-sub-case-select');
+
+            if (modalBannerStyle) payload.banner_style = modalBannerStyle.value;
+            if (modalBannerPos) payload.banner_position = modalBannerPos.value;
+            if (modalBannerSize) payload.banner_size = modalBannerSize.value;
+            if (modalSubStyle) payload.sub_style = modalSubStyle.value;
+            if (modalSubSize) payload.sub_size = modalSubSize.value;
+            if (modalSubCase) payload.sub_case = modalSubCase.value;
 
             if (renderNow) {
                 const videoEl = document.getElementById('studio-video-' + currentCropClipId);
