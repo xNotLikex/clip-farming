@@ -460,10 +460,20 @@ function renderQueue(clips, olderCount) {
 }
 
 async function processOneClip(clipId) {
+    const btn = event?.target?.closest('button') || document.querySelector(`button[onclick*="processOneClip('${clipId}')"]`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mr-1"></span> Übernehme...';
+    }
+    const renderCard = document.getElementById('render-progress-card');
+    if (renderCard) {
+        renderCard.classList.remove('hidden');
+        const title = document.getElementById('render-progress-title');
+        if (title) title.innerText = 'Clip wird vorbereitet & gerendert...';
+    }
+    showToast('Clip wird ins Studio übernommen & gerendert...', 'info');
+
     try {
-        const renderCard = document.getElementById('render-progress-card');
-        if (renderCard) renderCard.classList.remove('hidden');
-        showToast('Clip wird ins Studio übernommen & gerendert...', 'info');
         await apiFetch('/process-one/' + clipId, { method: 'POST' });
         if (typeof switchTab === 'function') {
             switchTab('studio');
@@ -472,6 +482,10 @@ async function processOneClip(clipId) {
     } catch (e) {
         console.error(e);
         showToast('Fehler beim Übernehmen: ' + e, 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'In Studio';
+        }
     }
 }
 
@@ -1949,6 +1963,41 @@ async function downloadRawVideo(clipId, btn, evt) {
             }
         }
 
+        async function cancelActiveTask() {
+            const btnHeader = document.getElementById('btn-cancel-header');
+            const btnCard = document.getElementById('btn-cancel-render');
+            if (btnHeader) {
+                btnHeader.disabled = true;
+                btnHeader.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></span> Bricht ab...';
+            }
+            if (btnCard) {
+                btnCard.disabled = true;
+                btnCard.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></span> Bricht ab...';
+            }
+
+            try {
+                showToast('Aufgabe wird abgebrochen...', 'info');
+                await apiFetch('/api/cancel-task', { method: 'POST' });
+                showToast('Aufgabe erfolgreich abgebrochen.', 'success');
+                await updateStatus();
+                if (typeof refreshDashboard === 'function') {
+                    refreshDashboard();
+                }
+            } catch (err) {
+                console.error('Fehler beim Abbrechen:', err);
+                showToast('Fehler beim Abbrechen: ' + err, 'error');
+            } finally {
+                if (btnHeader) {
+                    btnHeader.disabled = false;
+                    btnHeader.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> <span>Aufgabe abbrechen</span>';
+                }
+                if (btnCard) {
+                    btnCard.disabled = false;
+                    btnCard.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> <span>Abbrechen</span>';
+                }
+            }
+        }
+
         async function updateStatus() {
             try {
                 const res = await apiFetch('/api/status');
@@ -1958,6 +2007,7 @@ async function downloadRawVideo(clipId, btn, evt) {
                 const text = document.getElementById('live-status-text');
                 const desc = document.getElementById('live-task-desc');
                 const btn = document.getElementById('btn-trigger');
+                const btnCancelHeader = document.getElementById('btn-cancel-header');
 
                 // Render Progress Card
                 const progressCard = document.getElementById('render-progress-card');
@@ -1967,42 +2017,52 @@ async function downloadRawVideo(clipId, btn, evt) {
                 const progressSpeed = document.getElementById('render-speed-badge');
                 const progressTitle = document.getElementById('render-progress-title');
 
+                const phase = (data.phase || data.status || 'idle').toLowerCase();
+                const taskDesc = data.message || data.current_task || '';
+                const pct = (data.percent !== undefined) ? data.percent : (data.progress_percent || 0);
+
                 if (data.is_running) {
-                    dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
-                    text.innerText = 'Aktiv: ' + (data.status || 'ARBEITET').toUpperCase();
-                    desc.innerText = (data.current_task || '') + (data.streamer ? ' (' + data.streamer + ')' : '');
+                    if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+                    if (text) text.innerText = 'AKTIV: ' + phase.toUpperCase();
+                    if (desc) desc.innerText = taskDesc + (data.streamer ? ' (' + data.streamer + ')' : '');
+                    if (btnCancelHeader) btnCancelHeader.classList.remove('hidden');
+
                     if (btn) {
                         btn.disabled = true;
                         btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
-                        if (data.status === 'harvesting') {
+                        if (phase === 'harvesting') {
                             btn.innerHTML = '<svg class="w-4 h-4 inline-block -mt-0.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Suche läuft auf Twitch...';
                         }
                     }
 
-                    // Render Fortschritt einblenden
-                    if (data.status === 'rendering' || data.progress_percent > 0) {
+                    // Render / Task Fortschritt einblenden (bei Rendering und Harvesting!)
+                    if (progressCard) {
                         progressCard.classList.remove('hidden');
-                        progressBar.style.width = data.progress_percent + '%';
-                        progressPercent.innerText = data.progress_percent + '%';
+                        if (progressBar) progressBar.style.width = Math.max(5, pct) + '%';
+                        if (progressPercent) progressPercent.innerText = pct + '%';
                         
-                        if (data.eta_seconds !== null && data.eta_seconds !== undefined) {
-                            progressEta.innerText = 'Noch ca. ' + data.eta_seconds + 's';
-                        } else {
-                            progressEta.innerText = 'Berechne...';
+                        if (progressEta) {
+                            if (data.eta_seconds !== null && data.eta_seconds !== undefined && data.eta_seconds > 0) {
+                                progressEta.innerText = 'Noch ca. ' + data.eta_seconds + 's';
+                            } else {
+                                progressEta.innerText = phase === 'harvesting' ? 'Durchsuche Kanäle...' : 'Berechne...';
+                            }
                         }
 
-                        if (data.speed) {
-                            progressSpeed.innerText = data.speed + ' NVENC';
+                        if (progressSpeed) {
+                            progressSpeed.innerText = data.speed ? data.speed : (phase === 'harvesting' ? 'API' : 'NVENC');
                         }
-                        progressTitle.innerText = data.current_task || 'Rendere Video...';
-                    } else {
-                        progressCard.classList.add('hidden');
+                        if (progressTitle) {
+                            progressTitle.innerText = taskDesc || (phase === 'rendering' ? 'Rendere Video...' : 'Verarbeite Aufgabe...');
+                        }
                     }
                 } else {
-                    dot.className = 'w-2 h-2 rounded-full bg-slate-400';
-                    text.innerText = 'Standby';
-                    desc.innerText = data.current_task || 'Bereit zur Ausführung';
-                    progressCard.classList.add('hidden');
+                    if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+                    if (text) text.innerText = 'STANDBY';
+                    if (desc) desc.innerText = taskDesc || 'Bereit zur Ausführung';
+                    if (btnCancelHeader) btnCancelHeader.classList.add('hidden');
+                    if (progressCard) progressCard.classList.add('hidden');
+
                     if (btn) {
                         btn.disabled = false;
                         btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 font-semibold text-xs rounded transition text-zinc-950 shadow-sm';
@@ -2013,6 +2073,8 @@ async function downloadRawVideo(clipId, btn, evt) {
                     if (gPrevRunning) {
                         if (gPrevTaskStatus === 'rendering') {
                             showToast('Rendering fertiggestellt! Neues Video & Vorschaubild geladen.', 'success');
+                        } else if (gPrevTaskStatus === 'harvesting') {
+                            showToast('Suche beendet! Neue Clips geladen.', 'success');
                         } else {
                             showToast('Aktion abgeschlossen! Dashboard aktualisiert.', 'success');
                         }
@@ -2022,7 +2084,7 @@ async function downloadRawVideo(clipId, btn, evt) {
 
                 gPrevRunning = data.is_running;
                 if (data.is_running) {
-                    gPrevTaskStatus = data.status || '';
+                    gPrevTaskStatus = phase;
                 }
 
                 if (data.logs && data.logs.length > 0) {
@@ -2284,7 +2346,7 @@ async function downloadRawVideo(clipId, btn, evt) {
 
             // Sync Cam & Game Größen-Regler
             const curWpx = Math.round(cropState.cam.w * (videoNativeWidth || 1920));
-            const curHpx = Math.round(curWpx * (2 / 3));
+            const curHpx = Math.round(cropState.cam.h * (videoNativeHeight || 1080));
             syncCamSizeUi(curWpx, curHpx);
 
             const isVollbild = isGameplayVollbild();
@@ -2331,7 +2393,7 @@ async function downloadRawVideo(clipId, btn, evt) {
 
                 // Sync Cam & Game Größen-Regler
                 const curWpx = Math.round(cropState.cam.w * videoNativeWidth);
-                const curHpx = Math.round(curWpx * (2 / 3));
+                const curHpx = Math.round(cropState.cam.h * videoNativeHeight);
                 syncCamSizeUi(curWpx, curHpx);
 
                 const isVollbild = isGameplayVollbild();
@@ -2383,17 +2445,121 @@ async function downloadRawVideo(clipId, btn, evt) {
             vid.currentTime = parseFloat(val);
         }
 
+        var camRatioMode = 'freehand'; // 'freehand', '3:2', '1:1', '16:9', '4:3'
+
+        function toggleCamRatioMode() {
+            if (camRatioMode === 'freehand') {
+                setCamAspectRatio('3:2');
+            } else {
+                setCamAspectRatio('freehand');
+            }
+        }
+
+        function setCamAspectRatio(ratio) {
+            camRatioMode = ratio;
+            const badge = document.getElementById('crop-cam-format-badge');
+            const ratioBtn = document.getElementById('btn-cam-ratio-mode');
+            const ratioIcon = document.getElementById('cam-ratio-icon');
+            const ratioLabel = document.getElementById('cam-ratio-label');
+
+            const vw = videoNativeWidth || 1920;
+            const vh = videoNativeHeight || 1080;
+            const curWpx = Math.round(cropState.cam.w * vw);
+
+            if (ratio === 'freehand') {
+                if (badge) badge.innerText = '(Freihand)';
+                if (ratioIcon) ratioIcon.innerText = '🔓';
+                if (ratioLabel) ratioLabel.innerText = 'Freihand';
+                if (ratioBtn) ratioBtn.className = 'px-2.5 py-1 bg-emerald-950/90 border border-emerald-500 text-xs font-bold rounded text-emerald-200 transition flex items-center gap-1 shadow-sm hover:bg-emerald-900';
+            } else {
+                if (badge) badge.innerText = `(${ratio} fest)`;
+                if (ratioIcon) ratioIcon.innerText = '🔒';
+                if (ratioLabel) ratioLabel.innerText = `${ratio} gesperrt`;
+                if (ratioBtn) ratioBtn.className = 'px-2.5 py-1 bg-amber-950/90 border border-amber-500 text-xs font-bold rounded text-amber-200 transition flex items-center gap-1 shadow-sm hover:bg-amber-900';
+
+                let factor = 2 / 3;
+                if (ratio === '1:1') factor = 1.0;
+                else if (ratio === '16:9') factor = 9 / 16;
+                else if (ratio === '4:3') factor = 3 / 4;
+
+                const newHpx = Math.round(curWpx * factor);
+                const newH = Math.min(1.0, newHpx / vh);
+                cropState.cam.h = newH;
+                if (cropState.cam.y + cropState.cam.h > 1.0) {
+                    cropState.cam.y = Math.max(0, 1.0 - cropState.cam.h);
+                }
+            }
+
+            ['free', '32', '11', '169', '43'].forEach(k => {
+                const b = document.getElementById('btn-ratio-' + k);
+                if (!b) return;
+                const matches = (k === 'free' && ratio === 'freehand') ||
+                                (k === '32' && ratio === '3:2') ||
+                                (k === '11' && ratio === '1:1') ||
+                                (k === '169' && ratio === '16:9') ||
+                                (k === '43' && ratio === '4:3');
+                b.className = matches 
+                    ? 'px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition'
+                    : 'px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition';
+            });
+
+            const curHpx = Math.round(cropState.cam.h * vh);
+            syncCamSizeUi(curWpx, curHpx);
+            updateBoxDom('cam');
+            draw916Preview();
+        }
+
         function setCamPixelWidth(widthPx) {
             const vw = videoNativeWidth || 1920;
             const vh = videoNativeHeight || 1080;
-            const maxAllowedW = Math.min(vw, Math.floor(vh * 1.5));
-            const clampedW = Math.max(160, Math.min(maxAllowedW, Math.round(parseFloat(widthPx))));
-            const clampedH = Math.round(clampedW * (2 / 3));
+            const clampedW = Math.max(120, Math.min(vw, Math.round(parseFloat(widthPx))));
+            let clampedH;
+
+            if (camRatioMode !== 'freehand') {
+                let factor = 2 / 3;
+                if (camRatioMode === '1:1') factor = 1.0;
+                else if (camRatioMode === '16:9') factor = 9 / 16;
+                else if (camRatioMode === '4:3') factor = 3 / 4;
+                clampedH = Math.min(vh, Math.round(clampedW * factor));
+            } else {
+                clampedH = Math.round(cropState.cam.h * vh);
+            }
 
             const newW = clampedW / vw;
             const newH = clampedH / vh;
 
-            // Mittelpunkt stabil halten
+            const centerX = cropState.cam.x + (cropState.cam.w / 2);
+            const centerY = cropState.cam.y + (cropState.cam.h / 2);
+
+            cropState.cam.w = newW;
+            cropState.cam.h = newH;
+            cropState.cam.x = Math.max(0, Math.min(1 - newW, centerX - (newW / 2)));
+            cropState.cam.y = Math.max(0, Math.min(1 - newH, centerY - (newH / 2)));
+
+            syncCamSizeUi(clampedW, clampedH);
+            updateBoxDom('cam');
+            draw916Preview();
+        }
+
+        function setCamPixelHeight(heightPx) {
+            const vw = videoNativeWidth || 1920;
+            const vh = videoNativeHeight || 1080;
+            const clampedH = Math.max(80, Math.min(vh, Math.round(parseFloat(heightPx))));
+            let clampedW;
+
+            if (camRatioMode !== 'freehand') {
+                let factor = 3 / 2;
+                if (camRatioMode === '1:1') factor = 1.0;
+                else if (camRatioMode === '16:9') factor = 16 / 9;
+                else if (camRatioMode === '4:3') factor = 4 / 3;
+                clampedW = Math.min(vw, Math.round(clampedH * factor));
+            } else {
+                clampedW = Math.round(cropState.cam.w * vw);
+            }
+
+            const newW = clampedW / vw;
+            const newH = clampedH / vh;
+
             const centerX = cropState.cam.x + (cropState.cam.w / 2);
             const centerY = cropState.cam.y + (cropState.cam.h / 2);
 
@@ -2408,19 +2574,12 @@ async function downloadRawVideo(clipId, btn, evt) {
         }
 
         function syncCamSizeUi(w_px, h_px) {
-            const slider = document.getElementById('crop-cam-size-slider');
+            const sliderW = document.getElementById('crop-cam-size-slider');
+            const sliderH = document.getElementById('crop-cam-height-slider');
             const disp = document.getElementById('crop-cam-size-display');
-            if (slider && document.activeElement !== slider) slider.value = w_px;
+            if (sliderW && document.activeElement !== sliderW) sliderW.value = w_px;
+            if (sliderH && document.activeElement !== sliderH) sliderH.value = h_px;
             if (disp) disp.innerText = `${w_px} x ${h_px} px`;
-
-            const bNormal = document.getElementById('btn-size-normal');
-            const bSmall = document.getElementById('btn-size-small');
-            const bLarge = document.getElementById('btn-size-large');
-            const actCls = 'px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition';
-            const inactCls = 'px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition';
-            if (bNormal) bNormal.className = (w_px === 540) ? actCls : inactCls;
-            if (bSmall) bSmall.className = (w_px === 420) ? actCls : inactCls;
-            if (bLarge) bLarge.className = (w_px === 680) ? actCls : inactCls;
         }
 
         function setCamSize(size) {
@@ -2639,8 +2798,8 @@ async function downloadRawVideo(clipId, btn, evt) {
                         initW: cropState.cam.w,
                         initH: cropState.cam.h,
                         initWpx: cropState.cam.w * vw,
-                        anchorX: handle.includes('r') ? cropState.cam.x : cropState.cam.x + cropState.cam.w,
-                        anchorY: handle.includes('b') ? cropState.cam.y : cropState.cam.y + cropState.cam.h
+                        anchorX: handle.includes('l') ? cropState.cam.x + cropState.cam.w : cropState.cam.x,
+                        anchorY: handle.includes('t') ? cropState.cam.y + cropState.cam.h : cropState.cam.y
                     };
                 });
             });
@@ -2732,73 +2891,101 @@ async function downloadRawVideo(clipId, btn, evt) {
                     updateBoxDom('cam');
                     draw916Preview();
                 } else if (activeCropDrag.target === 'cam_resize') {
-                    // Stufenlose Größenänderung über Eckengriffe (3:2 strikt gesperrt)
+                    // Stufenlose Cam-Größenänderung (Freihand oder festes Verhältnis)
                     const vw = videoNativeWidth || 1920;
                     const vh = videoNativeHeight || 1080;
                     const handle = activeCropDrag.handle;
-                    const dxPx = dx * vw;
 
-                    let targetWpx;
-                    if (handle.includes('r')) {
-                        targetWpx = activeCropDrag.initWpx + dxPx;
-                    } else {
-                        targetWpx = activeCropDrag.initWpx - dxPx;
-                    }
+                    let newW = cropState.cam.w;
+                    let newH = cropState.cam.h;
+                    let newX = cropState.cam.x;
+                    let newY = cropState.cam.y;
 
-                    const maxAllowedW = Math.min(vw, Math.floor(vh * 1.5));
-                    let clampedWpx = Math.max(160, Math.min(maxAllowedW, Math.round(targetWpx)));
-                    let clampedHpx = Math.round(clampedWpx * (2 / 3));
+                    const isFreehand = (camRatioMode === 'freehand') || ['t', 'b', 'l', 'r'].includes(handle);
 
-                    let wNorm = clampedWpx / vw;
-                    let hNorm = clampedHpx / vh;
+                    if (isFreehand) {
+                        // 1. Horizontale Anpassung (wenn Handle l oder r enthält)
+                        if (handle.includes('r')) {
+                            const rawW = activeCropDrag.initW + dx;
+                            newW = Math.max(120 / vw, Math.min(1.0 - activeCropDrag.anchorX, rawW));
+                            newX = activeCropDrag.anchorX;
+                        } else if (handle.includes('l')) {
+                            const rawW = activeCropDrag.initW - dx;
+                            newW = Math.max(120 / vw, Math.min(activeCropDrag.anchorX, rawW));
+                            newX = activeCropDrag.anchorX - newW;
+                        }
 
-                    // Randbegrenzung mit festem Seitenverhältnis
-                    if (handle.includes('r')) {
-                        if (activeCropDrag.anchorX + wNorm > 1.0) {
-                            wNorm = 1.0 - activeCropDrag.anchorX;
-                            clampedWpx = Math.round(wNorm * vw);
-                            clampedHpx = Math.round(clampedWpx * (2 / 3));
-                            hNorm = clampedHpx / vh;
+                        // 2. Vertikale Anpassung (wenn Handle t oder b enthält)
+                        if (handle.includes('b')) {
+                            const rawH = activeCropDrag.initH + dy;
+                            newH = Math.max(80 / vh, Math.min(1.0 - activeCropDrag.anchorY, rawH));
+                            newY = activeCropDrag.anchorY;
+                        } else if (handle.includes('t')) {
+                            const rawH = activeCropDrag.initH - dy;
+                            newH = Math.max(80 / vh, Math.min(activeCropDrag.anchorY, rawH));
+                            newY = activeCropDrag.anchorY - newH;
                         }
                     } else {
-                        if (activeCropDrag.anchorX - wNorm < 0.0) {
-                            wNorm = activeCropDrag.anchorX;
-                            clampedWpx = Math.round(wNorm * vw);
-                            clampedHpx = Math.round(clampedWpx * (2 / 3));
-                            hNorm = clampedHpx / vh;
+                        // Festes Seitenverhältnis (z.B. 3:2, 1:1, 16:9, 4:3)
+                        let ratioFactor = 2 / 3;
+                        if (camRatioMode === '1:1') ratioFactor = 1.0;
+                        else if (camRatioMode === '16:9') ratioFactor = 9 / 16;
+                        else if (camRatioMode === '4:3') ratioFactor = 3 / 4;
+
+                        const dxPx = dx * vw;
+                        let targetWpx = handle.includes('r') ? (activeCropDrag.initWpx + dxPx) : (activeCropDrag.initWpx - dxPx);
+                        const maxWpx = Math.min(vw, Math.floor(vh / ratioFactor));
+                        let clampedWpx = Math.max(120, Math.min(maxWpx, Math.round(targetWpx)));
+                        let clampedHpx = Math.round(clampedWpx * ratioFactor);
+
+                        newW = clampedWpx / vw;
+                        newH = clampedHpx / vh;
+
+                        if (handle.includes('r')) {
+                            if (activeCropDrag.anchorX + newW > 1.0) {
+                                newW = 1.0 - activeCropDrag.anchorX;
+                                clampedWpx = Math.round(newW * vw);
+                                clampedHpx = Math.round(clampedWpx * ratioFactor);
+                                newH = clampedHpx / vh;
+                            }
+                            newX = activeCropDrag.anchorX;
+                        } else {
+                            if (activeCropDrag.anchorX - newW < 0.0) {
+                                newW = activeCropDrag.anchorX;
+                                clampedWpx = Math.round(newW * vw);
+                                clampedHpx = Math.round(clampedWpx * ratioFactor);
+                                newH = clampedHpx / vh;
+                            }
+                            newX = activeCropDrag.anchorX - newW;
+                        }
+
+                        if (handle.includes('b')) {
+                            if (activeCropDrag.anchorY + newH > 1.0) {
+                                newH = 1.0 - activeCropDrag.anchorY;
+                                clampedHpx = Math.round(newH * vh);
+                                clampedWpx = Math.round(clampedHpx / ratioFactor);
+                                newW = clampedWpx / vw;
+                            }
+                            newY = activeCropDrag.anchorY;
+                        } else {
+                            if (activeCropDrag.anchorY - newH < 0.0) {
+                                newH = activeCropDrag.anchorY;
+                                clampedHpx = Math.round(newH * vh);
+                                clampedWpx = Math.round(clampedHpx / ratioFactor);
+                                newW = clampedWpx / vw;
+                            }
+                            newY = activeCropDrag.anchorY - newH;
                         }
                     }
 
-                    if (handle.includes('b')) {
-                        if (activeCropDrag.anchorY + hNorm > 1.0) {
-                            hNorm = 1.0 - activeCropDrag.anchorY;
-                            clampedHpx = Math.round(hNorm * vh);
-                            clampedWpx = Math.round(clampedHpx * (3 / 2));
-                            wNorm = clampedWpx / vw;
-                        }
-                    } else {
-                        if (activeCropDrag.anchorY - hNorm < 0.0) {
-                            hNorm = activeCropDrag.anchorY;
-                            clampedHpx = Math.round(hNorm * vh);
-                            clampedWpx = Math.round(clampedHpx * (3 / 2));
-                            wNorm = clampedWpx / vw;
-                        }
-                    }
+                    cropState.cam.w = newW;
+                    cropState.cam.h = newH;
+                    cropState.cam.x = Math.max(0, Math.min(1 - newW, newX));
+                    cropState.cam.y = Math.max(0, Math.min(1 - newH, newY));
 
-                    clampedWpx = Math.max(160, Math.round(wNorm * vw));
-                    clampedHpx = Math.round(clampedWpx * (2 / 3));
-                    wNorm = clampedWpx / vw;
-                    hNorm = clampedHpx / vh;
-
-                    const newX = handle.includes('l') ? (activeCropDrag.anchorX - wNorm) : activeCropDrag.anchorX;
-                    const newY = handle.includes('t') ? (activeCropDrag.anchorY - hNorm) : activeCropDrag.anchorY;
-
-                    cropState.cam.w = wNorm;
-                    cropState.cam.h = hNorm;
-                    cropState.cam.x = Math.max(0, Math.min(1 - wNorm, newX));
-                    cropState.cam.y = Math.max(0, Math.min(1 - hNorm, newY));
-
-                    syncCamSizeUi(clampedWpx, clampedHpx);
+                    const curWpx = Math.round(cropState.cam.w * vw);
+                    const curHpx = Math.round(cropState.cam.h * vh);
+                    syncCamSizeUi(curWpx, curHpx);
                     updateBoxDom('cam');
                     draw916Preview();
                 } else if (activeCropDrag.target === 'game_resize') {
@@ -3178,7 +3365,14 @@ async function downloadRawVideo(clipId, btn, evt) {
                     } catch(e) {}
                 } else {
                     try {
-                        ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, 270, 180);
+                        const dw = 270;
+                        const dh = 180;
+                        const scale = Math.max(dw / cw, dh / ch);
+                        const sw = dw / scale;
+                        const sh = dh / scale;
+                        const sx = cx + (cw - sw) / 2;
+                        const sy = cy + (ch - sh) / 2;
+                        ctx.drawImage(vid, sx, sy, sw, sh, 0, 0, dw, dh);
                     } catch(e) {}
                 }
 
@@ -3850,6 +4044,11 @@ async function importTwitchClipToStudio(index, mode, btn) {
         window.seekCropVideo = seekCropVideo;
         window.toggleCropVideoPlay = toggleCropVideoPlay;
         window.setCamPixelWidth = setCamPixelWidth;
+        window.setCamPixelHeight = setCamPixelHeight;
+        window.toggleCamRatioMode = toggleCamRatioMode;
+        window.setCamAspectRatio = setCamAspectRatio;
+        window.cancelActiveTask = cancelActiveTask;
+        window.__realCancelActiveTask = cancelActiveTask;
         window.setGamePixelWidth = setGamePixelWidth;
         window.switchCropMode = switchCropMode;
         window.toggleCamEnabled = toggleCamEnabled;

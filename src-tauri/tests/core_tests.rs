@@ -406,3 +406,25 @@ async fn test_export_endpoints_and_shorts_dir() {
     }
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn test_cancel_endpoints_and_status() {
+    use clip_farming_lib::state::{clear_global_cancel, register_active_render, status_manager};
+
+    clear_global_cancel();
+    status_manager().set_task("rendering", "Rendere Test...", "Titel", "Streamer");
+    let st = status_manager().get_state();
+    assert!(st.is_running);
+    assert_eq!(st.phase, "rendering");
+    assert_eq!(st.status, "rendering");
+    assert_eq!(st.current_task, "Rendere Test...");
+
+    register_active_render("test_cancel_clip", 999_990);
+    let cancelled = clip_farming_lib::state::cancel_all_active_tasks();
+    assert_eq!(cancelled, 1);
+    let st_after = status_manager().get_state();
+    assert!(!st_after.is_running);
+    assert_eq!(st_after.phase, "idle");
+    assert_eq!(st_after.status, "idle");
+    clear_global_cancel();
+}

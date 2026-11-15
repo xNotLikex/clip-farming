@@ -22,6 +22,7 @@ pub async fn run_twitch_harvest(app: Option<AppHandle>) -> Result<usize, String>
     if let Some(a) = app {
         mgr.set_app_handle(a);
     }
+    crate::state::clear_global_cancel();
     mgr.set_task("harvesting", "Suche neue Twitch Clips...", "", "");
 
     let cfg = load_config();
@@ -41,6 +42,10 @@ pub async fn run_twitch_harvest(app: Option<AppHandle>) -> Result<usize, String>
     let total_streamers = active_streamers.len().max(1);
 
     for (idx, st) in active_streamers.iter().enumerate() {
+        if crate::state::is_global_cancel_requested() {
+            mgr.set_task("idle", "Twitch-Suche durch Benutzer abgebrochen.", "", "");
+            return Ok(total_harvested);
+        }
         let pct = (((idx as f64) / (total_streamers as f64)) * 90.0) as i32;
         mgr.set_progress(
             pct,
@@ -290,8 +295,13 @@ pub async fn process_all_pending(app: Option<AppHandle>) -> Result<usize, String
         .map_err(|_| "Es läuft bereits ein Hintergrund-Task.".to_string())?;
 
     let pending = get_pending_clips().map_err(|e| e.to_string())?;
+    crate::state::clear_global_cancel();
     let mut done = 0usize;
     for clip in pending {
+        if crate::state::is_global_cancel_requested() {
+            status_manager().set_task("idle", "Stapelverarbeitung durch Benutzer abgebrochen.", "", "");
+            break;
+        }
         if process_single_clip_inner(&clip.clip_id, app.clone())
             .await
             .is_ok()

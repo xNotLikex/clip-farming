@@ -15,7 +15,7 @@ use crate::gpu::{detect_gpus, get_encoder_catalog, select_best_encoder, EncoderP
 use crate::layout::generate_thumbnail;
 use crate::models::DashboardData;
 use crate::pipeline::{process_all_pending, process_single_clip, run_twitch_harvest};
-use crate::state::{cancel_active_render, status_manager};
+use crate::state::{cancel_active_render, cancel_all_active_tasks, status_manager};
 use crate::twitch::{
     download_clip_file, harvest_channel, normalize_gql_time_filter, query_twitch_clips,
     refresh_streamer_avatars, save_harvested_clip, DiscoveredClip,
@@ -303,6 +303,10 @@ pub async fn api_proxy(
     }
     if clean_path == "/api/version" {
         return Ok(json!({ "version": env!("CARGO_PKG_VERSION") }).to_string());
+    }
+    if (clean_path == "/api/cancel-task" || clean_path == "/api/cancel" || clean_path == "/api/cancel-all") && (req_method == "POST" || req_method == "GET") {
+        let count = cancel_all_active_tasks();
+        return Ok(json!({ "success": true, "ok": true, "cancelled_count": count }).to_string());
     }
 
     // 2. Harvest & Processing

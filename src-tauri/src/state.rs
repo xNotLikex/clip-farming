@@ -10,10 +10,13 @@ const MAX_LOG_LINES: usize = 80;
 pub struct StatusState {
     pub is_running: bool,
     pub phase: String,
+    pub status: String,
     pub message: String,
+    pub current_task: String,
     pub clip_title: String,
     pub streamer: String,
     pub percent: i32,
+    pub progress_percent: i32,
     pub eta_seconds: i64,
     pub speed: String,
     pub clip_id: String,
@@ -26,10 +29,13 @@ impl Default for StatusState {
         Self {
             is_running: false,
             phase: "idle".to_string(),
+            status: "idle".to_string(),
             message: "Bereit".to_string(),
+            current_task: "Bereit zur Ausführung".to_string(),
             clip_title: String::new(),
             streamer: String::new(),
             percent: 0,
+            progress_percent: 0,
             eta_seconds: 0,
             speed: String::new(),
             clip_id: String::new(),
@@ -76,11 +82,14 @@ impl StatusManager {
             let is_running = !matches!(phase, "idle" | "error");
             st.is_running = is_running;
             st.phase = phase.to_string();
+            st.status = phase.to_string();
             st.message = message.to_string();
+            st.current_task = message.to_string();
             st.clip_title = clip_title.to_string();
             st.streamer = streamer.to_string();
             if !is_running {
                 st.percent = 0;
+                st.progress_percent = 0;
                 st.eta_seconds = 0;
                 st.speed.clear();
                 st.clip_id.clear();
@@ -101,10 +110,12 @@ impl StatusManager {
         let snapshot = {
             let mut st = self.inner.lock().unwrap();
             st.percent = percent.clamp(0, 100);
+            st.progress_percent = st.percent;
             st.eta_seconds = eta_seconds.max(0);
             st.speed = speed.to_string();
             if let Some(p) = phase {
                 st.phase = p.to_string();
+                st.status = p.to_string();
             }
             if let Some(cid) = clip_id {
                 st.clip_id = cid.to_string();
@@ -178,6 +189,59 @@ pub fn consume_render_cancelled(clip_id: &str) -> bool {
     false
 }
 
+static GLOBAL_CANCEL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn request_global_cancel() {
+    GLOBAL_CANCEL.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+pub fn is_global_cancel_requested() -> bool {
+    GLOBAL_CANCEL.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+pub fn clear_global_cancel() {
+    GLOBAL_CANCEL.store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
+pub fn cancel_all_active_tasks() -> usize {
+    request_global_cancel();
+
+    let pids = {
+        let mut reg = match render_registry().lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let drained: Vec<_> = reg.active_pids.drain().collect();
+        let mut pids = Vec::with_capacity(drained.len());
+        for (cid, pid) in drained {
+            reg.cancelled.insert(cid);
+            pids.push(pid);
+        }
+        pids
+    };
+
+    let count = pids.len();
+    for pid in pids {
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let _ = std::process::Command::new("taskkill")
+                .args(["/PID", &pid.to_string(), "/T", "/F"])
+                .creation_flags(0x08000000)
+                .output();
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = std::process::Command::new("kill")
+                .args(["-9", &pid.to_string()])
+                .output();
+        }
+    }
+
+    status_manager().set_task("idle", "Aufgabe durch Benutzer abgebrochen.", "", "");
+    count
+}
+
 pub fn cancel_active_render(clip_id: &str) -> bool {
     let pid_opt = {
         let mut reg = render_registry().lock().unwrap();
@@ -233,5 +297,20 @@ mod tests {
         assert!(is_render_cancelled("clip_x"));
         assert!(consume_render_cancelled("clip_x"));
         assert!(!is_render_cancelled("clip_x"));
+    }
+
+    #[test]
+    fn test_cancel_all_active_tasks() {
+        clear_global_cancel();
+        assert!(!is_global_cancel_requested());
+        register_active_render("clip_multi_1", 999_998);
+        register_active_render("clip_multi_2", 999_997);
+        let count = cancel_all_active_tasks();
+        assert_eq!(count, 2);
+        assert!(is_global_cancel_requested());
+        assert!(is_render_cancelled("clip_multi_1"));
+        assert!(is_render_cancelled("clip_multi_2"));
+        clear_global_cancel();
+        assert!(!is_global_cancel_requested());
     }
 }

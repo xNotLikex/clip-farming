@@ -1321,29 +1321,34 @@
                     var progressSpeed = document.getElementById('render-speed-badge');
                     var progressTitle = document.getElementById('render-progress-title');
 
+                    var btnCancelHeader = document.getElementById('btn-cancel-header');
+                    var phase = (data.phase || data.status || 'idle').toLowerCase();
+                    var taskDesc = data.message || data.current_task || '';
+                    var pct = (data.percent !== undefined) ? data.percent : (data.progress_percent || 0);
+
                     if (data.is_running) {
-                        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
-                        if (text) text.innerText = 'AKTIV: ' + (data.status || 'ARBEITET').toUpperCase();
-                        if (desc) desc.innerText = (data.current_task || '') + (data.streamer ? ' (' + data.streamer + ')' : '');
+                        if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+                        if (text) text.innerText = 'AKTIV: ' + phase.toUpperCase();
+                        if (desc) desc.innerText = taskDesc + (data.streamer ? ' (' + data.streamer + ')' : '');
+                        if (btnCancelHeader) btnCancelHeader.classList.remove('hidden');
                         if (btn) {
                             btn.disabled = true;
                             btn.className = 'flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-400 font-semibold text-xs rounded cursor-not-allowed';
                             btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span> Suche läuft...';
                         }
-                        if (data.status === 'rendering' || data.progress_percent > 0) {
-                            if (progressCard) progressCard.classList.remove('hidden');
-                            if (progressBar) progressBar.style.width = data.progress_percent + '%';
-                            if (progressPercent) progressPercent.innerText = data.progress_percent + '%';
+                        if (progressCard) {
+                            progressCard.classList.remove('hidden');
+                            if (progressBar) progressBar.style.width = Math.max(5, pct) + '%';
+                            if (progressPercent) progressPercent.innerText = pct + '%';
                             if (progressEta && data.eta_seconds) progressEta.innerText = 'Noch ca. ' + data.eta_seconds + 's';
                             if (progressSpeed && data.speed) progressSpeed.innerText = data.speed + ' NVENC';
-                            if (progressTitle) progressTitle.innerText = data.current_task || 'Rendere Video...';
-                        } else {
-                            if (progressCard) progressCard.classList.add('hidden');
+                            if (progressTitle) progressTitle.innerText = taskDesc || 'Rendere Video...';
                         }
                     } else {
                         if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-400';
                         if (text) text.innerText = 'STANDBY';
-                        if (desc) desc.innerText = data.current_task || 'Bereit zur Ausführung';
+                        if (desc) desc.innerText = taskDesc || 'Bereit zur Ausführung';
+                        if (btnCancelHeader) btnCancelHeader.classList.add('hidden');
                         if (progressCard) progressCard.classList.add('hidden');
                         if (btn && btn.disabled) {
                             btn.disabled = false;
@@ -1389,6 +1394,16 @@
                 })
                 .catch(function(err) {});
         }
+        function cancelActiveTask() {
+            if (window.__realCancelActiveTask) return window.__realCancelActiveTask();
+            fetch('/api/cancel-task', { method: 'POST' })
+                .then(function() {
+                    updateLiveStatus();
+                })
+                .catch(function(e) {
+                    console.error(e);
+                });
+        }
         setInterval(updateLiveStatus, 1500);
         setTimeout(updateLiveStatus, 400);
     </script>
@@ -1402,15 +1417,19 @@
                 <div class="flex items-center gap-3">
                     <h1 class="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
                         <span>CLIP-FARMING</span><span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">STUDIO</span>
-                        <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v0.1.1</span>
+                        <span class="text-2xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-semibold tracking-wider">v0.1.2</span>
                     </h1>
                     <button id="update-badge" style="display: none;" onclick="openUpdateModal()" class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 transition shadow-sm animate-pulse cursor-pointer">
                         <span>Update <span id="update-badge-v"></span> verfügbar</span>
                     </button>
                     <span id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pingbg-slate-400" id="live-dot"></span>
+                        <span class="w-2 h-2 rounded-full bg-slate-400" id="live-dot"></span>
                         <span id="live-status-text">AKTIV: STANDBY</span>
                     </span>
+                    <button id="btn-cancel-header" onclick="cancelActiveTask()" class="hidden px-2.5 py-1 bg-rose-600/90 hover:bg-rose-500 text-white font-bold text-xs rounded border border-rose-500 transition shadow animate-pulse flex items-center gap-1.5" title="Laufende Aufgabe sofort abbrechen">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Aufgabe abbrechen</span>
+                    </button>
                 </div>
                 <p id="live-task-desc" class="text-slate-400 text-sm mt-1"></p>
             </div>
@@ -1437,6 +1456,10 @@
                     <span id="render-speed-badge" class="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-0.5 rounded border border-zinc-700">NVENC</span>
                     <span id="render-eta-text" class="text-xs font-semibold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">Noch ca. --s</span>
                     <span id="render-percent-text" class="text-lg font-black text-white">0%</span>
+                    <button onclick="cancelActiveTask()" id="btn-cancel-render" class="ml-2 px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-sans font-bold text-xs rounded transition flex items-center gap-1 shadow" title="Laufenden Prozess sofort beenden">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Abbrechen</span>
+                    </button>
                 </div>
             </div>
             <!-- Progress Bar -->
@@ -1508,10 +1531,6 @@
                         
                         <button type="button" id="btn-delete-older" onclick="deleteOlderQueue()" class="hidden px-3 py-1.5 text-xs text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 border border-slate-700/80 rounded transition font-medium items-center gap-1.5" title="Löscht alle Roh-Clips von gestern & älter">
                             <span id="btn-delete-older-text">Gestern & älter löschen</span>
-                        </button>
-                        
-                        <button onclick="processAll()" id="btn-process-all" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs rounded transition flex items-center gap-2 shadow-sm">
-                            <svg class="w-4 h-4 inline-block -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Alle ins Studio übernehmen
                         </button>
                     </div>
                     
@@ -2387,20 +2406,25 @@
 
                         <!-- Draggable Overlay Boxes Container -->
                         <div id="crop-overlay-layer" class="absolute inset-0 select-none pointer-events-none z-20">
-                            <!-- 🟩 Facecam Box (Feste 3:2 Proportion, frei verschiebbar & stufenlos skalierbar) -->
-                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken ziehen / Mausrad)">
+                            <!-- 🟩 Facecam Box (Freihand oder 3:2, frei verschiebbar & stufenlos skalierbar) -->
+                            <div id="crop-box-cam" class="absolute select-none border-2 border-emerald-400 bg-emerald-500/20 shadow-sm rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center transition-shadow hover:border-zinc-500 pointer-events-auto" style="left: 68%; top: 58%; width: 28%; height: 35%; display: flex;" title="Verschieben (Ziehen) oder Größe ändern (Ecken / Kanten frei ziehen)">
                                 <div class="absolute -top-6 left-0 bg-emerald-600 text-[10px] font-black text-white px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap flex items-center gap-1">
                                     <span>Facecam</span>
-                                    <span class="text-emerald-200 text-2xs font-normal">(Festes 3:2 Format)</span>
+                                    <span id="crop-cam-format-badge" class="text-emerald-200 text-2xs font-normal">(Freihand)</span>
                                 </div>
                                 <div class="w-5 h-5 rounded-full border border-white/70 bg-emerald-500/60 pointer-events-none flex items-center justify-center shadow">
                                     <span class="text-2xs text-white font-black">✚</span>
                                 </div>
-                                <!-- 4 Ecken zum stufenlosen Vergrößern/Verkleinern mit festem 3:2 Seitenverhältnis -->
-                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Größe anpassen (3:2)"></div>
-                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Größe anpassen (3:2)"></div>
+                                <!-- 4 Ecken: Stufenlos / Freihand -->
+                                <div class="crop-cam-handle absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tl" title="Ecke ziehen"></div>
+                                <div class="crop-cam-handle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="tr" title="Ecke ziehen"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nesw-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="bl" title="Ecke ziehen"></div>
+                                <div class="crop-cam-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full cursor-nwse-resize shadow-md z-20 transition-transform pointer-events-auto" data-handle="br" title="Ecke ziehen"></div>
+                                <!-- 4 Kanten: Oben / Unten / Links / Rechts für perfekten Freihand-Zuschnitt -->
+                                <div class="crop-cam-handle absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-2 bg-emerald-400 border border-slate-900 rounded-sm cursor-ns-resize shadow-sm z-20 pointer-events-auto" data-handle="t" title="Oben ziehen (Höhe)"></div>
+                                <div class="crop-cam-handle absolute -bottom-1 left-1/2 -translate-x-1/2 w-6 h-2 bg-emerald-400 border border-slate-900 rounded-sm cursor-ns-resize shadow-sm z-20 pointer-events-auto" data-handle="b" title="Unten ziehen (Höhe)"></div>
+                                <div class="crop-cam-handle absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-6 bg-emerald-400 border border-slate-900 rounded-sm cursor-ew-resize shadow-sm z-20 pointer-events-auto" data-handle="l" title="Links ziehen (Breite)"></div>
+                                <div class="crop-cam-handle absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-6 bg-emerald-400 border border-slate-900 rounded-sm cursor-ew-resize shadow-sm z-20 pointer-events-auto" data-handle="r" title="Rechts ziehen (Breite)"></div>
                             </div>
 
                             <!-- 🟦 Gameplay Box (Feste 9:10 Proportion, frei verschiebbar & stufenlos skalierbar) -->
@@ -2461,26 +2485,39 @@
                                         Keine Cam (Vollbild / 1 Rahmen)
                                     </button>
                                 </div>
-                                <!-- Stufenlose Cam-Größenregelung mit festem 3:2 Seitenverhältnis -->
+                                <!-- Stufenlose Cam-Größenregelung & Freihand-Option -->
                                 <div class="flex flex-wrap items-center gap-3 bg-slate-900/70 p-2.5 rounded border border-slate-800/80">
                                     <div class="flex items-center gap-2">
                                         <span class="text-xs font-bold text-emerald-400 min-w-[90px] flex items-center gap-1">
                                              Cam-Größe:
                                         </span>
-                                        <input type="range" id="crop-cam-size-slider" min="200" max="1100" step="5" value="540" 
-                                            class="w-36 sm:w-48 accent-emerald-500 cursor-pointer" 
-                                            oninput="setCamPixelWidth(this.value)"
-                                            title="Stufenlose Größenregelung (3:2 bleibt immer gesperrt)">
+                                        <button type="button" id="btn-cam-ratio-mode" onclick="toggleCamRatioMode()" class="px-2.5 py-1 bg-emerald-950/90 border border-emerald-500 text-xs font-bold rounded text-emerald-200 transition flex items-center gap-1 shadow-sm hover:bg-emerald-900" title="Klicke hier um zwischen Freihand und festem Seitenverhältnis umzuschalten">
+                                            <span id="cam-ratio-icon">🔓</span>
+                                            <span id="cam-ratio-label">Freihand</span>
+                                        </button>
+                                        <div class="flex items-center gap-1.5 ml-1">
+                                            <span class="text-2xs text-slate-400">B:</span>
+                                            <input type="range" id="crop-cam-size-slider" min="160" max="1200" step="5" value="540" 
+                                                class="w-20 sm:w-28 accent-emerald-500 cursor-pointer" 
+                                                oninput="setCamPixelWidth(this.value)"
+                                                title="Cam-Breite anpassen">
+                                            <span class="text-2xs text-slate-400 ml-1">H:</span>
+                                            <input type="range" id="crop-cam-height-slider" min="120" max="900" step="5" value="360" 
+                                                class="w-20 sm:w-28 accent-emerald-500 cursor-pointer" 
+                                                oninput="setCamPixelHeight(this.value)"
+                                                title="Cam-Höhe anpassen">
+                                        </div>
                                         <span id="crop-cam-size-display" class="font-mono text-xs text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60 min-w-[95px] text-center shadow-inner">
                                             540 x 360 px
                                         </span>
                                     </div>
-                                    <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
-                                        <span class="text-2xs text-slate-400">Schnellwahl:</span>
-                                        <button type="button" onclick="setCamPixelWidth(420)" id="btn-size-small" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Kompakt (420px)</button>
-                                        <button type="button" onclick="setCamPixelWidth(540)" id="btn-size-normal" class="px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition">Standard (540px)</button>
-                                        <button type="button" onclick="setCamPixelWidth(680)" id="btn-size-large" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">Groß (680px)</button>
-                                        <span class="text-2xs text-slate-500 hidden md:inline ml-1">3:2 fest • Mausrad / Ecken ziehen</span>
+                                    <div class="flex items-center gap-1.5 ml-auto sm:ml-0 flex-wrap">
+                                        <span class="text-2xs text-slate-400">Format:</span>
+                                        <button type="button" onclick="setCamAspectRatio('freehand')" id="btn-ratio-free" class="px-2 py-0.5 bg-emerald-900/80 border border-emerald-500 text-2xs font-bold rounded text-emerald-200 shadow transition">Freihand</button>
+                                        <button type="button" onclick="setCamAspectRatio('3:2')" id="btn-ratio-32" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">3:2</button>
+                                        <button type="button" onclick="setCamAspectRatio('1:1')" id="btn-ratio-11" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">1:1</button>
+                                        <button type="button" onclick="setCamAspectRatio('16:9')" id="btn-ratio-169" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">16:9</button>
+                                        <button type="button" onclick="setCamAspectRatio('4:3')" id="btn-ratio-43" class="px-2 py-0.5 bg-slate-800 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 text-2xs rounded text-slate-200 transition">4:3</button>
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-800/60">
