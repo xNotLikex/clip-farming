@@ -337,28 +337,45 @@ fn test_delete_older_queue_clips_isolated() {
     }
 
     let conn = db::open_connection().unwrap();
+    let three_hours_ago = (chrono::Local::now() - chrono::Duration::hours(3)).to_rfc3339();
+    let one_hour_ago = (chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339();
+
     conn.execute(
-        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, status) VALUES ('c_old', 'trymacs', 'Old Clip', 150, 25.0, '2020-01-01T12:00:00Z', 'harvested')",
+        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at, status) VALUES ('c_old', 'trymacs', 'Old Clip', 150, 25.0, '2020-01-01T12:00:00Z', '2020-01-01T12:00:00Z', 'harvested')",
         [],
     ).unwrap();
     conn.execute(
-        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, status) VALUES ('c_new', 'trymacs', 'New Clip', 200, 25.0, '2099-01-01T12:00:00Z', 'harvested')",
-        [],
+        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at, status) VALUES ('c_few_hours', 'trymacs', 'Recent Clip', 200, 25.0, ?1, ?2, 'harvested')",
+        rusqlite::params![&three_hours_ago, &three_hours_ago],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO clips (clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at, status) VALUES ('c_freshly_harvested', 'trymacs', 'Fresh Harvest', 200, 25.0, '2020-01-01T12:00:00Z', ?1, 'harvested')",
+        rusqlite::params![&one_hour_ago],
     ).unwrap();
 
     let raw_dir = config::get_raw_clips_dir();
     fs::create_dir_all(&raw_dir).unwrap();
     let old_raw = raw_dir.join("c_old.mp4");
-    let new_raw = raw_dir.join("c_new.mp4");
+    let few_hours_raw = raw_dir.join("c_few_hours.mp4");
+    let fresh_raw = raw_dir.join("c_freshly_harvested.mp4");
     fs::write(&old_raw, b"dummy old").unwrap();
-    fs::write(&new_raw, b"dummy new").unwrap();
+    fs::write(&few_hours_raw, b"dummy few hours").unwrap();
+    fs::write(&fresh_raw, b"dummy fresh").unwrap();
 
     let ids: Vec<String> = {
         let mut stmt = conn
-            .prepare("SELECT clip_id FROM clips WHERE status = 'harvested' AND date(COALESCE(clip_created_at, harvested_at), 'localtime') < date('now', 'localtime')")
+            .prepare("SELECT clip_id, clip_created_at, harvested_at FROM clips WHERE status = 'harvested'")
             .unwrap();
-        let rows = stmt.query_map([], |row| row.get(0)).unwrap();
-        rows.filter_map(Result::ok).collect()
+        let rows = stmt.query_map([], |row| {
+            let cid: String = row.get(0)?;
+            let c_at: Option<String> = row.get(1)?;
+            let h_at: Option<String> = row.get(2)?;
+            Ok((cid, c_at, h_at))
+        }).unwrap();
+        rows.filter_map(Result::ok)
+            .filter(|r| db::is_clip_older_than_today(r.1.as_deref(), r.2.as_deref()))
+            .map(|r| r.0)
+            .collect()
     };
     assert_eq!(ids, vec!["c_old".to_string()]);
 
@@ -367,10 +384,11 @@ fn test_delete_older_queue_clips_isolated() {
     }
 
     assert!(!old_raw.exists());
-    assert!(new_raw.exists());
+    assert!(few_hours_raw.exists());
+    assert!(fresh_raw.exists());
 
     let remaining: i64 = conn.query_row("SELECT COUNT(*) FROM clips", [], |r| r.get(0)).unwrap();
-    assert_eq!(remaining, 1);
+    assert_eq!(remaining, 2);
 
     unsafe {
         std::env::remove_var("CLIP_FARMING_DATA_DIR");

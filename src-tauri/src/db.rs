@@ -86,18 +86,74 @@ pub fn init_db(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+pub fn parse_clip_time(ts: &str) -> Option<DateTime<Local>> {
+    let s = ts.trim();
+    if s.is_empty() {
+        return None;
+    }
+    if let Ok(dt) = DateTime::parse_from_rfc3339(&s.replace("Z", "+00:00")) {
+        return Some(dt.with_timezone(&Local));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
+        return naive.and_local_timezone(Local).single().or_else(|| Some(naive.and_utc().with_timezone(&Local)));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
+        return naive.and_local_timezone(Local).single().or_else(|| Some(naive.and_utc().with_timezone(&Local)));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return naive.and_local_timezone(Local).single().or_else(|| Some(naive.and_utc().with_timezone(&Local)));
+    }
+    None
+}
+
+pub fn is_clip_older_than_today(clip_created_at: Option<&str>, harvested_at: Option<&str>) -> bool {
+    let now = Local::now();
+    let today = now.date_naive();
+
+    // 1. Wenn der Clip erst kürzlich (< 24h) geharvested wurde, ist er frisch in der Queue -> NICHT alt!
+    if let Some(h) = harvested_at {
+        if let Some(h_dt) = parse_clip_time(h) {
+            if now.signed_duration_since(h_dt).num_seconds() < 86400 {
+                return false;
+            }
+        }
+    }
+
+    // 2. Wenn der Clip vor weniger als 24 Stunden erstellt wurde, ist er brandneu (z.B. vor 3 Std.) -> NICHT alt!
+    if let Some(c) = clip_created_at {
+        if let Some(c_dt) = parse_clip_time(c) {
+            let diff_secs = now.signed_duration_since(c_dt).num_seconds();
+            if diff_secs < 86400 {
+                return false;
+            }
+            return c_dt.date_naive() < today;
+        }
+    }
+
+    // 3. Fallback über harvested_at wenn clip_created_at fehlt
+    if let Some(h) = harvested_at {
+        if let Some(h_dt) = parse_clip_time(h) {
+            let diff_secs = now.signed_duration_since(h_dt).num_seconds();
+            if diff_secs < 86400 {
+                return false;
+            }
+            return h_dt.date_naive() < today;
+        }
+    }
+
+    // Wenn keine validen Zeitstempel vorliegen, niemals vorschnell löschen
+    false
+}
+
 pub fn format_relative_time(iso_ts: Option<&str>) -> (String, String) {
     let ts_str = match iso_ts {
         Some(s) if !s.trim().is_empty() => s.trim(),
         _ => return ("-".to_string(), "".to_string()),
     };
 
-    let dt = match DateTime::parse_from_rfc3339(&ts_str.replace("Z", "+00:00")) {
-        Ok(parsed) => parsed.with_timezone(&Local),
-        Err(_) => match chrono::NaiveDateTime::parse_from_str(ts_str, "%Y-%m-%d %H:%M:%S") {
-            Ok(naive) => naive.and_local_timezone(Local).unwrap(),
-            Err(_) => return (ts_str.to_string(), ts_str.to_string()),
-        },
+    let dt = match parse_clip_time(ts_str) {
+        Some(d) => d,
+        None => return (ts_str.to_string(), ts_str.to_string()),
     };
 
     let now = Local::now();
@@ -140,10 +196,11 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         raw_counts.insert(r.0, r.1);
     }
 
-    let harvested_count = *raw_counts.get("harvested").unwrap_or(&0) + *raw_counts.get("processing").unwrap_or(&0);
+    let harvested_count = *raw_counts.get("harvested").unwrap_or(&0);
     let ready_count = *raw_counts.get("ready").unwrap_or(&0)
         + *raw_counts.get("completed").unwrap_or(&0)
-        + *raw_counts.get("failed").unwrap_or(&0);
+        + *raw_counts.get("failed").unwrap_or(&0)
+        + *raw_counts.get("processing").unwrap_or(&0);
     let scheduled_count = *raw_counts.get("scheduled").unwrap_or(&0);
     let published_count = *raw_counts.get("published").unwrap_or(&0);
 
@@ -156,10 +213,10 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
 
     // 2. Queue Clips
     let mut q_stmt = conn
-        .prepare("SELECT clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at FROM clips WHERE status IN ('harvested', 'processing') ORDER BY view_count DESC")
+        .prepare("SELECT clip_id, streamer, original_title, view_count, duration, clip_created_at, harvested_at FROM clips WHERE status = 'harvested' ORDER BY view_count DESC")
         .map_err(|e| e.to_string())?;
 
-    let today_local = Local::now().date_naive();
+    let _today_local = Local::now().date_naive();
     let mut queue_clips = Vec::new();
     let mut older_queue_count = 0;
 
@@ -188,15 +245,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         let ts_ref = r.5.as_deref().or(r.6.as_deref());
         let (ago, full) = format_relative_time(ts_ref);
 
-        if let Some(ts) = ts_ref {
-            if let Ok(parsed) = DateTime::parse_from_rfc3339(&ts.replace("Z", "+00:00")) {
-                if parsed.with_timezone(&Local).date_naive() < today_local {
-                    older_queue_count += 1;
-                }
-            } else {
-                older_queue_count += 1;
-            }
-        } else {
+        if is_clip_older_than_today(r.5.as_deref(), r.6.as_deref()) {
             older_queue_count += 1;
         }
 
@@ -215,7 +264,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
 
     // 3. Ready Clips (Studio)
     let mut r_stmt = conn
-        .prepare("SELECT clip_id, streamer, original_title, ai_title, view_count, is_manually_published, clip_created_at, harvested_at FROM clips WHERE status IN ('ready', 'completed', 'failed') ORDER BY LOWER(streamer) ASC, rowid DESC")
+        .prepare("SELECT clip_id, streamer, original_title, ai_title, view_count, is_manually_published, clip_created_at, harvested_at, status FROM clips WHERE status IN ('ready', 'completed', 'failed', 'processing') ORDER BY LOWER(streamer) ASC, rowid DESC")
         .map_err(|e| e.to_string())?;
 
     let mut ready_clips = Vec::new();
@@ -235,6 +284,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
             let is_man_pub: Option<i64> = row.get(5)?;
             let clip_created_at: Option<String> = row.get(6)?;
             let harvested_at: Option<String> = row.get(7)?;
+            let status: String = row.get::<_, Option<String>>(8)?.unwrap_or_else(|| "ready".to_string());
             Ok((
                 clip_id,
                 streamer,
@@ -244,6 +294,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
                 is_man_pub.unwrap_or(0) != 0,
                 clip_created_at,
                 harvested_at,
+                status,
             ))
         })
         .map_err(|e| e.to_string())?;
@@ -255,6 +306,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
         let ai_title = r.3;
         let view_count = r.4;
         let mut is_manually_published = r.5;
+        let clip_status = r.8;
 
         let mut title = ai_title.unwrap_or_else(|| orig_title.clone());
         let mut sticker_text = orig_title.clone();
@@ -340,6 +392,7 @@ pub fn fetch_dashboard_data() -> Result<DashboardData, String> {
             layout_mode,
             cam_filter,
             is_manually_published,
+            status: clip_status,
             has_video,
             has_raw_video,
             updated_at,

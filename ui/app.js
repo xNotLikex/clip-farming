@@ -609,15 +609,26 @@ function buildStudioCardHtml(clip, cardSig) {
                 <video id="studio-video-${clip.clip_id}" controls preload="metadata" poster="${getBackendUrl('/thumbnail/raw/' + clip.clip_id + '?v=' + cacheBust)}" class="w-full h-full object-contain">
                     <source src="${getBackendUrl('/raw-video/' + clip.clip_id + '?v=' + cacheBust)}" type="video/mp4">
                 </video>
-                <span class="absolute top-3 left-3 bg-amber-500/90 text-zinc-950 text-[11px] font-bold px-2 py-0.5 rounded shadow">
-                    Originalclip (unbearbeitet)
-                </span>
                 ` : `
                 <div class="text-center p-6 text-slate-500">
                     <div class="w-8 h-8 mx-auto mb-2 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                    Video wird gerendert...
+                    Video wird vorbereitet...
                 </div>
                 `}
+                ${clip.status === 'processing' ? `
+                <span class="absolute top-3 left-3 bg-amber-500 text-zinc-950 text-[11px] font-bold px-2.5 py-1 rounded shadow flex items-center gap-1.5 z-10 animate-pulse">
+                    <span class="w-2.5 h-2.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin"></span>
+                    Wird gerendert...
+                </span>
+                ` : clip.status === 'failed' ? `
+                <span class="absolute top-3 left-3 bg-rose-500 text-white text-[11px] font-bold px-2.5 py-1 rounded shadow z-10">
+                    Renderfehler - Bitte neu rendern
+                </span>
+                ` : !clip.has_video && clip.has_raw_video ? `
+                <span class="absolute top-3 left-3 bg-amber-500/90 text-zinc-950 text-[11px] font-bold px-2 py-0.5 rounded shadow">
+                    Originalclip (unbearbeitet)
+                </span>
+                ` : ''}
                 <span class="absolute top-3 right-3 bg-slate-900/90 text-xs text-slate-300 font-semibold px-2 py-1 rounded-md border border-slate-800">
                     ${SVG_ICONS.eye} ${clip.view_count}
                 </span>
@@ -661,11 +672,11 @@ function buildStudioCardHtml(clip, cardSig) {
 
                 <div class="pt-4 border-t border-slate-800 flex flex-col gap-2">
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="submit" name="action" value="save" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5">
-                            ${SVG_ICONS.save} Nur speichern
+                        <button type="submit" name="action" value="rerender" class="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm" title="Short mit diesen Untertiteln, Titel & Layout neu rendern">
+                            ${SVG_ICONS.scan} Speichern & Neu rendern
                         </button>
-                        <button type="submit" name="action" value="rerender" class="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm">
-                            ${SVG_ICONS.scan} Speichern & Neu Rendern
+                        <button type="submit" name="action" value="save" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold text-xs rounded transition flex items-center justify-center gap-1.5" title="Nur Text & Einstellungen speichern (ohne Video neu zu rendern)">
+                            ${SVG_ICONS.save} Nur Entwurf
                         </button>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
@@ -3962,13 +3973,13 @@ async function importTwitchClipToStudio(index, mode, btn) {
                         if (submitVal === 'delete') {
                             showToast('Clip aus Studio gelöscht.', 'info');
                         } else if (submitVal === 'rerender') {
-                            showToast('Short erfolgreich neu gerendert!', 'success');
+                            showToast('Neu-Rendern im Hintergrund gestartet! (Status oben beachten)', 'info');
                         } else if (submitVal === 'schedule') {
                             showToast('Clip im Veröffentlichungs-Zeitplan eingereiht!', 'success');
                         } else if (submitVal === 'publish_now') {
                             showToast('Veröffentlichung gestartet!', 'success');
                         } else if (actionUrl.startsWith('/save/')) {
-                            showToast('Änderungen & Untertiteltext gespeichert!', 'success');
+                            showToast('Entwurf gespeichert! Klicke "Speichern & Neu rendern", um das Video zu aktualisieren.', 'info');
                         }
                     } catch (err) {
                         console.error('Form submission failed:', err);

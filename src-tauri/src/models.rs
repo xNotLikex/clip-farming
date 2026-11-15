@@ -33,6 +33,8 @@ pub struct ReadyClip {
     pub layout_mode: String,
     pub cam_filter: String,
     pub is_manually_published: bool,
+    #[serde(default = "default_ready_status")]
+    pub status: String,
     pub has_video: bool,
     #[serde(default)]
     pub has_raw_video: bool,
@@ -40,6 +42,10 @@ pub struct ReadyClip {
     pub updated_at: i64,
     pub created_ago: String,
     pub created_full: String,
+}
+
+fn default_ready_status() -> String {
+    "ready".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

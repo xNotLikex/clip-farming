@@ -8,8 +8,8 @@ use crate::config::{
     StreamerEntry,
 };
 use crate::db::{
-    fetch_dashboard_data, get_clip_by_id, open_connection, toggle_manually_published,
-    update_clip_status,
+    fetch_dashboard_data, get_clip_by_id, is_clip_older_than_today, open_connection,
+    toggle_manually_published, update_clip_status,
 };
 use crate::gpu::{detect_gpus, get_encoder_catalog, select_best_encoder, EncoderProfile, GpuInfo};
 use crate::layout::generate_thumbnail;
@@ -449,32 +449,29 @@ pub async fn api_proxy(
         return Ok(json!({ "success": true, "ok": true }).to_string());
     }
     if clean_path == "/queue/delete-older" && req_method == "POST" {
-        let days = payload.get("days").and_then(|v| v.as_i64());
         let conn = open_connection()?;
-        let ids: Vec<String> = if let Some(d) = days {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT clip_id FROM clips WHERE status = 'harvested' AND date(COALESCE(clip_created_at, harvested_at), 'localtime') < date('now', 'localtime', ?1)",
-                )
-                .map_err(|e| e.to_string())?;
-            let rows = stmt
-                .query_map([format!("-{d} days")], |row| row.get(0))
-                .map_err(|e| e.to_string())?;
-            rows.filter_map(Result::ok).collect()
-        } else {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT clip_id FROM clips WHERE status = 'harvested' AND date(COALESCE(clip_created_at, harvested_at), 'localtime') < date('now', 'localtime')",
-                )
-                .map_err(|e| e.to_string())?;
-            let rows = stmt
-                .query_map([], |row| row.get(0))
-                .map_err(|e| e.to_string())?;
-            rows.filter_map(Result::ok).collect()
-        };
+        let mut stmt = conn
+            .prepare("SELECT clip_id, clip_created_at, harvested_at FROM clips WHERE status = 'harvested'")
+            .map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let cid: String = row.get(0)?;
+                let c_at: Option<String> = row.get(1)?;
+                let h_at: Option<String> = row.get(2)?;
+                Ok((cid, c_at, h_at))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut to_delete = Vec::new();
+        for r in rows.flatten() {
+            if is_clip_older_than_today(r.1.as_deref(), r.2.as_deref()) {
+                to_delete.push(r.0);
+            }
+        }
 
         let mut deleted = 0;
-        for cid in ids {
+        for cid in to_delete {
             if delete_queue_clip(cid).is_ok() {
                 deleted += 1;
             }
