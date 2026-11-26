@@ -229,14 +229,14 @@ pub async fn process_single_clip_inner(
             }
         }
 
-        if let Some(edited) = meta_val
-            .get("edited_transcript")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            let dur = probe_video(&raw_path).duration;
-            segments = align_words_with_edited_text(&segments, edited, dur);
+        if let Some(edited_raw) = meta_val.get("edited_transcript").and_then(|v| v.as_str()) {
+            let edited = edited_raw.trim();
+            if edited.is_empty() {
+                segments.clear();
+            } else {
+                let dur = probe_video(&raw_path).duration;
+                segments = align_words_with_edited_text(&segments, edited, dur);
+            }
         }
 
         if !segments.is_empty() {
@@ -255,9 +255,17 @@ pub async fn process_single_clip_inner(
                 }
             }
         } else {
+            let p = get_metadata_dir().join(format!("{clip_id}.ass"));
+            if p.exists() {
+                let _ = std::fs::remove_file(&p);
+            }
             None
         }
     } else {
+        let p = get_metadata_dir().join(format!("{clip_id}.ass"));
+        if p.exists() {
+            let _ = std::fs::remove_file(&p);
+        }
         None
     };
 

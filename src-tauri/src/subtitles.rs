@@ -321,11 +321,15 @@ pub fn generate_ass_with_options(
             let end_t = format_ass_time(target_word.end);
             let mut line_parts = Vec::with_capacity(chunk.len());
             for (idx, w) in chunk.iter().enumerate() {
-                let text = if is_uppercase {
+                let raw_text = if is_uppercase {
                     w.word.to_uppercase()
                 } else {
                     w.word.clone()
                 };
+                let text = raw_text
+                    .replace('{', "(")
+                    .replace('}', ")")
+                    .replace('\\', "/");
                 if idx == active_idx {
                     line_parts.push(format!("{{\\c{hl_color}\\b1}}{text}{{\\r}}"));
                 } else {

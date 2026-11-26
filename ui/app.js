@@ -2224,12 +2224,12 @@ async function downloadRawVideo(clipId, btn, evt) {
             const modalSubSize = document.getElementById('crop-sub-size-select');
             const modalSubCase = document.getElementById('crop-sub-case-select');
 
-            if (modalTitleInput) modalTitleInput.value = (cardTitleEl ? cardTitleEl.value : '') || (cachedClip ? cachedClip.title : '') || title || '';
+            if (modalTitleInput) modalTitleInput.value = (cardTitleEl && cardTitleEl.value) || (cachedClip && cachedClip.title) || title || '';
             if (modalStickerInput) modalStickerInput.value = (cachedClip && cachedClip.sticker_text) ? cachedClip.sticker_text : '';
-            if (modalSubPosSelect) modalSubPosSelect.value = (cardSubPosSelect ? cardSubPosSelect.value : '') || (cachedClip && cachedClip.sub_position) ? cachedClip.sub_position : 'bottom';
+            if (modalSubPosSelect) modalSubPosSelect.value = (cardSubPosSelect && cardSubPosSelect.value) || (cachedClip && cachedClip.sub_position) || 'bottom';
             if (modalLayoutSelect) modalLayoutSelect.value = (cachedClip && cachedClip.layout_mode) ? cachedClip.layout_mode : 'auto';
             if (modalFilterSelect) modalFilterSelect.value = (cachedClip && cachedClip.cam_filter) ? cachedClip.cam_filter : 'none';
-            if (modalTranscriptEl) modalTranscriptEl.value = (cardTranscriptEl ? cardTranscriptEl.value : '') || (cachedClip && cachedClip.transcript) ? cachedClip.transcript : '';
+            if (modalTranscriptEl) modalTranscriptEl.value = (cardTranscriptEl && cardTranscriptEl.value !== undefined ? cardTranscriptEl.value : '') || (cachedClip && cachedClip.transcript) || '';
             if (modalBannerStyle) modalBannerStyle.value = (cachedClip && cachedClip.banner_style) ? cachedClip.banner_style : 'badge_white';
             if (modalBannerPos) modalBannerPos.value = (cachedClip && cachedClip.banner_position) ? cachedClip.banner_position : 'middle';
             if (modalBannerSize) modalBannerSize.value = (cachedClip && cachedClip.banner_size) ? cachedClip.banner_size : 'normal';
@@ -2378,10 +2378,29 @@ async function downloadRawVideo(clipId, btn, evt) {
                     if (meta.cam_filter && modalFilterSelect) {
                         modalFilterSelect.value = meta.cam_filter;
                     }
+                    if (modalBannerStyle && meta.banner_style) {
+                        modalBannerStyle.value = meta.banner_style;
+                    }
+                    if (modalBannerPos && meta.banner_position) {
+                        modalBannerPos.value = meta.banner_position;
+                    }
+                    if (modalBannerSize && meta.banner_size) {
+                        modalBannerSize.value = meta.banner_size;
+                    }
+                    if (modalSubStyle && meta.sub_style) {
+                        modalSubStyle.value = meta.sub_style;
+                    }
+                    if (modalSubSize && meta.sub_size) {
+                        modalSubSize.value = meta.sub_size;
+                    }
+                    if (modalSubCase && meta.sub_case) {
+                        modalSubCase.value = meta.sub_case;
+                    }
                     const loadedTr = meta.edited_transcript || meta.transcript;
                     if (modalTranscriptEl && typeof loadedTr === 'string' && loadedTr.trim()) {
                         modalTranscriptEl.value = loadedTr;
                     }
+                    draw916Preview();
                 }
             } catch (e) {
                 console.warn('Keine vorherigen Zuschnitt-Metadaten geladen:', e);
